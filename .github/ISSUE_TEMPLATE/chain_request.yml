@@ -1,0 +1,140 @@
+name: 🔗 Add New Chain
+description: Request to add a new blockchain to WinScan
+title: "[Chain]: "
+labels: ["chain-request", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Want to see your chain on WinScan? Fill out this form!
+
+  - type: input
+    id: chain-name
+    attributes:
+      label: Chain Name
+      description: Official name of the blockchain
+      placeholder: e.g., Cosmos Hub
+    validations:
+      required: true
+
+  - type: input
+    id: chain-id
+    attributes:
+      label: Chain ID
+      description: The chain ID
+      placeholder: e.g., cosmoshub-4
+    validations:
+      required: true
+
+  - type: dropdown
+    id: network-type
+    attributes:
+      label: Network Type
+      options:
+        - Mainnet
+        - Testnet
+    validations:
+      required: true
+
+  - type: dropdown
+    id: chain-type
+    attributes:
+      label: Chain Type
+      options:
+        - Cosmos SDK
+        - Cosmos SDK + EVM
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: website
+    attributes:
+      label: Official Website
+      placeholder: https://cosmos.network
+    validations:
+      required: true
+
+  - type: textarea
+    id: endpoints
+    attributes:
+      label: Public Endpoints
+      description: Provide public RPC, API, and gRPC endpoints
+      placeholder: |
+        RPC: https://rpc.cosmos.network
+        API: https://api.cosmos.network
+        gRPC: grpc.cosmos.network:9090
+    validations:
+      required: true
+
+  - type: input
+    id: bech32-prefix
+    attributes:
+      label: Bech32 Prefix
+      description: Address prefix (e.g., cosmos, osmo, paxi)
+      placeholder: cosmos
+    validations:
+      required: true
+
+  - type: input
+    id: coin-type
+    attributes:
+      label: Coin Type
+      description: BIP44 coin type
+      placeholder: "118"
+    validations:
+      required: true
+
+  - type: textarea
+    id: native-token
+    attributes:
+      label: Native Token Information
+      description: Token symbol, decimals, and CoinGecko ID (if available)
+      placeholder: |
+        Symbol: ATOM
+        Decimals: 6
+        CoinGecko ID: cosmos
+    validations:
+      required: true
+
+  - type: input
+    id: logo
+    attributes:
+      label: Logo URL
+      description: Link to chain logo (PNG/SVG, transparent background preferred)
+      placeholder: https://example.com/logo.png
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Chain Description
+      description: Brief description of the blockchain
+      placeholder: A brief description of what makes this chain unique
+
+  - type: textarea
+    id: social
+    attributes:
+      label: Social Links
+      description: Twitter, Discord, Telegram, etc.
+      placeholder: |
+        Twitter: https://twitter.com/...
+        Discord: https://discord.gg/...
+        Telegram: https://t.me/...
+
+  - type: checkboxes
+    id: features
+    attributes:
+      label: Special Features
+      description: Check all that apply
+      options:
+        - label: EVM Support
+        - label: CosmWasm Support
+        - label: IBC Enabled
+        - label: Governance Module
+        - label: Staking Module
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Information
+      description: Any other information that would be helpful
