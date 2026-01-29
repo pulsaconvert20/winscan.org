@@ -243,13 +243,14 @@ export async function signTransactionForEvm(
   autoSimulate: boolean = true,
   customRegistry?: any
 ): Promise<any> {
-  const { defaultRegistryTypes } = await import('@cosmjs/stargate');
   const { Registry, makeSignDoc } = await import('@cosmjs/proto-signing');
   const { TxRaw } = await import('cosmjs-types/cosmos/tx/v1beta1/tx');
   const { fromBase64 } = await import('@cosmjs/encoding');
   const { SignMode } = await import('cosmjs-types/cosmos/tx/signing/v1beta1/signing');
   
-  const registry = customRegistry || new Registry(defaultRegistryTypes);
+  // Use custom registry if provided, otherwise create empty registry
+  // Empty registry is fine since we're encoding messages manually in makeBodyBytes
+  const registry = customRegistry || new Registry();
   
   const account = await fetchAccountWithEthSupport(restUrl, address);
   
