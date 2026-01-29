@@ -1,5 +1,5 @@
 import { SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate';
-import { SigningStargateClient, defaultRegistryTypes } from '@cosmjs/stargate';
+import { SigningStargateClient } from '@cosmjs/stargate';
 import { Registry, EncodeObject } from '@cosmjs/proto-signing';
 import { coins, StdFee, GasPrice } from '@cosmjs/stargate';
 
