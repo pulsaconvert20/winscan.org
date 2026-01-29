@@ -202,21 +202,45 @@ export async function makeBodyBytes(
 ): Promise<Uint8Array> {
   const { TxBody } = await import('cosmjs-types/cosmos/tx/v1beta1/tx');
   const { MsgGrant } = await import('cosmjs-types/cosmos/authz/v1beta1/tx');
+  const { MsgSend } = await import('cosmjs-types/cosmos/bank/v1beta1/tx');
+  const { MsgDelegate, MsgUndelegate, MsgBeginRedelegate } = await import('cosmjs-types/cosmos/staking/v1beta1/tx');
+  const { MsgWithdrawDelegatorReward } = await import('cosmjs-types/cosmos/distribution/v1beta1/tx');
+  const { MsgVote } = await import('cosmjs-types/cosmos/gov/v1beta1/tx');
+  
+  // Map of typeUrl to encoder
+  const encoders: Record<string, any> = {
+    '/cosmos.authz.v1beta1.MsgGrant': MsgGrant,
+    '/cosmos.bank.v1beta1.MsgSend': MsgSend,
+    '/cosmos.staking.v1beta1.MsgDelegate': MsgDelegate,
+    '/cosmos.staking.v1beta1.MsgUndelegate': MsgUndelegate,
+    '/cosmos.staking.v1beta1.MsgBeginRedelegate': MsgBeginRedelegate,
+    '/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward': MsgWithdrawDelegatorReward,
+    '/cosmos.gov.v1beta1.MsgVote': MsgVote,
+  };
   
   // Encode messages to Any format
   const anyMsgs = messages.map((m) => {
     try {
-      // Special handling for MsgGrant - encode manually to avoid type conflicts
-      if (m.typeUrl === '/cosmos.authz.v1beta1.MsgGrant') {
-        const msgGrantBytes = MsgGrant.encode(m.value).finish();
+      // Check if we have a direct encoder for this message type
+      const encoder = encoders[m.typeUrl];
+      if (encoder) {
+        const msgBytes = encoder.encode(m.value).finish();
         return {
           typeUrl: m.typeUrl,
-          value: msgGrantBytes,
+          value: msgBytes,
         };
       }
       
-      // For other messages, use registry
-      return registry.encodeAsAny(m);
+      // Fallback to registry if available
+      if (registry && registry.encodeAsAny) {
+        return registry.encodeAsAny(m);
+      }
+      
+      // Last resort: assume value is already encoded
+      return {
+        typeUrl: m.typeUrl,
+        value: m.value,
+      };
     } catch (encodeError: any) {
       console.error('❌ Failed to encode message:', m.typeUrl, encodeError);
       throw new Error(`Failed to encode message ${m.typeUrl}: ${encodeError.message}`);
@@ -244,13 +268,13 @@ export async function signTransactionForEvm(
   customRegistry?: any
 ): Promise<any> {
   const { Registry, makeSignDoc } = await import('@cosmjs/proto-signing');
-  const { defaultRegistryTypes } = await import('@cosmjs/stargate');
   const { TxRaw } = await import('cosmjs-types/cosmos/tx/v1beta1/tx');
   const { fromBase64 } = await import('@cosmjs/encoding');
   const { SignMode } = await import('cosmjs-types/cosmos/tx/signing/v1beta1/signing');
   
-  // Use custom registry if provided, otherwise create registry with default types
-  const registry = customRegistry || new Registry(defaultRegistryTypes);
+  // Use custom registry if provided, otherwise create empty registry
+  // Messages are encoded manually in makeBodyBytes to avoid type conflicts
+  const registry = customRegistry || new Registry();
   
   const account = await fetchAccountWithEthSupport(restUrl, address);
   
