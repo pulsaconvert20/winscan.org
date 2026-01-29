@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { contractAddress: string } }
+  { params }: { params: Promise<{ contractAddress: string }> }
 ) {
-  const contractAddress = params.contractAddress;
+  const { contractAddress } = await params;
   const searchParams = request.nextUrl.searchParams;
   const timeframe = searchParams.get('timeframe') || '24h';
 

@@ -7,12 +7,12 @@ export const revalidate = 0;
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { number: string } }
+  { params }: { params: Promise<{ number: string }> }
 ) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const chain = searchParams.get('chain');
-    const blockNumber = params.number;
+    const { number: blockNumber } = await params;
 
     if (!chain) {
       return NextResponse.json({ error: 'Chain parameter required' }, { status: 400 });

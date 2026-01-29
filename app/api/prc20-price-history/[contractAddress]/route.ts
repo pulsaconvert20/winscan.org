@@ -4,10 +4,10 @@ const BACKEND_API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'https://ssl.
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { contractAddress: string } }
+  { params }: { params: Promise<{ contractAddress: string }> }
 ) {
   try {
-    const { contractAddress } = params;
+    const { contractAddress } = await params;
     const searchParams = request.nextUrl.searchParams;
     const timeframe = searchParams.get('timeframe') || '24h';
 
