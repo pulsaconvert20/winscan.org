@@ -201,21 +201,39 @@ export async function makeBodyBytes(
   memo: string = ''
 ): Promise<Uint8Array> {
   const { TxBody } = await import('cosmjs-types/cosmos/tx/v1beta1/tx');
-  const { MsgGrant } = await import('cosmjs-types/cosmos/authz/v1beta1/tx');
-  const { MsgSend } = await import('cosmjs-types/cosmos/bank/v1beta1/tx');
-  const { MsgDelegate, MsgUndelegate, MsgBeginRedelegate } = await import('cosmjs-types/cosmos/staking/v1beta1/tx');
-  const { MsgWithdrawDelegatorReward } = await import('cosmjs-types/cosmos/distribution/v1beta1/tx');
-  const { MsgVote } = await import('cosmjs-types/cosmos/gov/v1beta1/tx');
+  const { MsgGrant, MsgRevoke } = await import('cosmjs-types/cosmos/authz/v1beta1/tx');
+  const { MsgSend, MsgMultiSend } = await import('cosmjs-types/cosmos/bank/v1beta1/tx');
+  const { MsgDelegate, MsgUndelegate, MsgBeginRedelegate, MsgCreateValidator, MsgEditValidator } = await import('cosmjs-types/cosmos/staking/v1beta1/tx');
+  const { MsgWithdrawDelegatorReward, MsgWithdrawValidatorCommission, MsgSetWithdrawAddress, MsgFundCommunityPool } = await import('cosmjs-types/cosmos/distribution/v1beta1/tx');
+  const { MsgVote, MsgVoteWeighted, MsgDeposit, MsgSubmitProposal } = await import('cosmjs-types/cosmos/gov/v1beta1/tx');
+  const { MsgTransfer } = await import('cosmjs-types/ibc/applications/transfer/v1/tx');
   
-  // Map of typeUrl to encoder
+  // Map of typeUrl to encoder - comprehensive list of common Cosmos SDK messages
   const encoders: Record<string, any> = {
+    // Authz
     '/cosmos.authz.v1beta1.MsgGrant': MsgGrant,
+    '/cosmos.authz.v1beta1.MsgRevoke': MsgRevoke,
+    // Bank
     '/cosmos.bank.v1beta1.MsgSend': MsgSend,
+    '/cosmos.bank.v1beta1.MsgMultiSend': MsgMultiSend,
+    // Staking
     '/cosmos.staking.v1beta1.MsgDelegate': MsgDelegate,
     '/cosmos.staking.v1beta1.MsgUndelegate': MsgUndelegate,
     '/cosmos.staking.v1beta1.MsgBeginRedelegate': MsgBeginRedelegate,
+    '/cosmos.staking.v1beta1.MsgCreateValidator': MsgCreateValidator,
+    '/cosmos.staking.v1beta1.MsgEditValidator': MsgEditValidator,
+    // Distribution
     '/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward': MsgWithdrawDelegatorReward,
+    '/cosmos.distribution.v1beta1.MsgWithdrawValidatorCommission': MsgWithdrawValidatorCommission,
+    '/cosmos.distribution.v1beta1.MsgSetWithdrawAddress': MsgSetWithdrawAddress,
+    '/cosmos.distribution.v1beta1.MsgFundCommunityPool': MsgFundCommunityPool,
+    // Gov
     '/cosmos.gov.v1beta1.MsgVote': MsgVote,
+    '/cosmos.gov.v1beta1.MsgVoteWeighted': MsgVoteWeighted,
+    '/cosmos.gov.v1beta1.MsgDeposit': MsgDeposit,
+    '/cosmos.gov.v1beta1.MsgSubmitProposal': MsgSubmitProposal,
+    // IBC Transfer
+    '/ibc.applications.transfer.v1.MsgTransfer': MsgTransfer,
   };
   
   // Encode messages to Any format
