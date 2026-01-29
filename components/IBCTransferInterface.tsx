@@ -362,15 +362,11 @@ export default function IBCTransferInterface({
       const accounts = await offlineSigner.getAccounts();
       const osmoAddress = accounts[0].address;
       
-      const { SigningStargateClient, defaultRegistryTypes } = await import('@cosmjs/stargate');
-      const { Registry } = await import('@cosmjs/proto-signing');
-      
-      const registry = new Registry(defaultRegistryTypes);
+      const { SigningStargateClient } = await import('@cosmjs/stargate');
 
       const client = await SigningStargateClient.connectWithSigner(
         'https://rpc.osmosis.zone',
-        offlineSigner,
-        { registry }
+        offlineSigner
       );
 
       // Get IBC denom for source token on Osmosis
@@ -621,10 +617,9 @@ export default function IBCTransferInterface({
         throw new Error('No IBC channel found');
       }
 
-      const { SigningStargateClient, defaultRegistryTypes } = await import('@cosmjs/stargate');
-      const { Registry } = await import('@cosmjs/proto-signing');
+      const { SigningStargateClient } = await import('@cosmjs/stargate');
       
-      const clientOptions: any = { registry: new Registry(defaultRegistryTypes) };
+      const clientOptions: any = {};
       
       let rpcEndpoint: string;
       if (isReversed) {

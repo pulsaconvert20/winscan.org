@@ -129,15 +129,12 @@ export async function executePreSwapOnOsmosis(
     console.log('[Pre-Swap] Route found:', route.poolId);
     
     // 3. Create swap message
-    const { SigningStargateClient, defaultRegistryTypes } = await import('@cosmjs/stargate');
-    const { Registry } = await import('@cosmjs/proto-signing');
-    
-    const registry = new Registry(defaultRegistryTypes);
+    const { SigningStargateClient } = await import('@cosmjs/stargate');
     
     const client = await SigningStargateClient.connectWithSigner(
       'https://rpc.osmosis.zone',
-      offlineSigner,
-      { registry }
+      offlineSigner
+    );
     );
     
     // Parse pool IDs (support multi-hop)
@@ -267,20 +264,17 @@ export async function executeReverseTransferWithPreSwap(
     console.log('[Reverse Transfer] Channel:', channelData.channel);
     
     // Execute IBC transfer
-    const { SigningStargateClient, defaultRegistryTypes } = await import('@cosmjs/stargate');
-    const { Registry } = await import('@cosmjs/proto-signing');
+    const { SigningStargateClient } = await import('@cosmjs/stargate');
     
     await (window as any).keplr.enable('osmosis-1');
     const offlineSigner = await (window as any).keplr.getOfflineSigner('osmosis-1');
     const accounts = await offlineSigner.getAccounts();
     const senderAddress = accounts[0].address;
     
-    const registry = new Registry(defaultRegistryTypes);
-    
     const client = await SigningStargateClient.connectWithSigner(
       'https://rpc.osmosis.zone',
-      offlineSigner,
-      { registry }
+      offlineSigner
+    );
     );
     
     const transferResult = await client.sendIbcTokens(

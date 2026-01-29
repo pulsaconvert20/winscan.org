@@ -176,8 +176,7 @@ async function createEvmAccountParser() {
 
 async function createEvmRegistry() {
   try {
-    const { Registry } = await import('@cosmjs/proto-signing');
-    const { defaultRegistryTypes } = await import('@cosmjs/stargate');
+    const { Registry, defaultRegistryTypes } = await import('@cosmjs/stargate');
     
     if (typeof Registry !== 'function') {
       console.warn('Registry is not a constructor, using default registry');
@@ -197,8 +196,7 @@ async function createEvmRegistry() {
 // Create registry with custom gov module support (for AtomOne, etc)
 async function createCustomGovRegistry(chainId: string) {
   try {
-    const { Registry } = await import('@cosmjs/proto-signing');
-    const { defaultRegistryTypes } = await import('@cosmjs/stargate');
+    const { Registry, defaultRegistryTypes } = await import('@cosmjs/stargate');
     
     if (typeof Registry !== 'function') {
       console.warn('Registry is not a constructor, using default registry');
@@ -2034,9 +2032,7 @@ export async function executeUnjail(
     // @ts-ignore - Import required modules
     const { SigningStargateClient } = await import('@cosmjs/stargate');
     // @ts-ignore
-    const { Registry } = await import('@cosmjs/proto-signing');
-    // @ts-ignore
-    const { defaultRegistryTypes } = await import('@cosmjs/stargate');
+    const { Registry, defaultRegistryTypes } = await import('@cosmjs/stargate');
     // @ts-ignore
     const { MsgUnjail } = await import('cosmjs-types/cosmos/slashing/v1beta1/tx');
     
@@ -2241,9 +2237,7 @@ export async function executeEditValidatorCommission(
     // @ts-ignore - Import required modules
     const { SigningStargateClient } = await import('@cosmjs/stargate');
     // @ts-ignore
-    const { Registry } = await import('@cosmjs/proto-signing');
-    // @ts-ignore
-    const { defaultRegistryTypes } = await import('@cosmjs/stargate');
+    const { Registry, defaultRegistryTypes } = await import('@cosmjs/stargate');
     // @ts-ignore
     const { MsgEditValidator } = await import('cosmjs-types/cosmos/staking/v1beta1/tx');
     
@@ -2578,9 +2572,7 @@ export async function executeSwap(
     // @ts-ignore - Import required modules
     const { SigningStargateClient } = await import('@cosmjs/stargate');
     // @ts-ignore
-    const { Registry } = await import('@cosmjs/proto-signing');
-    // @ts-ignore
-    const { defaultRegistryTypes } = await import('@cosmjs/stargate');
+    const { Registry, defaultRegistryTypes } = await import('@cosmjs/stargate');
     // @ts-ignore
     const protobuf = await import('protobufjs/minimal');
     
@@ -3402,9 +3394,7 @@ export async function executeProvideLiquidity(
     // @ts-ignore
     const { SigningCosmWasmClient } = await import('@cosmjs/cosmwasm-stargate');
     // @ts-ignore
-    const { Registry } = await import('@cosmjs/proto-signing');
-    // @ts-ignore
-    const { defaultRegistryTypes } = await import('@cosmjs/stargate');
+    const { Registry, defaultRegistryTypes } = await import('@cosmjs/stargate');
     // @ts-ignore
     const { GasPrice } = await import('@cosmjs/stargate');
     // @ts-ignore
@@ -3629,9 +3619,7 @@ export async function executeWithdrawLiquidity(
     // @ts-ignore - Import required modules
     const { SigningStargateClient } = await import('@cosmjs/stargate');
     // @ts-ignore
-    const { Registry } = await import('@cosmjs/proto-signing');
-    // @ts-ignore
-    const { defaultRegistryTypes } = await import('@cosmjs/stargate');
+    const { Registry, defaultRegistryTypes } = await import('@cosmjs/stargate');
     // @ts-ignore
     const protobuf = await import('protobufjs/minimal');
     
@@ -3782,3 +3770,4 @@ export async function executeWithdrawLiquidity(
     return { success: false, error: error.message || 'Failed to withdraw liquidity' };
   }
 }
+
