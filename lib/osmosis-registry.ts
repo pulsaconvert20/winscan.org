@@ -29,6 +29,7 @@ export const osmosisTypes = [
   ],
 ];
 
-export function createOsmosisRegistry(): Registry {
-  return new Registry([...osmosisTypes as any]);
+export async function createOsmosisRegistry(): Promise<Registry> {
+  const { defaultRegistryTypes } = await import('@cosmjs/stargate');
+  return new Registry([...defaultRegistryTypes, ...osmosisTypes as any]);
 }

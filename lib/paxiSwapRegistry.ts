@@ -55,8 +55,9 @@ const createPaxiSwapType = (): GeneratedType => {
 };
 
 // Create custom registry with Paxi swap types
-export function createPaxiRegistry(): Registry {
-  const registry = new Registry();
+export async function createPaxiRegistry(): Promise<Registry> {
+  const { defaultRegistryTypes } = await import('@cosmjs/stargate');
+  const registry = new Registry(defaultRegistryTypes);
   
   // Register Paxi swap module message types
   const paxiSwapType = createPaxiSwapType();
