@@ -1,5 +1,4 @@
-import { Registry } from '@cosmjs/proto-signing';
-import { defaultRegistryTypes } from '@cosmjs/stargate';
+import { Registry, defaultRegistryTypes } from '@cosmjs/stargate';
 
 // Osmosis PoolManager message types
 export const osmosisTypes = [
