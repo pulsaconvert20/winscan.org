@@ -2,11 +2,11 @@ import { Metadata } from "next";
 
 interface Props {
   children: React.ReactNode;
-  params: { chain: string };
+  params: Promise<{ chain: string }>;
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const chain = params.chain;
+  const { chain } = await params;
 
   try {
     // fetch chain data using route param
