@@ -177,16 +177,16 @@ async function createEvmAccountParser() {
 async function createEvmRegistry() {
   try {
     const { Registry } = await import('@cosmjs/proto-signing');
-    const { defaultRegistryTypes } = await import('@cosmjs/stargate');
     
     if (typeof Registry !== 'function') {
       console.warn('Registry is not a constructor, using default registry');
       return null;
     }
     
-    const registry = new Registry(defaultRegistryTypes);
+    // Create empty registry - messages will be encoded manually in makeBodyBytes
+    const registry = new Registry();
     
-    console.log('✅ Created EVM-compatible registry with default types');
+    console.log('✅ Created EVM-compatible registry');
     return registry;
   } catch (error) {
     console.error('Error creating EVM registry:', error);
@@ -198,14 +198,14 @@ async function createEvmRegistry() {
 async function createCustomGovRegistry(chainId: string) {
   try {
     const { Registry } = await import('@cosmjs/proto-signing');
-    const { defaultRegistryTypes } = await import('@cosmjs/stargate');
     
     if (typeof Registry !== 'function') {
       console.warn('Registry is not a constructor, using default registry');
       return null;
     }
     
-    const registry = new Registry(defaultRegistryTypes);
+    // Create empty registry - messages will be encoded manually
+    const registry = new Registry();
     
     // For AtomOne: map cosmos.gov types to atomone.gov
     if (chainId.includes('atomone')) {
