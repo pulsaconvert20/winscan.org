@@ -1,0 +1,85 @@
+{
+  "chain_name": "gitopia-mainnet",
+  "chain_id": "gitopia",
+  "pretty_name": "Gitopia Mainnet",
+  "network_type": "mainnet",
+  "bech32_prefix": "gitopia",
+  "slip44": 118,
+  "fees": {
+    "fee_tokens": [
+      {
+        "denom": "ulore",
+        "fixed_min_gas_price": 0.001,
+        "low_gas_price": 0.001,
+        "average_gas_price": 0.0025,
+        "high_gas_price": 0.005
+      }
+    ]
+  },
+  "staking": {
+    "staking_tokens": [
+      {
+        "denom": "ulore"
+      }
+    ]
+  },
+  "codebase": {
+    "git_repo": "https://github.com/gitopia/gitopia",
+    "recommended_version": "v4.0.0",
+    "compatible_versions": [
+      "v4.0.0"
+    ],
+    "cosmos_sdk_version": "0.47.13",
+    "tendermint_version": "0.37.0"
+  },
+  "api": [
+    {
+      "address": "https://gitopia-api.polkachu.com",
+      "provider": "Polkachu"
+    },
+    {
+      "address": "https://rest.lavenderfive.com/gitopia",
+      "provider": "Lavender.Five Nodes"
+    },
+    {
+      "address": "https://gitopia-rest.staketab.org",
+      "provider": "Staketab"
+    },
+    {
+      "address": "https://api-gitopia.winnode.xyz",
+      "provider": "Winnode"
+    }
+  ],
+  "rpc": [
+    {
+      "address": "https://gitopia-rpc.polkachu.com",
+      "provider": "Polkachu"
+    },
+    {
+      "address": "https://rpc.lavenderfive.com/gitopia",
+      "provider": "Lavender.Five Nodes"
+    },
+    {
+      "address": "https://gitopia-rpc.staketab.org",
+      "provider": "Staketab"
+    },
+    {
+      "address": "https://api-gitopia.winnode.xyz",
+      "provider": "Winnode"
+    }
+  ],
+  "assets": [
+    {
+      "base": "ulore",
+      "symbol": "LORE",
+      "exponent": "6",
+      "coingecko_id": "gitopia",
+      "logo": "https://raw.githubusercontent.com/cosmos/chain-registry/master/gitopia/images/gitopia.png"
+    }
+  ],
+  "theme_color": "#812cd6",
+  "logo": "https://raw.githubusercontent.com/cosmos/chain-registry/master/gitopia/images/gitopia.png",
+  "explorers": [],
+  "updated": "2025-11-17",
+  "delegate": "https://winscan.winsnip.xyz/gitopia-mainnet/validators/gitopiavaloper1clpqr4nrk4khgkxj78fcwwh6dl3uw4epsluffn"
+}

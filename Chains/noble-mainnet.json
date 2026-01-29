@@ -1,0 +1,77 @@
+{
+  "chain_name": "noble-mainnet",
+  "chain_id": "noble-1",
+  "pretty_name": "Noble Mainnet",
+  "network_type": "mainnet",
+  "bech32_prefix": "noble",
+  "slip44": 118,
+  "fees": {
+    "fee_tokens": [
+      {
+        "denom": "uusdc",
+        "fixed_min_gas_price": 0.1,
+        "low_gas_price": 0.1,
+        "average_gas_price": 0.25,
+        "high_gas_price": 0.5
+      }
+    ]
+  },
+  "staking": {
+    "staking_tokens": [
+      {
+        "denom": "uusdc"
+      }
+    ]
+  },
+  "codebase": {
+    "git_repo": "https://github.com/noble-assets/noble",
+    "recommended_version": "v4.0.0",
+    "compatible_versions": [
+      "v4.0.0"
+    ],
+    "cosmos_sdk_version": "0.50.14",
+    "tendermint_version": "0.38.0"
+  },
+  "api": [
+    {
+      "address": "https://noble-api.polkachu.com",
+      "provider": "Polkachu"
+    },
+    {
+      "address": "https://rest.lavenderfive.com:443/noble",
+      "provider": "Lavender.Five Nodes"
+    },
+    {
+      "address": "https://noble-rest.owallet.io",
+      "provider": "OWALLET"
+    }
+  ],
+  "rpc": [
+    {
+      "address": "https://noble-rpc.polkachu.com",
+      "provider": "Polkachu"
+    },
+    {
+      "address": "https://rpc.lavenderfive.com:443/noble",
+      "provider": "Lavender.Five Nodes"
+    },
+    {
+      "address": "https://noble-rpc.owallet.io",
+      "provider": "OWALLET"
+    }
+  ],
+  "assets": [
+    {
+      "base": "uusdc",
+      "symbol": "USDC",
+      "exponent": "6",
+      "coingecko_id": "usd-coin",
+      "logo": "https://raw.githubusercontent.com/cosmos/chain-registry/master/noble/images/USDCoin.png"
+    }
+  ],
+  "theme_color": "#2B2D42",
+  "logo": "https://raw.githubusercontent.com/cosmos/chain-registry/master/noble/images/stake.png",
+  "explorers": [],
+  "updated": "2025-11-21",
+  "delegate": "https://winscan.winsnip.xyz/noble-mainnet/validators/noblevaloper1clpqr4nrk4khgkxj78fcwwh6dl3uw4epsluffn"
+}

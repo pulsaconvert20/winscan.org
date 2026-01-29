@@ -1,0 +1,73 @@
+{
+  "chain_name": "lava-mainnet",
+  "chain_id": "lava-mainnet-1",
+  "pretty_name": "Lava Network Mainnet",
+  "network_type": "mainnet",
+  "bech32_prefix": "lava@",
+  "slip44": 118,
+  "fees": {
+    "fee_tokens": [
+      {
+        "denom": "ulava",
+        "fixed_min_gas_price": 0.025,
+        "low_gas_price": 0.025,
+        "average_gas_price": 0.05,
+        "high_gas_price": 0.1
+      }
+    ]
+  },
+  "staking": {
+    "staking_tokens": [
+      {
+        "denom": "ulava"
+      }
+    ]
+  },
+  "codebase": {
+    "git_repo": "https://github.com/lavanet/lava",
+    "recommended_version": "v3.0.0",
+    "compatible_versions": [
+      "v3.0.0"
+    ],
+    "cosmos_sdk_version": "0.47.13",
+    "tendermint_version": "0.37.0"
+  },
+  "api": [
+    {
+      "address": "https://api-lava.onenov.xyz",
+      "provider": "OneNov"
+    },
+    {
+      "address": "https://lava.rest.lava.build",
+      "provider": "Lava Over Lava"
+    },
+    {
+      "address": "https://lava-api.w3coins.io",
+      "provider": "w3coins"
+    }
+  ],
+  "rpc": [
+    {
+      "address": "https://lava.tendermintrpc.lava.build",
+      "provider": "Lava Over Lava"
+    },
+    {
+      "address": "https://lava-rpc.w3coins.io",
+      "provider": "w3coins"
+    }
+  ],
+  "assets": [
+    {
+      "base": "ulava",
+      "symbol": "LAVA",
+      "exponent": "6",
+      "coingecko_id": "lava-network",
+      "logo": "https://raw.githubusercontent.com/cosmos/chain-registry/master/lava/images/lava.png"
+    }
+  ],
+  "theme_color": "#D7002A",
+  "logo": "https://raw.githubusercontent.com/cosmos/chain-registry/master/lava/images/lava.png",
+  "explorers": [],
+  "updated": "2025-11-21",
+  "delegate": "https://winscan.winsnip.xyz/lava-mainnet/validators/lava@valoper1clpqr4nrk4khgkxj78fcwwh6dl3uw4epsluffn"
+}

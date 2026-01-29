@@ -1,0 +1,82 @@
+{
+  "chain_name": "cosmoshub-mainnet",
+  "chain_id": "cosmoshub-4",
+  "pretty_name": "Cosmos Hub",
+  "network_type": "mainnet",
+  "bech32_prefix": "cosmos",
+  "slip44": 118,
+  "fees": {
+    "fee_tokens": [
+      {
+        "denom": "uatom",
+        "fixed_min_gas_price": 0.01,
+        "low_gas_price": 0.01,
+        "average_gas_price": 0.025,
+        "high_gas_price": 0.04
+      }
+    ]
+  },
+  "staking": {
+    "staking_tokens": [
+      {
+        "denom": "uatom"
+      }
+    ]
+  },
+  "codebase": {
+    "git_repo": "https://github.com/cosmos/gaia",
+    "recommended_version": "v19.0.0",
+    "compatible_versions": [
+      "v19.0.0"
+    ],
+    "cosmos_sdk_version": "0.53.3",
+    "tendermint_version": "0.38"
+  },
+  "api": [
+    {
+      "address": "https://rest.lavenderfive.com:443/cosmoshub",
+      "provider": "Lavender.Five Nodes"
+    },
+    {
+      "address": "https://cosmos-rest.publicnode.com",
+      "provider": "PublicNode"
+    },
+    {
+      "address": "https://cosmos-api.polkachu.com",
+      "provider": "Polkachu"
+    }
+  ],
+  "rpc": [
+    {
+      "address": "https://cosmoshub.tendermintrpc.lava.build:443",
+      "provider": "Lava"
+    },
+    {
+      "address": "https://rpc.lavenderfive.com:443/cosmoshub",
+      "provider": "Lavender.Five Nodes"
+    },
+    {
+      "address": "https://cosmos-rpc.polkachu.com",
+      "provider": "Polkachu"
+    }
+  ],
+  "assets": [
+    {
+      "base": "uatom",
+      "symbol": "ATOM",
+      "exponent": "6",
+      "coingecko_id": "cosmos",
+      "logo": "https://raw.githubusercontent.com/cosmos/chain-registry/master/cosmoshub/images/atom.png"
+    }
+  ],
+  "theme_color": "#2E3148",
+  "logo": "https://raw.githubusercontent.com/cosmos/chain-registry/master/cosmoshub/images/atom.png",
+  "explorers": [
+    {
+      "kind": "winscan",
+      "url": "https://winscan.winsnip.xyz/cosmoshub-mainnet"
+    }
+  ],
+  "updated": "2025-11-21",
+  "delegate": "https://winscan.winsnip.xyz/cosmoshub-mainnet/validators/cosmosvaloper1clpqr4nrk4khgkxj78fcwwh6dl3uw4epsluffn"
+}

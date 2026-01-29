@@ -1,0 +1,58 @@
+{
+  "chain_name": "safrochain-test",
+  "chain_id": "safro-testnet-1",
+  "pretty_name": "SafroChain Testnet",
+  "network_type": "testnet",
+  "bech32_prefix": "addr_safro",
+  "slip44": 118,
+  "fees": {
+    "fee_tokens": [
+      {
+        "denom": "usaf",
+        "fixed_min_gas_price": 800,
+        "low_gas_price": 800,
+        "average_gas_price": 1000,
+        "high_gas_price": 1200
+      }
+    ]
+  },
+  "staking": {
+    "staking_tokens": [
+      {
+        "denom": "usaf"
+      }
+    ]
+  },
+  "codebase": {
+    "git_repo": "https://github.com/safrochain/safro",
+    "recommended_version": "v1.0.0",
+    "compatible_versions": ["v1.0.0"],
+    "cosmos_sdk_version": "0.46.1",
+    "tendermint_version": "0.34.0"
+  },
+  "api": [
+    {
+      "address": "https://api-safro.winnode.xyz",
+      "provider": "Winnode"
+    }
+  ],
+  "rpc": [
+    {
+      "address": "https://rpc-safro.winnode.xyz",
+      "provider": "Winnode"
+    }
+  ],
+  "assets": [
+    {
+      "base": "usaf",
+      "symbol": "SAF",
+      "exponent": "6",
+      "coingecko_id": "unknown",
+      "logo": ""
+    }
+  ],
+  "theme_color": "#812cd6",
+  "logo": "https://pbs.twimg.com/profile_images/1938593981517955072/vTcJ4t5i_400x400.jpg",
+  "explorers": [],
+  "updated": "2025-11-17"
+}

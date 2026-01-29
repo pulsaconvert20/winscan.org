@@ -1,0 +1,104 @@
+{
+  "chain_name": "epix-mainnet",
+  "chain_id": "epix_1916-1",
+  "pretty_name": "Epix",
+  "network_type": "mainnet",
+  "bech32_prefix": "epix",
+  "slip44": 60,
+  "fees": {
+    "fee_tokens": [
+      {
+        "denom": "aepix",
+        "fixed_min_gas_price": 1000000000000,
+        "low_gas_price": 1000000000000,
+        "average_gas_price": 2000000000000,
+        "high_gas_price": 3000000000000
+      }
+    ]
+  },
+  "staking": {
+    "staking_tokens": [
+      {
+        "denom": "aepix"
+      }
+    ]
+  },
+  "codebase": {
+    "git_repo": "https://github.com/EpixZone/Epix",
+    "recommended_version": "v1.0.0",
+    "compatible_versions": [
+      "v1.0.0"
+    ],
+    "cosmos_sdk_version": "0.46",
+    "tendermint_version": "0.34"
+  },
+  "apis": {
+    "rpc": [
+      {
+        "address": "https://rpc.epix.zone",
+        "provider": "Epix"
+      }
+    ],
+    "rest": [
+      {
+        "address": "https://api.epix.zone",
+        "provider": "Epix"
+      }
+    ]
+  },
+  "api": [
+    {
+      "address": "https://api.epix.zone",
+      "provider": "Epix"
+    }
+  ],
+  "rpc": [
+    {
+      "address": "https://rpc.epix.zone",
+      "provider": "Epix"
+    }
+  ],
+  "evm_rpc": [
+    {
+      "address": "https://evmrpc.epix.zone",
+      "provider": "Epix"
+    }
+  ],
+  "evm_wss": [
+    {
+      "address": "wss://ws-evm-epix.winnode.xyz",
+      "provider": "WinNode"
+    }
+  ],
+  "grpc": [
+    {
+      "address": "grpc.epix.zone:15067",
+      "provider": "Epix"
+    }
+  ],
+  "assets": [
+    {
+      "base": "aepix",
+      "symbol": "EPIX",
+      "exponent": "18",
+      "coingecko_id": "",
+      "logo": "https://raw.githubusercontent.com/cosmos/chain-registry/master/epix/images/epix.png"
+    }
+  ],
+  "theme_color": "#6366F1",
+  "logo": "https://raw.githubusercontent.com/cosmos/chain-registry/master/epix/images/epix.png",
+  "explorers": [
+    {
+      "kind": "L1",
+      "url": "https://explorer.epix.zone/",
+      "tx_page": "https://explorer.epix.zone/epix/tx/${txHash}"
+    },
+    {
+      "kind": "EVM",
+      "url": "https://scan.epix.zone/",
+      "tx_page": "https://scan.epix.zone/tx/${txHash}"
+    }
+  ],
+  "updated": "2026-01-09",
+  "delegate": "https://winscan.winsnip.xyz/epix-mainnet/validators/epixvaloper1j4s5hgw5uq8x6p8afff8d94ap4y4r0rhjlrklv"
+}

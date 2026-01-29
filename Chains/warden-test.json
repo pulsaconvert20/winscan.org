@@ -1,0 +1,87 @@
+{
+  "chain_name": "warden-test",
+  "chain_id": "barra_9191-1",
+  "pretty_name": "Warden Protocol Testnet",
+  "network_type": "testnet",
+  "api": [
+    {
+      "address": "https://warden-testnet-api.polkachu.com",
+      "provider": "Polkachu"
+    },
+    {
+      "address": "https://warden-testnet-api.itrocket.net",
+      "provider": "ItRocket"
+    },
+    {
+      "address": "https://api-warden.winnode.xyz",
+      "provider": "WinNode"
+    },
+    {
+      "address": "https://api.barra.wardenprotocol.org",
+      "provider": "Warden Protocol"
+    }
+  ],
+  "rpc": [
+    {
+      "address": "https://warden-testnet-rpc.polkachu.com",
+      "provider": "Polkachu"
+    },
+    {
+      "address": "https://warden-testnet-rpc.itrocket.net",
+      "provider": "ItRocket"
+    },
+    {
+      "address": "https://rpc.barra.wardenprotocol.org",
+      "provider": "Warden Protocol"
+    }
+  ],
+  "evm_rpc": [
+    {
+      "address": "https://evm.barra.wardenprotocol.org",
+      "provider": "Warden Protocol"
+    }
+  ],
+  "evm_wss": [
+    {
+      "address": "https://evm-ws.barra.wardenprotocol.org",
+      "provider": "Warden Protocol"
+    }
+  ],
+  "sdk_version": "0.53.4",
+  "coin_type": "60",
+  "min_tx_fee": "0.025",
+  "gas_price": "10",
+  "assets": [
+    {
+      "base": "award",
+      "symbol": "WARD",
+      "exponent": "18",
+      "coingecko_id": "warden",
+      "logo": "https://pbs.twimg.com/profile_images/1904848026742484992/nO3RP237_400x400.jpg"
+    }
+  ],
+  "fees": {
+    "fee_tokens": [
+      {
+        "denom": "award",
+        "fixed_min_gas_price": 250000000,
+        "low_gas_price": 200000000000,
+        "average_gas_price": 250000000000,
+        "high_gas_price": 400000000000
+      }
+    ]
+  },
+  "autocompound_operators": [
+    {
+      "moniker": "Winnode",
+      "validator_address": "wardenvaloper1y9u0mhnh8gfklp3nsjdqczh36k2psjr649qm0z",
+      "grantee_address": "warden1h8a79xln9gam52c6wzkulz2txyr0rkcr3ysnvl",
+      "supported": true
+    }
+  ],
+  "addr_prefix": "warden",
+  "bech32_prefix": "warden",
+  "theme_color": "#1e2a38",
+  "logo": "https://pbs.twimg.com/profile_images/1904848026742484992/nO3RP237_400x400.jpg",
+  "updated": "2025-11-21-v2"
+}

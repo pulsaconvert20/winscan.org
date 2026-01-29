@@ -1,0 +1,75 @@
+{
+  "chain_name": "lumera-test",
+  "chain_id": "lumera-testnet-2",
+  "pretty_name": "Lumera Testnet",
+  "network_type": "testnet",
+  "bech32_prefix": "lumera",
+  "slip44": 118,
+  "fees": {
+    "fee_tokens": [
+      {
+        "denom": "ulume",
+        "fixed_min_gas_price": 800,
+        "low_gas_price": 800,
+        "average_gas_price": 1000,
+        "high_gas_price": 1200
+      }
+    ]
+  },
+  "staking": {
+    "staking_tokens": [
+      {
+        "denom": "ulume"
+      }
+    ]
+  },
+  "codebase": {
+    "git_repo": "https://github.com/lumera-protocol/lumera",
+    "recommended_version": "v1.0.0",
+    "compatible_versions": ["v1.0.0"],
+    "cosmos_sdk_version": "0.46.1",
+    "tendermint_version": "0.34.0"
+  },
+  "api": [
+    {
+      "address": "https://api-lumera.winnode.xyz",
+      "provider": "Winnode"
+    },
+    {
+      "address": "https://lumera-testnet-api.polkachu.com",
+      "provider": "Polkachu"
+    },
+    {
+      "address": "https://lcd.testnet.lumera.io",
+      "provider": "Lumera Official"
+    }
+  ],
+  "rpc": [
+    {
+      "address": "https://rpc-lumera.winnode.xyz",
+      "provider": "Winnode"
+    },
+    {
+      "address": "https://lumera-testnet-rpc.polkachu.com",
+      "provider": "Polkachu"
+    },
+    {
+      "address": "https://rpc.testnet.lumera.io",
+      "provider": "Lumera Official"
+    }
+  ],
+  "assets": [
+    {
+      "base": "ulume",
+      "symbol": "LUME",
+      "display": "LUME",
+      "exponent": "6",
+      "coingecko_id": "unknown",
+      "logo": "https://file.winsnip.xyz/file/uploads/lumera.png"
+    }
+  ],
+  "theme_color": "#812cd6",
+  "logo": "https://file.winsnip.xyz/file/uploads/lumera.png",
+  "explorers": [],
+  "updated": "2025-11-17"
+}

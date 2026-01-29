@@ -1,0 +1,75 @@
+import { createRoute } from '@/lib/routes';
+
+export const dynamic = 'force-dynamic';
+
+// Paxi LCD endpoints with failover
+const LCD_ENDPOINTS = [
+  'https://mainnet-lcd.paxinet.io',
+  'https://api-paxi.winnode.xyz',
+  'https://api-paxi-m.maouam.xyz'
+];
+
+async function getWorkingLCD(): Promise<string> {
+  for (const url of LCD_ENDPOINTS) {
+    try {
+      const testRes = await fetch(`${url}/cosmos/base/tendermint/v1beta1/node_info`, {
+        signal: AbortSignal.timeout(3000)
+      });
+      if (testRes.ok) {
+        return url;
+      }
+    } catch (error) {
+      continue;
+    }
+  }
+  return LCD_ENDPOINTS[0]; // Fallback to first
+}
+
+export const GET = createRoute({
+  requiredParams: ['contract', 'query'],
+  cacheConfig: { ttl: 300000, staleWhileRevalidate: 600000 },
+  handler: async ({ contract, query }) => {
+    // Validate contract address format (bech32 format: paxi1...)
+    // Prevents SSRF attacks by blocking path traversal (/, \, ..) and URL manipulation
+    const contractRegex = /^paxi1[a-z0-9]{38,59}$/;
+    if (!contractRegex.test(contract)) {
+      throw new Error('Invalid contract address format. Expected bech32 format (paxi1...)');
+    }
+
+    // Whitelist allowed query types to prevent injection
+    const allowedQueries = ['token_info', 'marketing_info', 'all_accounts'];
+    if (!allowedQueries.includes(query)) {
+      throw new Error('Invalid query type. Allowed: token_info, marketing_info, all_accounts');
+    }
+
+    const lcdUrl = await getWorkingLCD();
+    
+    // Build query object
+    let queryObj: any;
+    if (query === 'token_info') {
+      queryObj = { token_info: {} };
+    } else if (query === 'marketing_info') {
+      queryObj = { marketing_info: {} };
+    } else if (query === 'all_accounts') {
+      queryObj = { all_accounts: { limit: 100 } };
+    }
+
+    // Encode query to base64
+    const base64Query = Buffer.from(JSON.stringify(queryObj)).toString('base64');
+    const url = `${lcdUrl}/cosmwasm/wasm/v1/contract/${contract}/smart/${base64Query}`;
+
+    console.log('[PRC20 Token Detail] Fetching:', url);
+
+    const response = await fetch(url, {
+      headers: { 'Accept': 'application/json' }
+    });
+
+    if (!response.ok) {
+      console.error('[PRC20 Token Detail] Error:', response.status);
+      throw new Error('Failed to fetch token data');
+    }
+
+    const data = await response.json();
+    return data.data;
+  }
+});
