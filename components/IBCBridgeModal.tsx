@@ -358,71 +358,49 @@ export default function IBCBridgeModal({
         throw new Error('No IBC channel found');
       }
 
-      const { SigningStargateClient, defaultRegistryTypes } = await import('@cosmjs/stargate');
-      const { Registry } = await import('@cosmjs/proto-signing');
+      const { SigningStargateClient } = await import('@cosmjs/stargate');
       
-      // Create client options with EVM support if needed
-      const clientOptions: any = { registry: new Registry(defaultRegistryTypes) };
+      // Create client options - use default registry
+      const clientOptions: any = {};
       
       // Add EVM support for chains with underscore in chain_id (coin_type 60)
       if (isEvmChain) {
-        // Import EVM helper functions from keplr.ts pattern
-        const createEvmRegistry = async () => {
-          try {
-            const registry = new Registry(defaultRegistryTypes);
-            return registry;
-          } catch (error) {
-            console.error('Error creating EVM registry:', error);
-            return null;
-          }
-        };
+        // EVM chains will use default registry with standard types
+        console.log('EVM chain detected, using default registry');
         
-        const createEvmAccountParser = async () => {
-          try {
-            const { accountFromAny } = await import('@cosmjs/stargate');
-            
-            return (input: any) => {
-              try {
-                if (input.typeUrl === '/ethermint.types.v1.EthAccount') {
-                  return {
-                    address: '',
-                    pubkey: null,
-                    accountNumber: 0,
-                    sequence: 0,
-                  };
-                }
-                
-                return accountFromAny(input);
-              } catch (error) {
-                console.error('Account parser error:', error);
-                try {
-                  return accountFromAny(input);
-                } catch (fallbackError) {
-                  console.error('Fallback parser also failed:', fallbackError);
-                  return {
-                    address: '',
-                    pubkey: null,
-                    accountNumber: 0,
-                    sequence: 0,
-                  };
-                }
+        // Add custom account parser for EVM chains
+        try {
+          const { accountFromAny } = await import('@cosmjs/stargate');
+          
+          clientOptions.accountParser = (input: any) => {
+            try {
+              if (input.typeUrl === '/ethermint.types.v1.EthAccount') {
+                return {
+                  address: '',
+                  pubkey: null,
+                  accountNumber: 0,
+                  sequence: 0,
+                };
               }
-            };
-          } catch (error) {
-            console.error('Error creating account parser:', error);
-            return null;
-          }
-        };
-        
-        const registry = await createEvmRegistry();
-        const accountParser = await createEvmAccountParser();
-        
-        if (registry) {
-          clientOptions.registry = registry;
-        }
-        
-        if (accountParser) {
-          clientOptions.accountParser = accountParser;
+              
+              return accountFromAny(input);
+            } catch (error) {
+              console.error('Account parser error:', error);
+              try {
+                return accountFromAny(input);
+              } catch (fallbackError) {
+                console.error('Fallback parser also failed:', fallbackError);
+                return {
+                  address: '',
+                  pubkey: null,
+                  accountNumber: 0,
+                  sequence: 0,
+                };
+              }
+            }
+          };
+        } catch (error) {
+          console.error('Error creating account parser:', error);
         }
       }
       
