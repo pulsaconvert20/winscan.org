@@ -1,5 +1,4 @@
 import { Registry } from '@cosmjs/proto-signing';
-import { defaultRegistryTypes } from '@cosmjs/stargate';
 
 // Osmosis PoolManager message types
 export const osmosisTypes = [
@@ -23,6 +22,7 @@ export const osmosisTypes = [
         return new Uint8Array();
       },
       decode: (input: Uint8Array) => {
+        // Decode logic
         return {};
       },
     },
@@ -30,5 +30,5 @@ export const osmosisTypes = [
 ];
 
 export function createOsmosisRegistry(): Registry {
-  return new Registry([...defaultRegistryTypes, ...osmosisTypes as any]);
+  return new Registry([...osmosisTypes as any]);
 }
