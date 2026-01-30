@@ -2574,7 +2574,7 @@ export async function executeSwap(
     // @ts-ignore - Import required modules
     const { SigningStargateClient } = await import('@cosmjs/stargate');
     // @ts-ignore
-    const { Registry, defaultRegistryTypes } = await import('@cosmjs/stargate');
+    const { Registry } = await import('@cosmjs/proto-signing');
     // @ts-ignore
     const protobuf = await import('protobufjs/minimal');
     
@@ -2663,8 +2663,8 @@ export async function executeSwap(
     };
     
     // @ts-ignore - Registry types are complex
+    // Create empty registry and register only MsgSwap to avoid type conflicts
     const registry = new Registry([
-      ...defaultRegistryTypes,
       ['/x.swap.types.MsgSwap', MsgSwap],
     ]);
     
