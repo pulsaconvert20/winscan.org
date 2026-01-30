@@ -169,35 +169,33 @@ export default function Home() {
 
         {/* Mainnet Chains */}
         {mainnets.length > 0 && (
-          <div className="mb-8">
-            <h2 className="text-2xl font-bold text-white mb-4">Mainnet Networks</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="mb-12">
+            <div className="flex items-center gap-3 mb-6">
+              <h2 className="text-2xl font-bold text-white">Mainnet Networks</h2>
+              <span className="px-3 py-1 bg-gray-800 text-gray-400 text-sm rounded-lg">
+                {mainnets.length}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
               {mainnets.map((chain) => (
                 <button
                   key={chain.chain_name}
                   onClick={() => router.push(`/${chain.chain_name.toLowerCase().replace(/\s+/g, '-')}`)}
-                  className="bg-[#1a1a1a] border border-gray-800 hover:border-blue-500 rounded-lg p-6 text-left transition-all hover:scale-105"
+                  className="group bg-[#1a1a2e] border border-gray-800 hover:border-blue-500/50 rounded-xl p-6 transition-all hover:scale-105 hover:bg-[#1f1f35]"
                 >
-                  <div className="flex items-center gap-4 mb-3">
-                    <Image
-                      src={chain.logo}
-                      alt={chain.chain_name}
-                      width={48}
-                      height={48}
-                      className="rounded-full"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-lg font-bold text-white truncate">{chain.chain_name}</h3>
-                      <p className="text-sm text-gray-400 truncate">{chain.chain_id}</p>
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="relative">
+                      <Image
+                        src={chain.logo}
+                        alt={chain.chain_name}
+                        width={56}
+                        height={56}
+                        className="rounded-full transition-transform group-hover:scale-110"
+                      />
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="px-2 py-1 bg-green-500/10 text-green-400 text-xs rounded">
-                      Mainnet
-                    </span>
-                    {chain.assets?.[0]?.symbol && (
-                      <span className="text-gray-400 text-sm">{chain.assets[0].symbol}</span>
-                    )}
+                    <h3 className="text-sm font-semibold text-white text-center line-clamp-1">
+                      {chain.chain_name.replace('-mainnet', '').replace('-test', '')}
+                    </h3>
                   </div>
                 </button>
               ))}
@@ -208,34 +206,32 @@ export default function Home() {
         {/* Testnet Chains */}
         {testnets.length > 0 && (
           <div>
-            <h2 className="text-2xl font-bold text-white mb-4">Testnet Networks</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="flex items-center gap-3 mb-6">
+              <h2 className="text-2xl font-bold text-white">Testnet Networks</h2>
+              <span className="px-3 py-1 bg-gray-800 text-gray-400 text-sm rounded-lg">
+                {testnets.length}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
               {testnets.map((chain) => (
                 <button
                   key={chain.chain_name}
                   onClick={() => router.push(`/${chain.chain_name.toLowerCase().replace(/\s+/g, '-')}`)}
-                  className="bg-[#1a1a1a] border border-gray-800 hover:border-purple-500 rounded-lg p-6 text-left transition-all hover:scale-105"
+                  className="group bg-[#1a1a2e] border border-gray-800 hover:border-purple-500/50 rounded-xl p-6 transition-all hover:scale-105 hover:bg-[#1f1f35]"
                 >
-                  <div className="flex items-center gap-4 mb-3">
-                    <Image
-                      src={chain.logo}
-                      alt={chain.chain_name}
-                      width={48}
-                      height={48}
-                      className="rounded-full"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-lg font-bold text-white truncate">{chain.chain_name}</h3>
-                      <p className="text-sm text-gray-400 truncate">{chain.chain_id}</p>
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="relative">
+                      <Image
+                        src={chain.logo}
+                        alt={chain.chain_name}
+                        width={56}
+                        height={56}
+                        className="rounded-full transition-transform group-hover:scale-110"
+                      />
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="px-2 py-1 bg-purple-500/10 text-purple-400 text-xs rounded">
-                      Testnet
-                    </span>
-                    {chain.assets?.[0]?.symbol && (
-                      <span className="text-gray-400 text-sm">{chain.assets[0].symbol}</span>
-                    )}
+                    <h3 className="text-sm font-semibold text-white text-center line-clamp-1">
+                      {chain.chain_name.replace('-mainnet', '').replace('-test', '')}
+                    </h3>
                   </div>
                 </button>
               ))}
