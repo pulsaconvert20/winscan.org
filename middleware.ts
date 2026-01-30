@@ -1,6 +1,24 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
+// Domain whitelist check
+function isAllowedDomain(host: string): boolean {
+  const allowedDomains = process.env.NEXT_PUBLIC_ALLOWED_DOMAINS;
+  
+  // If no whitelist configured, allow all
+  if (!allowedDomains || allowedDomains.trim() === '') {
+    return true;
+  }
+  
+  const whitelist = allowedDomains.split(',').map(d => d.trim().toLowerCase());
+  const hostWithoutPort = host.split(':')[0].toLowerCase();
+  
+  // Check if host matches any whitelisted domain
+  return whitelist.some(domain => {
+    return hostWithoutPort === domain || hostWithoutPort.endsWith(`.${domain}`);
+  });
+}
+
 // Chain subdomain mapping
 const CHAIN_SUBDOMAINS: Record<string, string> = {
   // Mainnets - format: chainname.winscan.org
@@ -91,6 +109,24 @@ function getSubdomain(host: string): string | null {
 
 export function middleware(request: NextRequest) {
   const host = request.headers.get('host') || '';
+  
+  // Check domain whitelist first
+  if (!isAllowedDomain(host)) {
+    return new NextResponse(
+      JSON.stringify({
+        error: 'Access Denied',
+        message: 'This domain is not authorized to access this service.',
+        code: 'DOMAIN_NOT_WHITELISTED'
+      }),
+      {
+        status: 403,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+  }
+  
   const subdomain = getSubdomain(host);
   const mainDomain = getMainDomain(host);
   const pathname = request.nextUrl.pathname;

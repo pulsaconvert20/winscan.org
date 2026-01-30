@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { WalletProvider } from "@/contexts/WalletContext";
+import LoadingScreen from "@/components/LoadingScreen";
 
 export const metadata: Metadata = {
   title: "WinScan",
@@ -35,6 +36,7 @@ export default function RootLayout({
         }} />
       </head>
       <body className="antialiased">
+        <LoadingScreen />
         <LanguageProvider>
           <WalletProvider>
             {children}
