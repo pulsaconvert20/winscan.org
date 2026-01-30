@@ -104,12 +104,15 @@ function findBestRoute(
   
   // Normalize function that handles IBC denoms (case-insensitive for IBC hashes)
   const normalizeDenom = (denom: string): string => {
-    if (denom.startsWith('ibc/') || denom.startsWith('IBC/')) {
-      // IBC denoms: normalize to lowercase for comparison
-      return denom.toLowerCase();
+    // Always convert to lowercase for consistent comparison
+    const lower = denom.toLowerCase();
+    
+    // Handle URL-encoded IBC denoms (ibc%2F -> ibc/)
+    if (lower.includes('ibc%2f')) {
+      return lower.replace('ibc%2f', 'ibc/');
     }
-    // Native denoms: keep as-is (already lowercase like uosmo, uatom)
-    return denom.toLowerCase();
+    
+    return lower;
   };
   
   const normalizeTokenIn = normalizeDenom(tokenIn);
@@ -225,10 +228,19 @@ export async function GET(request: NextRequest) {
       const pools = await queryOsmosisPools();
       console.log(`[Osmosis Pools API] Loaded ${pools.length} pools`);
       
+      // Normalize for comparison
+      const normalizeDenom = (denom: string) => {
+        const lower = denom.toLowerCase();
+        return lower.includes('ibc%2f') ? lower.replace('ibc%2f', 'ibc/') : lower;
+      };
+      
+      const normalizedTokenIn = normalizeDenom(tokenIn);
+      const normalizedTokenOut = normalizeDenom(tokenOut);
+      
       // Debug: Check if tokenIn exists in any pool
       const poolsWithTokenIn = pools.filter(p => 
-        p.token1.toLowerCase() === tokenIn.toLowerCase() || 
-        p.token2.toLowerCase() === tokenIn.toLowerCase()
+        normalizeDenom(p.token1) === normalizedTokenIn || 
+        normalizeDenom(p.token2) === normalizedTokenIn
       );
       console.log(`[Osmosis Pools API] Pools containing tokenIn: ${poolsWithTokenIn.length}`);
       if (poolsWithTokenIn.length > 0) {
@@ -251,12 +263,14 @@ export async function GET(request: NextRequest) {
             debug: {
               tokenIn,
               tokenOut,
+              normalizedTokenIn,
+              normalizedTokenOut,
               totalPools: pools.length,
               poolsWithTokenIn: poolsWithTokenIn.length,
               suggestion: poolsWithTokenIn.length === 0 
                 ? 'Token does not exist on Osmosis yet. It needs to be transferred via IBC first before pools can be created.'
-                : 'No direct or multi-hop route found. Token may have low liquidity.',
-              samplePoolsWithToken: poolsWithTokenIn.slice(0, 3).map(p => ({
+                : 'No direct or multi-hop route found. Token may have low liquidity or no OSMO pair exists.',
+              samplePoolsWithToken: poolsWithTokenIn.slice(0, 5).map(p => ({
                 poolId: p.id,
                 token1: p.token1,
                 token2: p.token2

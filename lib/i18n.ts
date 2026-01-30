@@ -60,6 +60,7 @@ type TranslationKeys = {
   'menu.bridge': string;
   'menu.bridge_relayers': string;
   'menu.relayers': string;
+  'menu.ibcTransfer': string;
   'menu.network': string;
   'menu.consensus': string;
   'menu.statesync': string;
@@ -132,6 +133,7 @@ export const translations: Record<Language, TranslationKeys> = {
     'menu.bridge': 'Bridge',
     'menu.bridge_relayers': 'Relayers',
     'menu.relayers': 'Relayers',
+    'menu.ibcTransfer': 'IBC Transfer',
     'menu.network': 'Network',
     'menu.consensus': 'Consensus',
     'menu.statesync': 'State Sync',
@@ -203,6 +205,7 @@ export const translations: Record<Language, TranslationKeys> = {
     'menu.bridge': 'Bridge',
     'menu.bridge_relayers': 'Relayer',
     'menu.relayers': 'Relayer',
+    'menu.ibcTransfer': 'Transfer IBC',
     'menu.network': 'Jaringan',
     'menu.consensus': 'Konsensus',
     'menu.statesync': 'Sinkronisasi State',
@@ -274,6 +277,7 @@ export const translations: Record<Language, TranslationKeys> = {
     'menu.bridge': '跨链桥',
     'menu.bridge_relayers': '中继器',
     'menu.relayers': '中继器',
+    'menu.ibcTransfer': 'IBC转账',
     'menu.network': '网络',
     'menu.consensus': '共识',
     'menu.statesync': '状态同步',
@@ -349,6 +353,7 @@ export const translations: Record<Language, TranslationKeys> = {
     'menu.evm.transactions': 'EVMトランザクション',
     'menu.evm.contracts': 'スマートコントラクト',
     'menu.relayers': 'リレイヤー',
+    'menu.ibcTransfer': 'IBC転送',
     'menu.network': 'ネットワーク',
     'menu.consensus': 'コンセンサス',
     'menu.statesync': 'ステート同期',
@@ -420,6 +425,7 @@ export const translations: Record<Language, TranslationKeys> = {
     'menu.evm.transactions': 'ईवीएम लेन-देन',
     'menu.evm.contracts': 'स्मार्ट अनुबंध',
     'menu.relayers': 'रिलेयर',
+    'menu.ibcTransfer': 'IBC स्थानांतरण',
     'menu.network': 'नेटवर्क',
     'menu.consensus': 'सहमति',
     'menu.statesync': 'स्टेट सिंक',
@@ -491,6 +497,7 @@ export const translations: Record<Language, TranslationKeys> = {
     'menu.evm.transactions': 'EVM Транзакции',
     'menu.evm.contracts': 'Смарт-контракты',
     'menu.relayers': 'Релейеры',
+    'menu.ibcTransfer': 'IBC Перевод',
     'menu.network': 'Сеть',
     'menu.consensus': 'Консенсус',
     'menu.statesync': 'Синхронизация',
@@ -562,6 +569,7 @@ export const translations: Record<Language, TranslationKeys> = {
     'menu.evm.transactions': 'Giao dịch EVM',
     'menu.evm.contracts': 'Hợp đồng thông minh',
     'menu.relayers': 'Rơ le',
+    'menu.ibcTransfer': 'Chuyển IBC',
     'menu.network': 'Mạng',
     'menu.consensus': 'Đồng thuận',
     'menu.statesync': 'Đồng bộ trạng thái',

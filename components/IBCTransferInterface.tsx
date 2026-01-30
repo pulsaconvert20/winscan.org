@@ -33,6 +33,20 @@ export default function IBCTransferInterface({
   const [swapToToken, setSwapToToken] = useState('OSMO');
   const [swapRoute, setSwapRoute] = useState<any>(null);
   
+  // Transaction result for popup modal
+  const [txResult, setTxResult] = useState<{
+    success: boolean;
+    transferTxHash: string;
+    swapTxHash?: string;
+    message: string;
+  } | null>(null);
+  
+  // Progress tracking for auto-swap
+  const [swapProgress, setSwapProgress] = useState<{
+    step: 'idle' | 'transferring' | 'waiting' | 'swapping' | 'complete';
+    message: string;
+  }>({ step: 'idle', message: '' });
+  
   // Pre-swap state (for reverse mode)
   const [enablePreSwap, setEnablePreSwap] = useState(false);
   const [preSwapToToken, setPreSwapToToken] = useState('LUME');
@@ -90,62 +104,18 @@ export default function IBCTransferInterface({
   const isSourceOsmosis = isReversed && selectedDestChain &&
     (selectedDestChain.toLowerCase().includes('osmosis') ||
      connectedChains.find(c => c.chainId === selectedDestChain)?.chainName.toLowerCase().includes('osmosis'));
+  
+  // Smart check: Does destination chain support DEX/pools for auto-swap?
+  // Currently only Osmosis has full DEX support with SQS router
+  const destinationSupportsDex = isDestinationOsmosis;
+  const sourceSupportsDex = isSourceOsmosis;
 
-  // Hardcoded popular tokens untuk auto-swap (no need to query pools)
-  const availableTokens = [
-    { denom: 'uosmo', symbol: 'OSMO', liquidity: 'High' },
-    { denom: 'ibc/27394FB092D2ECCD56123C74F36E4C1F926001CEADA9CA97EA622B25F41E5EB2', symbol: 'ATOM', liquidity: 'High' },
-    { denom: 'ibc/D189335C6E4A68B513C10AB227BF1C1D38C746766278BA3EEB4FB14124F1D858', symbol: 'USDC', liquidity: 'High' },
+  // For auto-swap: Support OSMO, ATOM, USDC
+  const availableSwapTokens = [
+    { denom: 'uosmo', symbol: 'OSMO' },
+    { denom: 'ibc/27394FB092D2ECCD56123C74F36E4C1F926001CEADA9CA97EA622B25F41E5EB2', symbol: 'ATOM' },
+    { denom: 'ibc/D189335C6E4A68B513C10AB227BF1C1D38C746766278BA3EEB4FB14124F1D858', symbol: 'USDC' },
   ];
-
-  // Load swap route when token is selected
-  useEffect(() => {
-    const loadSwapRoute = async () => {
-      if (!enableAutoSwap || !isDestinationOsmosis || isReversed) {
-        setSwapRoute(null);
-        return;
-      }
-
-      try {
-        // Get IBC denom for source token on Osmosis
-        const ibcDenomResponse = await fetch(
-          `/api/osmosis/ibc-denom?sourceChain=${sourceChain.chain_name}&baseDenom=${sourceChain.assets[0].base}`
-        );
-        
-        if (!ibcDenomResponse.ok) {
-          setSwapRoute(null);
-          return;
-        }
-
-        const ibcDenomData = await ibcDenomResponse.json();
-        const sourceIbcDenom = ibcDenomData.ibcDenom;
-        // Find target token denom
-        const targetToken = availableTokens.find(t => t.symbol === swapToToken);
-        if (!targetToken) {
-          setSwapRoute(null);
-          return;
-        }
-        
-        // Get swap route
-        const routeResponse = await fetch(
-          `/api/osmosis/pools?action=route&tokenIn=${encodeURIComponent(sourceIbcDenom)}&tokenOut=${encodeURIComponent(targetToken.denom)}`
-        );
-
-        if (routeResponse.ok) {
-          const routeData = await routeResponse.json();
-          setSwapRoute(routeData.route);
-        } else {
-          const errorData = await routeResponse.json();
-          setSwapRoute(null);
-        }
-      } catch (error) {
-        console.error('[IBCTransfer] Failed to load swap route:', error);
-        setSwapRoute(null);
-      }
-    };
-
-    loadSwapRoute();
-  }, [enableAutoSwap, swapToToken, isDestinationOsmosis, isReversed, sourceChain, availableTokens]);
 
   // Load pre-swap route when user enables pre-swap in reverse mode
   useEffect(() => {
@@ -354,84 +324,6 @@ export default function IBCTransferInterface({
     }
   };
 
-  const executeOsmosisSwap = async (walletAddress: string, ibcAmount: string, targetToken: string) => {
-    try {
-      // Connect to Osmosis
-      await (window as any).keplr.enable('osmosis-1');
-      const offlineSigner = await (window as any).keplr.getOfflineSigner('osmosis-1');
-      const accounts = await offlineSigner.getAccounts();
-      const osmoAddress = accounts[0].address;
-      
-      const { SigningStargateClient } = await import('@cosmjs/stargate');
-
-      const client = await SigningStargateClient.connectWithSigner(
-        'https://rpc.osmosis.zone',
-        offlineSigner
-      );
-
-      // Get IBC denom for source token on Osmosis
-      const ibcDenomResponse = await fetch(
-        `/api/osmosis/ibc-denom?sourceChain=${sourceChain.chain_name}&baseDenom=${sourceChain.assets[0].base}`
-      );
-      
-      if (!ibcDenomResponse.ok) {
-        throw new Error('Could not determine IBC denom on Osmosis');
-      }
-
-      const ibcDenomData = await ibcDenomResponse.json();
-      const sourceIbcDenom = ibcDenomData.ibcDenom;
-      
-      // Find target token denom
-      const targetTokenInfo = availableTokens.find(t => t.symbol === targetToken);
-      if (!targetTokenInfo) {
-        throw new Error(`Target token ${targetToken} not found`);
-      }
-
-      const targetDenom = targetTokenInfo.denom;
-      // Get swap route
-      if (!swapRoute) {
-        throw new Error('Swap route not available');
-      }
-
-      // Parse pool IDs (support multi-hop)
-      const poolIds = swapRoute.poolId.split(',');
-      
-      // Create swap message
-      const swapMsg = {
-        typeUrl: '/osmosis.gamm.v1beta1.MsgSwapExactAmountIn',
-        value: {
-          sender: osmoAddress,
-          routes: poolIds.map((poolId: string, index: number) => ({
-            poolId: poolId,
-            tokenOutDenom: index === poolIds.length - 1 ? targetDenom : 'uosmo', // Multi-hop via OSMO
-          })),
-          tokenIn: {
-            denom: sourceIbcDenom,
-            amount: ibcAmount,
-          },
-          tokenOutMinAmount: '1', // Minimum output (should calculate based on slippage)
-        },
-      };
-
-      const fee = {
-        amount: [{ denom: 'uosmo', amount: '5000' }],
-        gas: '500000',
-      };
-
-      // Use signAndBroadcast with the message
-      const result = await client.signAndBroadcast(osmoAddress, [swapMsg], fee);
-
-      if (result.code !== 0) {
-        throw new Error(result.rawLog || 'Swap failed');
-      }
-
-      return result;
-    } catch (error) {
-      console.error('[IBCTransfer] Osmosis swap error:', error);
-      throw error;
-    }
-  };
-
   const handleTransfer = async () => {
     if (!walletConnected || !selectedDestChain || !amount || !receiverAddress) {
       alert('Please fill all fields');
@@ -441,6 +333,8 @@ export default function IBCTransferInterface({
     setIsProcessing(true);
     setTxStatus('idle');
     setTxMessage('');
+    setTxResult(null);
+    setSwapProgress({ step: 'idle', message: '' });
     setCurrentStep(0);
 
     try {
@@ -649,36 +543,277 @@ export default function IBCTransferInterface({
         throw new Error(result.rawLog || 'Transaction failed');
       }
 
-      setTxStatus('success');
-      const autoSwapNote = enableAutoSwap && isDestinationOsmosis && !isReversed 
-        ? ` Auto-swap to ${swapToToken} will execute after IBC completes (~3 min).` 
-        : '';
-      setTxMessage(`Transfer successful! Tx: ${result.transactionHash}.${autoSwapNote}`);
-      setAmount('');
-      
-      // Execute auto-swap if enabled and destination is Osmosis
-      if (enableAutoSwap && isDestinationOsmosis && !isReversed) {
+      // Step 2: If auto-swap is enabled and destination is Osmosis, wait and then swap
+      if (enableAutoSwap && !isReversed && isDestinationOsmosis) {
+        setCurrentStep(1); // Step 1: Transfer complete, waiting for arrival
+        setTxMessage(`Transfer successful! Waiting for tokens to arrive on Osmosis...`);
+        
+        // Smart polling: Check balance every 5 seconds instead of waiting fixed time
+        const maxWaitTime = 120000; // Max 2 minutes
+        const pollInterval = 5000; // Check every 5 seconds
+        let elapsedTime = 0;
+        let balanceArrived = false;
+        
         try {
-          setTxMessage(`Transfer successful! Tx: ${result.transactionHash}. Waiting for IBC relay to complete...`);
+          const osmosisChainId = 'osmosis-1';
+          await (window as any).keplr.enable(osmosisChainId);
           
-          // Wait for IBC transfer to complete (typically 1-3 minutes)
-          await new Promise(resolve => setTimeout(resolve, 180000)); // 3 minutes
+          // Import osmojs
+          const { getSigningOsmosisClient } = await import('osmojs');
           
-          setTxMessage(`IBC transfer complete. Executing auto-swap to ${swapToToken}...`);
+          // Use Amino signer only (coin_type 118, no ethermint)
+          const osmosisOfflineSigner = await (window as any).keplr.getOfflineSignerOnlyAmino(osmosisChainId);
+          const osmosisAccounts = await osmosisOfflineSigner.getAccounts();
+          const osmosisAddress = osmosisAccounts[0].address;
           
-          // Execute swap on Osmosis
-          await executeOsmosisSwap(receiverAddress, transferAmount, swapToToken);
+          // Connect using osmojs client with Amino signer
+          const osmosisClient = await getSigningOsmosisClient({
+            rpcEndpoint: 'https://rpc.osmosis.zone',
+            signer: osmosisOfflineSigner,
+          });
           
-          setTxMessage(`Auto-swap successful! Your ${swapToToken} tokens are now in your wallet.`);
+          // Calculate expected amount for matching
+          const sourceExponent = parseInt(String(sourceChain.assets[0]?.exponent || '6'));
+          const osmosisExponent = 6;
+          const transferAmountInt = BigInt(transferAmount);
+          let expectedAmountOnOsmosis: bigint;
+          
+          if (sourceExponent > osmosisExponent) {
+            expectedAmountOnOsmosis = transferAmountInt / BigInt(Math.pow(10, sourceExponent - osmosisExponent));
+          } else if (sourceExponent < osmosisExponent) {
+            expectedAmountOnOsmosis = transferAmountInt * BigInt(Math.pow(10, osmosisExponent - sourceExponent));
+          } else {
+            expectedAmountOnOsmosis = transferAmountInt;
+          }
+          
+          let tokenDenomOnOsmosis: string | null = null;
+          let tokenInAmount: string = '0';
+          
+          // Poll for balance arrival
+          while (elapsedTime < maxWaitTime && !balanceArrived) {
+            await new Promise(resolve => setTimeout(resolve, pollInterval));
+            elapsedTime += pollInterval;
+            
+            setTxMessage(`Waiting for tokens to arrive on Osmosis... (${Math.floor(elapsedTime / 1000)}s)`);
+            
+            try {
+              // Query all balances on Osmosis
+              const allBalances = await osmosisClient.getAllBalances(osmosisAddress);
+              const ibcBalances = allBalances.filter(b => b.denom.startsWith('ibc/'));
+              
+              // Find matching IBC denom by amount (within 1% tolerance)
+              const tolerance = 0.01;
+              
+              for (const balance of ibcBalances) {
+                const balanceAmount = BigInt(balance.amount);
+                const diff = balanceAmount > expectedAmountOnOsmosis 
+                  ? balanceAmount - expectedAmountOnOsmosis 
+                  : expectedAmountOnOsmosis - balanceAmount;
+                
+                const percentDiff = Number(diff * BigInt(10000) / expectedAmountOnOsmosis) / 10000;
+                
+                if (percentDiff <= tolerance) {
+                  tokenDenomOnOsmosis = balance.denom;
+                  tokenInAmount = balance.amount;
+                  balanceArrived = true;
+                  console.log(`✅ Token arrived! Denom: ${tokenDenomOnOsmosis}, Amount: ${tokenInAmount}`);
+                  break;
+                }
+              }
+              
+              // Fallback: use highest balance IBC denom if we've waited long enough
+              if (!balanceArrived && elapsedTime >= 30000 && ibcBalances.length > 0) {
+                const sortedBalances = [...ibcBalances].sort((a, b) => 
+                  BigInt(b.amount) > BigInt(a.amount) ? 1 : -1
+                );
+                tokenDenomOnOsmosis = sortedBalances[0].denom;
+                tokenInAmount = sortedBalances[0].amount;
+                balanceArrived = true;
+                console.log(`⚠️ Using fallback denom: ${tokenDenomOnOsmosis}`);
+                break;
+              }
+              
+            } catch (pollError) {
+              console.error('Polling error:', pollError);
+              // Continue polling
+            }
+          }
+          
+          if (!tokenDenomOnOsmosis) {
+            throw new Error(`Could not detect IBC denom after ${maxWaitTime / 1000}s. Please swap manually on Osmosis.`);
+          }
+          
+          setCurrentStep(2); // Step 2: Tokens arrived, executing swap
+          setTxMessage(`Tokens arrived! Executing swap to ${swapToToken}...`);
+          
+          // Get target token denom
+          const targetToken = availableSwapTokens.find(t => t.symbol === swapToToken);
+          if (!targetToken) {
+            throw new Error(`Target token ${swapToToken} not found`);
+          }
+          
+          // Get optimal route from Osmosis SQS router (auto-detects best pools)
+          const routerUrl = `https://sqs.osmosis.zone/router/quote?tokenIn=${tokenInAmount}${tokenDenomOnOsmosis}&tokenOutDenom=${targetToken.denom}`;
+          
+          console.log(`🔍 Querying Osmosis router: ${routerUrl}`);
+          
+          const routeResponse = await fetch(routerUrl);
+          
+          if (!routeResponse.ok) {
+            const errorText = await routeResponse.text();
+            console.error('❌ Router response error:', errorText);
+            throw new Error(`Failed to get swap route from Osmosis router: ${routeResponse.status}`);
+          }
+          
+          const routeData = await routeResponse.json();
+          
+          if (!routeData.amount_out || !routeData.route || routeData.route.length === 0) {
+            throw new Error(`No valid swap route found for ${sourceChain.assets[0].symbol} to ${swapToToken}`);
+          }
+          
+          console.log(`✅ Route found:`, routeData);
+          
+          // Extract routes from SQS response (pools auto-detected by router)
+          const routes = routeData.route[0].pools.map((pool: any) => {
+            return {
+              poolId: BigInt(pool.id),
+              tokenOutDenom: pool.token_out_denom,
+            };
+          });
+          
+          // Calculate minimum output with 5% slippage
+          const expectedOut = routeData.amount_out;
+          const minOut = Math.floor(parseInt(expectedOut) * 0.95).toString();
+          
+          console.log(`💱 Swapping ${tokenInAmount} ${tokenDenomOnOsmosis} → min ${minOut} ${targetToken.denom}`);
+          
+          // Import osmosis message composer
+          const { osmosis } = await import('osmojs');
+          
+          // Build swap message using osmojs MessageComposer with dynamic routes
+          const swapMsg = osmosis.poolmanager.v1beta1.MessageComposer.withTypeUrl.swapExactAmountIn({
+            sender: osmosisAddress,
+            routes: routes,
+            tokenIn: {
+              denom: tokenDenomOnOsmosis,
+              amount: tokenInAmount,
+            },
+            tokenOutMinAmount: minOut,
+          });
+          
+          const fee = {
+            amount: [{ denom: 'uosmo', amount: '5000' }],
+            gas: '550000',
+          };
+          
+          // Sign and broadcast
+          const swapResult = await osmosisClient.signAndBroadcast(
+            osmosisAddress,
+            [swapMsg],
+            fee,
+            'WinScan Auto-Swap'
+          );
+          
+          if (swapResult.code !== 0) {
+            throw new Error(swapResult.rawLog || 'Swap transaction failed');
+          }
+          
+          const swapTxHash = swapResult.transactionHash;
+          
+          console.log(`✅ Swap successful! TX: ${swapTxHash}`);
+          
+          setCurrentStep(3); // Step 3: Complete
+          
+          // Show success popup
+          setTxResult({
+            success: true,
+            transferTxHash: result.transactionHash,
+            swapTxHash: swapTxHash,
+            message: `Transfer and swap completed successfully!`
+          });
+          
+          // Refresh balance
+          try {
+            const { SigningStargateClient } = await import('@cosmjs/stargate');
+            const chainId = sourceChain.chain_id || sourceChain.chain_name;
+            const offlineSigner = await (window as any).keplr.getOfflineSigner(chainId);
+            const rpcEndpoint = sourceChain.rpc[0]?.address || sourceChain.rpc[0];
+            const rpc = typeof rpcEndpoint === 'string' ? rpcEndpoint : rpcEndpoint.address;
+            const client = await SigningStargateClient.connectWithSigner(rpc, offlineSigner);
+            const accounts = await offlineSigner.getAccounts();
+            const bal = await client.getBalance(accounts[0].address, sourceChain.assets[0].base);
+            const exponent = parseInt(String(sourceChain.assets[0]?.exponent || '6'));
+            const formatted = (parseInt(bal.amount) / Math.pow(10, exponent)).toFixed(6);
+            setBalance(formatted);
+          } catch (balanceError) {
+            console.error('Failed to refresh balance:', balanceError);
+          }
+          
         } catch (swapError: any) {
-          setTxMessage(`Transfer successful (Tx: ${result.transactionHash}), but auto-swap failed: ${swapError.message}. Your IBC tokens are safe in your wallet.`);
+          console.error('❌ Auto-swap error:', swapError);
+          // Transfer succeeded but swap failed - show partial success
+          setCurrentStep(0);
+          
+          setTxResult({
+            success: false,
+            transferTxHash: result.transactionHash,
+            message: `Transfer successful but auto-swap failed: ${swapError.message}. Please swap manually on Osmosis.`
+          });
+          
+          // Still refresh balance since transfer succeeded
+          try {
+            const { SigningStargateClient } = await import('@cosmjs/stargate');
+            const chainId = sourceChain.chain_id || sourceChain.chain_name;
+            const offlineSigner = await (window as any).keplr.getOfflineSigner(chainId);
+            const rpcEndpoint = sourceChain.rpc[0]?.address || sourceChain.rpc[0];
+            const rpc = typeof rpcEndpoint === 'string' ? rpcEndpoint : rpcEndpoint.address;
+            const client = await SigningStargateClient.connectWithSigner(rpc, offlineSigner);
+            const accounts = await offlineSigner.getAccounts();
+            const bal = await client.getBalance(accounts[0].address, sourceChain.assets[0].base);
+            const exponent = parseInt(String(sourceChain.assets[0]?.exponent || '6'));
+            const formatted = (parseInt(bal.amount) / Math.pow(10, exponent)).toFixed(6);
+            setBalance(formatted);
+          } catch (balanceError) {
+            console.error('Failed to refresh balance:', balanceError);
+          }
+        }
+      } else {
+        // No auto-swap, just show transfer success
+        setTxResult({
+          success: true,
+          transferTxHash: result.transactionHash,
+          message: 'Transfer completed successfully!'
+        });
+        
+        // Refresh balance
+        try {
+          const { SigningStargateClient } = await import('@cosmjs/stargate');
+          const chainId = sourceChain.chain_id || sourceChain.chain_name;
+          const offlineSigner = await (window as any).keplr.getOfflineSigner(chainId);
+          const rpcEndpoint = sourceChain.rpc[0]?.address || sourceChain.rpc[0];
+          const rpc = typeof rpcEndpoint === 'string' ? rpcEndpoint : rpcEndpoint.address;
+          const client = await SigningStargateClient.connectWithSigner(rpc, offlineSigner);
+          const accounts = await offlineSigner.getAccounts();
+          const bal = await client.getBalance(accounts[0].address, sourceChain.assets[0].base);
+          const exponent = parseInt(String(sourceChain.assets[0]?.exponent || '6'));
+          const formatted = (parseInt(bal.amount) / Math.pow(10, exponent)).toFixed(6);
+          setBalance(formatted);
+        } catch (balanceError) {
+          console.error('Failed to refresh balance:', balanceError);
         }
       }
       
+      // Clear amount input
+      setAmount('');
+      setSliderValue(0);
+      
     } catch (error: any) {
       console.error('Transfer error:', error);
-      setTxStatus('error');
-      setTxMessage(error.message || 'Transfer failed');
+      setTxResult({
+        success: false,
+        transferTxHash: '',
+        message: error.message || 'Transfer failed'
+      });
     } finally {
       setIsProcessing(false);
     }
@@ -824,8 +959,8 @@ export default function IBCTransferInterface({
             )}
           </div>
 
-          {/* Auto-Swap Toggle - Only show when destination is Osmosis */}
-          {!isReversed && isDestinationOsmosis && (
+          {/* Auto-Swap Toggle - Only show when destination supports DEX */}
+          {!isReversed && destinationSupportsDex && (
             <div className="bg-gradient-to-r from-purple-500/10 to-blue-500/10 border border-purple-500/30 rounded-lg p-4 mb-4">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
@@ -855,47 +990,29 @@ export default function IBCTransferInterface({
                       onChange={(e) => setSwapToToken(e.target.value)}
                       className="w-full bg-[#0a0a0a] border border-purple-500/30 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-purple-500"
                     >
-                      {availableTokens.map(token => (
+                      {availableSwapTokens.map(token => (
                         <option key={token.denom} value={token.symbol}>
                           {token.symbol}
                         </option>
                       ))}
                     </select>
                   </div>
-                  {swapRoute && (
-                    <div className="text-xs text-purple-300 bg-purple-500/10 rounded p-2">
-                      <div className="flex items-center gap-1 mb-1">
-                        <CheckCircle className="w-3 h-3" />
-                        <span className="font-medium">Route Found</span>
-                      </div>
-                      <div className="text-purple-400">
-                        Pool ID: {swapRoute.poolId}
-                        {swapRoute.poolId.includes(',') && ' (Multi-hop via OSMO)'}
-                      </div>
+                  <div className="text-xs text-purple-300 bg-purple-500/10 rounded p-3 border border-purple-500/20">
+                    <div className="flex items-center gap-2 mb-1">
+                      <CheckCircle className="w-3 h-3" />
+                      <span className="font-medium">Auto-Swap Enabled</span>
                     </div>
-                  )}
-                  {!swapRoute && enableAutoSwap && (
-                    <div className="text-xs text-yellow-300 bg-yellow-500/10 rounded p-2 border border-yellow-500/20">
-                      <div className="flex items-center gap-1 mb-1">
-                        <AlertCircle className="w-3 h-3" />
-                        <span className="font-medium">No Route Available</span>
-                      </div>
-                      <div className="text-yellow-400">
-                        {sourceChain.assets[0]?.symbol || 'Token'} may not have liquidity on Osmosis yet. 
-                        Try selecting OSMO, ATOM, or USDC as target.
-                      </div>
+                    <div className="text-purple-400">
+                      Your {sourceChain.assets[0]?.symbol || 'tokens'} will automatically be swapped to {swapToToken} after arriving on {connectedChains.find(c => c.chainId === selectedDestChain)?.chainName || 'destination'} (~3 minutes after transfer).
                     </div>
-                  )}
-                  <div className="text-xs text-purple-300">
-                    ℹ️ Your tokens will automatically swap to {swapToToken} after arriving on Osmosis
                   </div>
                 </div>
               )}
             </div>
           )}
 
-          {/* Pre-Swap Toggle - Only show when reversed and source is Osmosis */}
-          {isReversed && isSourceOsmosis && (
+          {/* Pre-Swap Toggle - Only show when reversed and source supports DEX */}
+          {isReversed && sourceSupportsDex && (
             <div className="bg-gradient-to-r from-green-500/10 to-blue-500/10 border border-green-500/30 rounded-lg p-4 mb-4">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
@@ -954,22 +1071,6 @@ export default function IBCTransferInterface({
                       </div>
                     </div>
                   )}
-                  {!preSwapRoute && enablePreSwap && (
-                    <div className="text-xs text-yellow-300 bg-yellow-500/10 rounded p-2 border border-yellow-500/20">
-                      <div className="flex items-center gap-1 mb-1">
-                        <AlertCircle className="w-3 h-3" />
-                        <span className="font-medium">No Route Available</span>
-                      </div>
-                      <div className="text-yellow-400">
-                        No swap route found for {selectedSourceToken} → LUME. 
-                        LUME may not have liquidity on Osmosis yet.
-                      </div>
-                    </div>
-                  )}
-                  <div className="text-xs text-green-300">
-                    ℹ️ Your {selectedSourceToken} will be swapped to LUME on Osmosis, 
-                    then transferred to Lumera as native LUME
-                  </div>
                   
                   {/* Slippage Settings */}
                   <div className="pt-3 border-t border-green-500/20">
@@ -1176,6 +1277,68 @@ export default function IBCTransferInterface({
             </div>
           )}
 
+          {/* Progress Indicator for Auto-Swap (Normal Mode) */}
+          {isProcessing && enableAutoSwap && !isReversed && swapProgress.step !== 'idle' && (
+            <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-4 mb-4">
+              <div className="space-y-3">
+                {/* Step 1: IBC Transfer */}
+                <div className="flex items-center gap-3">
+                  {swapProgress.step !== 'transferring' ? (
+                    <CheckCircle className="w-5 h-5 text-green-500" />
+                  ) : (
+                    <Loader2 className="w-5 h-5 text-purple-400 animate-spin" />
+                  )}
+                  <div>
+                    <div className="text-white font-medium">
+                      Step 1: IBC Transfer
+                    </div>
+                    <div className="text-gray-400 text-sm">
+                      Transferring to Osmosis
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Step 2: Waiting for Arrival */}
+                {(swapProgress.step === 'waiting' || swapProgress.step === 'swapping' || swapProgress.step === 'complete') && (
+                  <div className="flex items-center gap-3">
+                    {swapProgress.step !== 'waiting' ? (
+                      <CheckCircle className="w-5 h-5 text-green-500" />
+                    ) : (
+                      <Loader2 className="w-5 h-5 text-purple-400 animate-spin" />
+                    )}
+                    <div>
+                      <div className="text-white font-medium">
+                        Step 2: Waiting for Arrival
+                      </div>
+                      <div className="text-gray-400 text-sm">
+                        {swapProgress.message}
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Step 3: Auto-Swap */}
+                {(swapProgress.step === 'swapping' || swapProgress.step === 'complete') && (
+                  <div className="flex items-center gap-3">
+                    {swapProgress.step === 'complete' ? (
+                      <CheckCircle className="w-5 h-5 text-green-500" />
+                    ) : (
+                      <Loader2 className="w-5 h-5 text-purple-400 animate-spin" />
+                    )}
+                    <div>
+                      <div className="text-white font-medium">
+                        Step 3: Auto-Swap to {swapToToken}
+                      </div>
+                      <div className="text-gray-400 text-sm">
+                        Swapping on Osmosis
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Transfer Button */}
           <button
             onClick={handleTransfer}
@@ -1192,7 +1355,7 @@ export default function IBCTransferInterface({
                 <ArrowRightLeft className="w-5 h-5" />
                 Swap & Transfer to Lumera
               </>
-            ) : enableAutoSwap && isDestinationOsmosis && !isReversed ? (
+            ) : enableAutoSwap && destinationSupportsDex && !isReversed ? (
               <>
                 <ArrowRightLeft className="w-5 h-5" />
                 Transfer & Auto-Swap to {swapToToken}
@@ -1205,31 +1368,8 @@ export default function IBCTransferInterface({
             )}
           </button>
 
-          {/* Success Message */}
-          {txStatus === 'success' && (
-            <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4 mb-4">
-              <div className="flex items-start gap-3">
-                <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-                <div>
-                  <div className="text-green-400 font-medium mb-1">Success!</div>
-                  <div className="text-green-300 text-sm">{txMessage}</div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Error Message */}
-          {txStatus === 'error' && (
-            <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 mb-4">
-              <div className="flex items-start gap-3">
-                <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
-                <div>
-                  <div className="text-red-400 font-medium mb-1">Error</div>
-                  <div className="text-red-300 text-sm">{txMessage}</div>
-                </div>
-              </div>
-            </div>
-          )}
+          {/* Success Message - Removed, using popup modal instead */}
+          {/* Error Message - Removed, using popup modal instead */}
 
           {/* Info */}
           <div className="bg-blue-500/5 border border-blue-500/10 rounded-lg p-4">
@@ -1274,6 +1414,137 @@ export default function IBCTransferInterface({
           >
             Connect Wallet
           </button>
+        </div>
+      )}
+      
+      {/* Success/Error Popup Modal */}
+      {txResult && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[60] px-4">
+          <div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] border border-gray-800 rounded-2xl p-8 max-w-md w-full shadow-2xl animate-scale-in">
+            <div className="flex flex-col items-center text-center space-y-6">
+              {txResult.success ? (
+                <>
+                  {/* Success Icon */}
+                  <div className="relative">
+                    <div className="absolute inset-0 bg-green-500/20 rounded-full blur-2xl animate-pulse"></div>
+                    <div className="relative w-20 h-20 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-lg shadow-green-500/50">
+                      <svg className="w-10 h-10 text-white animate-bounce-slow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                  </div>
+                  
+                  {/* Success Message */}
+                  <div className="space-y-2">
+                    <h3 className="text-2xl font-bold text-white">Transaction Successful!</h3>
+                    <p className="text-gray-400">{txResult.message}</p>
+                  </div>
+                  
+                  {/* Transaction Hashes */}
+                  <div className="w-full space-y-3">
+                    {/* Transfer TX */}
+                    <div className="bg-[#0a0a0a] border border-gray-800 rounded-xl p-4 space-y-2">
+                      <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">Transfer Transaction</p>
+                      <div className="flex items-center gap-2">
+                        <code className="text-xs text-green-400 font-mono break-all flex-1">
+                          {txResult.transferTxHash}
+                        </code>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(txResult.transferTxHash);
+                          }}
+                          className="p-2 hover:bg-gray-800 rounded-lg transition-colors flex-shrink-0"
+                          title="Copy to clipboard"
+                        >
+                          <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                    
+                    {/* Swap TX (if exists) */}
+                    {txResult.swapTxHash && (
+                      <div className="bg-[#0a0a0a] border border-gray-800 rounded-xl p-4 space-y-2">
+                        <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">Swap Transaction</p>
+                        <div className="flex items-center gap-2">
+                          <code className="text-xs text-purple-400 font-mono break-all flex-1">
+                            {txResult.swapTxHash}
+                          </code>
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(txResult.swapTxHash || '');
+                            }}
+                            className="p-2 hover:bg-gray-800 rounded-lg transition-colors flex-shrink-0"
+                            title="Copy to clipboard"
+                          >
+                            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Action Button */}
+                  <button
+                    onClick={() => setTxResult(null)}
+                    className="w-full px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-700 hover:from-green-700 hover:to-emerald-800 text-white font-medium rounded-lg transition-all hover:scale-105 active:scale-95 shadow-lg shadow-green-500/30"
+                  >
+                    Close
+                  </button>
+                </>
+              ) : (
+                <>
+                  {/* Error Icon */}
+                  <div className="relative">
+                    <div className="absolute inset-0 bg-red-500/20 rounded-full blur-2xl animate-pulse"></div>
+                    <div className="relative w-20 h-20 rounded-full bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center shadow-lg shadow-red-500/50">
+                      <AlertCircle className="w-10 h-10 text-white" />
+                    </div>
+                  </div>
+                  
+                  {/* Error Message */}
+                  <div className="space-y-2">
+                    <h3 className="text-2xl font-bold text-white">Transaction Failed</h3>
+                    <p className="text-gray-400">{txResult.message}</p>
+                  </div>
+                  
+                  {/* Transfer TX (if exists) */}
+                  {txResult.transferTxHash && (
+                    <div className="w-full bg-[#0a0a0a] border border-gray-800 rounded-xl p-4 space-y-2">
+                      <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">Transfer Transaction</p>
+                      <div className="flex items-center gap-2">
+                        <code className="text-xs text-green-400 font-mono break-all flex-1">
+                          {txResult.transferTxHash}
+                        </code>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(txResult.transferTxHash);
+                          }}
+                          className="p-2 hover:bg-gray-800 rounded-lg transition-colors flex-shrink-0"
+                          title="Copy to clipboard"
+                        >
+                          <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Action Button */}
+                  <button
+                    onClick={() => setTxResult(null)}
+                    className="w-full px-4 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-medium rounded-lg transition-all hover:scale-105 active:scale-95 shadow-lg shadow-red-500/30"
+                  >
+                    Close
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>

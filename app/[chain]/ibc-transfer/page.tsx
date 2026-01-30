@@ -165,47 +165,6 @@ export default function IBCTransferPage() {
             </div>
           </div>
 
-          {/* Features Section */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-4">
-              <Zap className="w-6 h-6 text-yellow-500 mb-2" />
-              <h3 className="text-white font-semibold mb-1">Fast Transfers</h3>
-              <p className="text-gray-400 text-sm">
-                Complete transfers in minutes with IBC protocol
-              </p>
-            </div>
-
-            <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-4">
-              <Shield className="w-6 h-6 text-green-500 mb-2" />
-              <h3 className="text-white font-semibold mb-1">Secure</h3>
-              <p className="text-gray-400 text-sm">
-                Trustless cross-chain transfers with cryptographic proofs
-              </p>
-            </div>
-
-            <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-4">
-              <Clock className="w-6 h-6 text-blue-500 mb-2" />
-              <h3 className="text-white font-semibold mb-1">Real-time Tracking</h3>
-              <p className="text-gray-400 text-sm">
-                Monitor your transfer status in real-time
-              </p>
-            </div>
-          </div>
-
-          {/* Info Banner */}
-          <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 mb-6">
-            <div className="flex items-start gap-3">
-              <Info className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
-              <div>
-                <h4 className="text-white font-semibold mb-1">About IBC Transfers</h4>
-                <p className="text-gray-400 text-sm">
-                  IBC (Inter-Blockchain Communication) enables secure token transfers between different blockchains. 
-                  Transfers typically complete within 1-3 minutes. Make sure you have enough tokens for transaction fees on both chains.
-                </p>
-              </div>
-            </div>
-          </div>
-
           {/* Transfer Interface */}
           <IBCTransferInterface sourceChain={selectedChain} />
         </main>

@@ -130,6 +130,7 @@ export default function Sidebar({ selectedChain }: SidebarProps) {
         subItems: [
           { name: 'Network', translationKey: 'menu.network', path: `${chainPath}/network`, icon: <Globe className="w-4 h-4" /> },
           { name: 'Relayers', translationKey: 'menu.relayers', path: `${chainPath}/relayers`, icon: <Network className="w-4 h-4" /> },
+          { name: 'IBC Transfer', translationKey: 'menu.ibcTransfer', path: `${chainPath}/ibc-transfer`, icon: <ArrowRightLeft className="w-4 h-4" /> },
           { name: 'Consensus', translationKey: 'menu.consensus', path: `${chainPath}/consensus`, icon: <Shield className="w-4 h-4" /> },
         ]
       },
