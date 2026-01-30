@@ -851,17 +851,17 @@ export default function IBCTransferInterface({
   const selectedChainInfo = connectedChains.find(c => c.chainId === selectedDestChain);
 
   return (
-    <div className="max-w-lg mx-auto bg-[#1a1a1a] border border-gray-800 rounded-xl shadow-lg p-6">
-      <div className="text-center mb-6">
-        <div className="flex justify-center mb-4">
-          <div className="p-3 bg-blue-500/20 border border-blue-500/30 rounded-xl">
-            <ArrowRightLeft className="w-8 h-8 text-blue-400" />
+    <div className="w-full max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto bg-[#1a1a1a] border border-gray-800 rounded-xl shadow-lg p-4 md:p-6">
+      <div className="text-center mb-4 md:mb-6">
+        <div className="flex justify-center mb-3 md:mb-4">
+          <div className="p-2 md:p-3 bg-blue-500/20 border border-blue-500/30 rounded-xl">
+            <ArrowRightLeft className="w-6 h-6 md:w-8 md:h-8 text-blue-400" />
           </div>
         </div>
-        <h2 className="text-2xl font-bold text-white mb-2">
+        <h2 className="text-xl md:text-2xl font-bold text-white mb-1 md:mb-2">
           IBC Transfer
         </h2>
-        <p className="text-gray-400 text-sm">
+        <p className="text-gray-400 text-xs md:text-sm">
           Transfer tokens between Cosmos chains
         </p>
       </div>
@@ -869,19 +869,19 @@ export default function IBCTransferInterface({
       {walletConnected ? (
         <>
           {/* Wallet Info */}
-          <div className="bg-[#111111] border border-gray-800 rounded-lg p-4 mb-4">
+          <div className="bg-[#111111] border border-gray-800 rounded-lg p-3 md:p-4 mb-3 md:mb-4">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 text-green-500" />
-                <span className="text-gray-400 text-sm">Connected</span>
+                <CheckCircle className="w-3 h-3 md:w-4 md:h-4 text-green-500" />
+                <span className="text-gray-400 text-xs md:text-sm">Connected</span>
               </div>
-              <span className="text-white text-sm font-mono">
+              <span className="text-white text-xs md:text-sm font-mono">
                 {walletAddress.slice(0, 8)}...{walletAddress.slice(-6)}
               </span>
             </div>
             <div className="flex items-center justify-between pt-2 border-t border-gray-800">
-              <span className="text-gray-500 text-sm">Balance</span>
-              <span className="text-white font-medium">
+              <span className="text-gray-500 text-xs md:text-sm">Balance</span>
+              <span className="text-white text-sm md:text-base font-medium">
                 {balance} {isReversed && isSourceOsmosis 
                   ? selectedSourceToken
                   : (sourceChain.assets[0]?.symbol || 'TOKEN')}
@@ -890,14 +890,14 @@ export default function IBCTransferInterface({
           </div>
 
           {/* From Chain */}
-          <div className="bg-[#111111] border border-gray-800 rounded-lg p-4 mb-2">
-            <label className="text-gray-400 text-sm mb-2 block">From</label>
+          <div className="bg-[#111111] border border-gray-800 rounded-lg p-3 md:p-4 mb-2">
+            <label className="text-gray-400 text-xs md:text-sm mb-2 block">From</label>
             {!isReversed ? (
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 md:gap-3">
                 <img 
                   src={sourceChain.logo} 
                   alt={sourceChain.chain_name}
-                  className="w-8 h-8 rounded-full"
+                  className="w-6 h-6 md:w-8 md:h-8 rounded-full"
                 />
                 <div className="text-white font-medium">{sourceChain.chain_name}</div>
               </div>
@@ -1343,7 +1343,7 @@ export default function IBCTransferInterface({
           <button
             onClick={handleTransfer}
             disabled={isProcessing || !selectedDestChain || !amount}
-            className="w-full bg-white hover:bg-gray-200 disabled:bg-gray-700 disabled:cursor-not-allowed text-black disabled:text-gray-400 font-bold py-4 px-4 rounded-lg transition-colors flex items-center justify-center gap-2 mb-4"
+            className="w-full bg-white hover:bg-gray-200 disabled:bg-gray-700 disabled:cursor-not-allowed text-black disabled:text-gray-400 font-bold py-3 md:py-4 px-4 rounded-lg transition-colors flex items-center justify-center gap-2 mb-3 md:mb-4 text-sm md:text-base"
           >
             {isProcessing ? (
               <>
@@ -1405,12 +1405,12 @@ export default function IBCTransferInterface({
           `}</style>
         </>
       ) : (
-        <div className="text-center py-8">
-          <Wallet className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-          <p className="text-gray-400 mb-4">Connect your Keplr wallet to continue</p>
+        <div className="text-center py-6 md:py-8">
+          <Wallet className="w-10 h-10 md:w-12 md:h-12 text-gray-600 mx-auto mb-3 md:mb-4" />
+          <p className="text-gray-400 mb-3 md:mb-4 text-sm md:text-base">Connect your Keplr wallet to continue</p>
           <button
             onClick={connectWallet}
-            className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-3 px-6 rounded-lg transition-colors"
+            className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 md:py-3 px-4 md:px-6 rounded-lg transition-colors text-sm md:text-base"
           >
             Connect Wallet
           </button>
@@ -1420,24 +1420,24 @@ export default function IBCTransferInterface({
       {/* Success/Error Popup Modal */}
       {txResult && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[60] px-4">
-          <div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] border border-gray-800 rounded-2xl p-8 max-w-md w-full shadow-2xl animate-scale-in">
-            <div className="flex flex-col items-center text-center space-y-6">
+          <div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] border border-gray-800 rounded-2xl p-6 md:p-8 max-w-md w-full shadow-2xl animate-scale-in">
+            <div className="flex flex-col items-center text-center space-y-4 md:space-y-6">
               {txResult.success ? (
                 <>
                   {/* Success Icon */}
                   <div className="relative">
                     <div className="absolute inset-0 bg-green-500/20 rounded-full blur-2xl animate-pulse"></div>
-                    <div className="relative w-20 h-20 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-lg shadow-green-500/50">
-                      <svg className="w-10 h-10 text-white animate-bounce-slow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="relative w-16 h-16 md:w-20 md:h-20 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-lg shadow-green-500/50">
+                      <svg className="w-8 h-8 md:w-10 md:h-10 text-white animate-bounce-slow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                       </svg>
                     </div>
                   </div>
                   
                   {/* Success Message */}
-                  <div className="space-y-2">
-                    <h3 className="text-2xl font-bold text-white">Transaction Successful!</h3>
-                    <p className="text-gray-400">{txResult.message}</p>
+                  <div className="space-y-1 md:space-y-2">
+                    <h3 className="text-xl md:text-2xl font-bold text-white">Transaction Successful!</h3>
+                    <p className="text-gray-400 text-sm md:text-base">{txResult.message}</p>
                   </div>
                   
                   {/* Transaction Hashes */}
@@ -1490,7 +1490,7 @@ export default function IBCTransferInterface({
                   {/* Action Button */}
                   <button
                     onClick={() => setTxResult(null)}
-                    className="w-full px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-700 hover:from-green-700 hover:to-emerald-800 text-white font-medium rounded-lg transition-all hover:scale-105 active:scale-95 shadow-lg shadow-green-500/30"
+                    className="w-full px-4 py-2 md:py-3 bg-gradient-to-r from-green-600 to-emerald-700 hover:from-green-700 hover:to-emerald-800 text-white font-medium rounded-lg transition-all hover:scale-105 active:scale-95 shadow-lg shadow-green-500/30 text-sm md:text-base"
                   >
                     Close
                   </button>
@@ -1537,7 +1537,7 @@ export default function IBCTransferInterface({
                   {/* Action Button */}
                   <button
                     onClick={() => setTxResult(null)}
-                    className="w-full px-4 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-medium rounded-lg transition-all hover:scale-105 active:scale-95 shadow-lg shadow-red-500/30"
+                    className="w-full px-4 py-2 md:py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-medium rounded-lg transition-all hover:scale-105 active:scale-95 shadow-lg shadow-red-500/30 text-sm md:text-base"
                   >
                     Close
                   </button>
