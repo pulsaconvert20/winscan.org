@@ -10,9 +10,48 @@ interface StakingCalculatorProps {
 export default function StakingCalculator({ selectedChain }: StakingCalculatorProps) {
   const [amount, setAmount] = useState<string>('1000');
   const [apr, setApr] = useState<string>('15');
+  const [loadingApr, setLoadingApr] = useState<boolean>(false);
   const [duration, setDuration] = useState<number>(365); // days
   const [compound, setCompound] = useState<boolean>(true);
   const [compoundFrequency, setCompoundFrequency] = useState<number>(1); // daily
+
+  // Fetch APR from API when chain changes
+  useEffect(() => {
+    if (!selectedChain) return;
+
+    const fetchApr = async () => {
+      setLoadingApr(true);
+      try {
+        const chainPath = selectedChain.chain_name.toLowerCase().replace(/\s+/g, '-');
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://ssl.winsnip.xyz';
+        const response = await fetch(`${API_URL}/api/mint?chain=${chainPath}`);
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.inflation) {
+            // Parse inflation value
+            let aprValue = parseFloat(data.inflation);
+            
+            // If inflation is already a percentage (> 1), use as is
+            // If inflation is a decimal (< 1), convert to percentage
+            if (!isNaN(aprValue)) {
+              if (aprValue < 1) {
+                aprValue = aprValue * 100;
+              }
+              setApr(aprValue.toFixed(2));
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching APR:', error);
+        // Keep default value if fetch fails
+      } finally {
+        setLoadingApr(false);
+      }
+    };
+
+    fetchApr();
+  }, [selectedChain]);
 
   // Calculate rewards
   const calculations = useMemo(() => {
@@ -113,6 +152,12 @@ export default function StakingCalculator({ selectedChain }: StakingCalculatorPr
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 Annual Percentage Rate (APR)
+                {loadingApr && (
+                  <span className="ml-2 text-xs text-blue-400">Loading...</span>
+                )}
+                {!loadingApr && selectedChain && (
+                  <span className="ml-2 text-xs text-green-400">Auto-detected</span>
+                )}
               </label>
               <div className="relative">
                 <input
@@ -124,11 +169,15 @@ export default function StakingCalculator({ selectedChain }: StakingCalculatorPr
                   min="0"
                   max="100"
                   step="0.1"
+                  disabled={loadingApr}
                 />
                 <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
                   %
                 </span>
               </div>
+              <p className="text-xs text-gray-500 mt-1">
+                APR is automatically fetched from network data. You can adjust it manually.
+              </p>
             </div>
 
             {/* Duration Input */}

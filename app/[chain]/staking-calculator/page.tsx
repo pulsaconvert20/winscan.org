@@ -1,102 +1,120 @@
-import { Metadata } from 'next';
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useParams } from 'next/navigation';
+import Sidebar from '@/components/Sidebar';
+import Header from '@/components/Header';
 import StakingCalculator from '@/components/StakingCalculator';
 import { ChainData } from '@/types/chain';
-import fs from 'fs';
-import path from 'path';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { getTranslation } from '@/lib/i18n';
 
-interface PageProps {
-  params: Promise<{ chain: string }>;
-}
+export default function StakingCalculatorPage() {
+  const params = useParams();
+  const { language } = useLanguage();
+  const t = (key: string) => getTranslation(language, key);
+  const [chains, setChains] = useState<ChainData[]>([]);
+  const [selectedChain, setSelectedChain] = useState<ChainData | null>(null);
 
-async function getChainData(chainSlug: string): Promise<ChainData | null> {
-  try {
-    const chainsDir = path.join(process.cwd(), 'Chains');
-    const files = fs.readdirSync(chainsDir);
+  useEffect(() => {
+    const CACHE_VERSION = 'v2';
+    const cachedVersion = sessionStorage.getItem('chainsVersion');
+    const cachedChains = sessionStorage.getItem('chains');
     
-    for (const file of files) {
-      if (file.endsWith('.json')) {
-        const filePath = path.join(chainsDir, file);
-        const fileContent = fs.readFileSync(filePath, 'utf-8');
-        const chain: ChainData = JSON.parse(fileContent);
-        
-        const normalizedChainName = chain.chain_name.toLowerCase().replace(/\s+/g, '-');
-        if (normalizedChainName === chainSlug) {
-          return chain;
-        }
-      }
+    if (cachedChains && cachedVersion === CACHE_VERSION) {
+      const data = JSON.parse(cachedChains);
+      setChains(data);
+      const chainName = (params?.chain as string)?.trim();
+      const chain = chainName 
+        ? data.find((c: ChainData) => 
+            c.chain_name.toLowerCase().replace(/\s+/g, '-') === chainName.toLowerCase() ||
+            c.chain_id?.toLowerCase().replace(/\s+/g, '-') === chainName.toLowerCase()
+          )
+        : data.find((c: ChainData) => c.chain_name === 'lumera-mainnet') || data[0];
+      if (chain) setSelectedChain(chain);
+      return;
     }
-    return null;
-  } catch (error) {
-    console.error('Error loading chain data:', error);
-    return null;
-  }
-}
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const { chain } = await params;
-  const chainData = await getChainData(chain);
-  
-  return {
-    title: `Staking Calculator - ${chainData?.chain_name || 'Chain'} | WinScan`,
-    description: `Calculate your staking rewards for ${chainData?.chain_name || 'blockchain'}. Estimate daily, weekly, monthly, and yearly returns with compound interest.`,
+    fetch('/api/chains')
+      .then(res => res.json())
+      .then(data => {
+        sessionStorage.setItem('chains', JSON.stringify(data));
+        sessionStorage.setItem('chainsVersion', CACHE_VERSION);
+        setChains(data);
+        const chainName = (params?.chain as string)?.trim();
+        const chain = chainName 
+          ? data.find((c: ChainData) => 
+              c.chain_name.toLowerCase().replace(/\s+/g, '-') === chainName.toLowerCase() ||
+              c.chain_id?.toLowerCase().replace(/\s+/g, '-') === chainName.toLowerCase()
+            )
+          : data.find((c: ChainData) => c.chain_name === 'lumera-mainnet') || data[0];
+        if (chain) setSelectedChain(chain);
+      });
+  }, [params]);
+
+  const handleSelectChain = (chain: ChainData) => {
+    setSelectedChain(chain);
   };
-}
 
-export default async function StakingCalculatorPage({ params }: PageProps) {
-  const { chain } = await params;
-  const chainData = await getChainData(chain);
-
-  if (!chainData) {
+  if (!selectedChain) {
     return (
-      <div className="min-h-screen bg-[#0a0a0a] pt-16 md:pt-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-6 text-center">
-            <p className="text-red-400">Chain not found</p>
-          </div>
+      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-400">Loading...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] pt-16 md:pt-16 lg:hidden">
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6 lg:py-8">
-        {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">
-            Staking Calculator
-          </h1>
-          <p className="text-gray-400 text-sm sm:text-base">
-            Calculate your potential staking rewards for {chainData.chain_name}
-          </p>
-        </div>
-
-        {/* Calculator Component */}
-        <StakingCalculator selectedChain={chainData} />
-
-        {/* Additional Info */}
-        <div className="mt-6 bg-[#1a1a1a] border border-gray-800 rounded-lg p-4 sm:p-6">
-          <h3 className="text-lg font-semibold text-white mb-3">How Staking Works</h3>
-          <div className="space-y-3 text-sm text-gray-400">
-            <p>
-              <strong className="text-gray-300">Staking</strong> is the process of locking your tokens 
-              to support network operations and earn rewards.
-            </p>
-            <p>
-              <strong className="text-gray-300">APR (Annual Percentage Rate)</strong> represents the 
-              yearly return on your staked tokens without compounding.
-            </p>
-            <p>
-              <strong className="text-gray-300">Compound Interest</strong> means reinvesting your rewards 
-              to earn additional returns over time.
-            </p>
-            <p>
-              <strong className="text-gray-300">Validator Commission</strong> is typically deducted from 
-              your rewards. Check individual validator rates before staking.
+    <div className="min-h-screen bg-[#0a0a0a]">
+      <Sidebar selectedChain={selectedChain} />
+      <Header 
+        chains={chains} 
+        selectedChain={selectedChain} 
+        onSelectChain={handleSelectChain}
+      />
+      
+      <main className="pt-16 md:pt-16 lg:pt-24">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6 lg:py-8">
+          {/* Header */}
+          <div className="mb-6">
+            <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">
+              {t('menu.stakingCalculator')}
+            </h1>
+            <p className="text-gray-400 text-sm sm:text-base">
+              Calculate your potential staking rewards for {selectedChain.chain_name}
             </p>
           </div>
+
+          {/* Calculator Component */}
+          <StakingCalculator selectedChain={selectedChain} />
+
+          {/* Additional Info */}
+          <div className="mt-6 bg-[#1a1a1a] border border-gray-800 rounded-lg p-4 sm:p-6">
+            <h3 className="text-lg font-semibold text-white mb-3">How Staking Works</h3>
+            <div className="space-y-3 text-sm text-gray-400">
+              <p>
+                <strong className="text-gray-300">Staking</strong> is the process of locking your tokens 
+                to support network operations and earn rewards.
+              </p>
+              <p>
+                <strong className="text-gray-300">APR (Annual Percentage Rate)</strong> represents the 
+                yearly return on your staked tokens without compounding.
+              </p>
+              <p>
+                <strong className="text-gray-300">Compound Interest</strong> means reinvesting your rewards 
+                to earn additional returns over time.
+              </p>
+              <p>
+                <strong className="text-gray-300">Validator Commission</strong> is typically deducted from 
+                your rewards. Check individual validator rates before staking.
+              </p>
+            </div>
+          </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 }
