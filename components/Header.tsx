@@ -188,17 +188,17 @@ function Header({ chains, selectedChain, onSelectChain }: HeaderProps) {
       
       {/* Mobile Search Bar - Below Header */}
       <div className="fixed top-16 right-0 left-0 md:left-64 lg:hidden bg-[#0f0f0f] border-b border-gray-800 z-10">
-        <div className="px-3 py-3">
+        <div className="px-3 py-2">
           {/* Search Bar */}
           <form onSubmit={handleSearch}>
-            <div className="relative flex items-center">
+            <div className="relative flex items-center max-w-2xl mx-auto">
               <Search className="absolute left-3 w-4 h-4 text-gray-400 pointer-events-none" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={handleInputChange}
                 placeholder="Search hash, address, block..."
-                className="w-full bg-[#1a1a1a] border border-gray-700 rounded-lg pl-9 pr-3 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-all duration-200"
+                className="w-full bg-[#1a1a1a] border border-gray-700 rounded-lg pl-9 pr-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-all duration-200"
                 autoComplete="off"
               />
             </div>
