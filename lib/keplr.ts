@@ -2670,35 +2670,52 @@ export async function executeSwap(
     
     console.log('✅ Custom registry created with MsgSwap');
     
-    let rpcEndpoint = '';
+    // Get all available RPC endpoints with retry logic
     const rpcList = chain.rpc || [];
+    if (rpcList.length === 0) {
+      throw new Error('No RPC endpoint available for this chain');
+    }
     
-    for (const rpc of rpcList) {
-      if (rpc.tx_index === 'on') {
-        rpcEndpoint = rpc.address;
-        break;
+    // Try to connect to RPC with automatic failover
+    let client: any = null;
+    let lastError: any = null;
+    
+    for (let i = 0; i < rpcList.length; i++) {
+      const rpcEndpoint = rpcList[i].address;
+      
+      try {
+        console.log(`🔗 Attempting to connect to RPC: ${rpcEndpoint}`);
+        
+        const clientOptions: any = {
+          registry,
+          broadcastTimeoutMs: 30000,
+          broadcastPollIntervalMs: 3000,
+        };
+
+        client = await SigningStargateClient.connectWithSigner(
+          rpcEndpoint, 
+          offlineSigner,
+          clientOptions
+        );
+        
+        console.log(`✅ Connected to RPC: ${rpcEndpoint}`);
+        break; // Success, exit loop
+        
+      } catch (error: any) {
+        console.warn(`⚠️ Failed to connect to ${rpcEndpoint}:`, error.message);
+        lastError = error;
+        
+        // Try next RPC endpoint
+        if (i < rpcList.length - 1) {
+          console.log('🔄 Trying next RPC endpoint...');
+          continue;
+        }
       }
     }
     
-    if (!rpcEndpoint && rpcList.length > 0) {
-      rpcEndpoint = rpcList[0].address;
+    if (!client) {
+      throw new Error(`Failed to connect to any RPC endpoint. Last error: ${lastError?.message || 'Unknown error'}`);
     }
-    
-    if (!rpcEndpoint) {
-      throw new Error('No RPC endpoint available for this chain');
-    }
-
-    const clientOptions: any = {
-      registry,
-      broadcastTimeoutMs: 30000,
-      broadcastPollIntervalMs: 3000,
-    };
-
-    const client = await SigningStargateClient.connectWithSigner(
-      rpcEndpoint, 
-      offlineSigner,
-      clientOptions
-    );
     
     console.log('✅ SigningStargateClient connected with custom registry');
     
@@ -2718,12 +2735,25 @@ export async function executeSwap(
         const { SigningCosmWasmClient } = await import('@cosmjs/cosmwasm-stargate');
         const { GasPrice } = await import('@cosmjs/stargate');
         
-        console.log('🔗 Creating CosmWasm client...');
-        const wasmClient = await SigningCosmWasmClient.connectWithSigner(
-          rpcEndpoint,
-          offlineSigner,
-          { gasPrice: GasPrice.fromString('0.025upaxi') }
-        );
+        // Try to connect CosmWasm client with retry logic
+        let wasmClient: any = null;
+        for (let i = 0; i < rpcList.length; i++) {
+          const rpcEndpoint = rpcList[i].address;
+          try {
+            console.log(`🔗 Creating CosmWasm client with ${rpcEndpoint}...`);
+            wasmClient = await SigningCosmWasmClient.connectWithSigner(
+              rpcEndpoint,
+              offlineSigner,
+              { gasPrice: GasPrice.fromString('0.025upaxi') }
+            );
+            console.log(`✅ CosmWasm client connected to ${rpcEndpoint}`);
+            break;
+          } catch (error: any) {
+            console.warn(`⚠️ Failed to connect CosmWasm client to ${rpcEndpoint}:`, error.message);
+            if (i < rpcList.length - 1) continue;
+            throw new Error('Failed to connect CosmWasm client to any RPC endpoint');
+          }
+        }
         
         // CRITICAL: Swap module account address (from successful transaction analysis)
         // This is the module account that executes transfer_from during swap
@@ -2731,19 +2761,35 @@ export async function executeSwap(
         
         console.log('📋 Swap module account:', SWAP_MODULE_ACCOUNT);
         
-        // Query actual balance from contract
+        // Query actual balance from contract with retry on multiple LCD endpoints
         console.log('💰 Querying token balance...');
         const balanceQuery = { balance: { address: signerAddress } };
         const balanceQueryB64 = Buffer.from(JSON.stringify(balanceQuery)).toString('base64');
         
         const lcdEndpoints = chain.api || [];
-        const lcdUrl = lcdEndpoints.length > 0 ? lcdEndpoints[0].address : 'https://mainnet-lcd.paxinet.io';
+        let balanceResp: any = null;
         
-        const balanceResp = await fetch(
-          `${lcdUrl}/cosmwasm/wasm/v1/contract/${params.offerDenom}/smart/${balanceQueryB64}`
-        );
+        for (let i = 0; i < lcdEndpoints.length; i++) {
+          const lcdUrl = lcdEndpoints[i].address;
+          try {
+            console.log(`🔗 Querying balance from ${lcdUrl}...`);
+            balanceResp = await fetch(
+              `${lcdUrl}/cosmwasm/wasm/v1/contract/${params.offerDenom}/smart/${balanceQueryB64}`,
+              { signal: AbortSignal.timeout(5000) } // 5 second timeout
+            );
+            if (balanceResp.ok) {
+              console.log(`✅ Balance query successful from ${lcdUrl}`);
+              break;
+            }
+          } catch (error: any) {
+            console.warn(`⚠️ Failed to query balance from ${lcdUrl}:`, error.message);
+            if (i < lcdEndpoints.length - 1) continue;
+          }
+        }
         
-        if (balanceResp.ok) {
+        if (!balanceResp || !balanceResp.ok) {
+          console.warn('⚠️ Could not verify balance, proceeding with swap...');
+        } else {
           const balanceData = await balanceResp.json();
           const actualBalance = balanceData.data?.balance || '0';
           
