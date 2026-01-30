@@ -733,63 +733,8 @@ export default function IBCBridgeModal({
           setTxStatus('success');
           setTxMessage(`Transfer and swap successful! Transfer: ${transferTxHash}, Swap: ${swapTxHash}`);
           
-          // Show success popup with both transaction hashes
-          if (typeof window !== 'undefined') {
-            const overlay = document.createElement('div');
-            overlay.style.cssText = 'position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 9999; display: flex; align-items: center; justify-content: center;';
-            
-            const popup = document.createElement('div');
-            popup.style.cssText = 'background: #1a1a1a; border: 2px solid #22c55e; border-radius: 16px; padding: 32px; max-width: 450px; text-align: center; box-shadow: 0 20px 60px rgba(34, 197, 94, 0.3);';
-            popup.innerHTML = `
-              <style>
-                @keyframes pulse-glow {
-                  0%, 100% { opacity: 1; transform: scale(1); }
-                  50% { opacity: 0.5; transform: scale(1.1); }
-                }
-                @keyframes bounce-check {
-                  0%, 100% { transform: translateY(0); }
-                  50% { transform: translateY(-10px); }
-                }
-                .glow-bg { animation: pulse-glow 2s ease-in-out infinite; }
-                .bounce-icon { animation: bounce-check 1s ease-in-out 2; }
-              </style>
-              <div style="position: relative; width: 80px; height: 80px; margin: 0 auto 20px;">
-                <div class="glow-bg" style="position: absolute; inset: 0; background: rgba(34, 197, 94, 0.2); border-radius: 50%; filter: blur(24px);"></div>
-                <div style="position: relative; width: 80px; height: 80px; background: linear-gradient(135deg, #22c55e 0%, #10b981 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 32px rgba(34, 197, 94, 0.5);">
-                  <svg class="bounce-icon" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="20 6 9 17 4 12"></polyline>
-                  </svg>
-                </div>
-              </div>
-              <h3 style="color: white; font-size: 24px; font-weight: bold; margin-bottom: 12px;">Transfer & Swap Complete!</h3>
-              <p style="color: #9ca3af; font-size: 14px; margin-bottom: 20px;">Your tokens have been transferred and swapped successfully</p>
-              
-              <div style="background: #111; border: 1px solid #374151; border-radius: 8px; padding: 12px; margin-bottom: 12px;">
-                <p style="color: #6b7280; font-size: 12px; margin-bottom: 4px;">Transfer Tx</p>
-                <p style="color: #22c55e; font-size: 11px; font-family: monospace; word-break: break-all;">${transferTxHash}</p>
-              </div>
-              
-              <div style="background: #111; border: 1px solid #374151; border-radius: 8px; padding: 12px; margin-bottom: 12px;">
-                <p style="color: #6b7280; font-size: 12px; margin-bottom: 4px;">Swap Tx</p>
-                <p style="color: #22c55e; font-size: 11px; font-family: monospace; word-break: break-all;">${swapTxHash}</p>
-              </div>
-              
-              <p style="color: #6b7280; font-size: 11px; margin-bottom: 20px;">Powered by WinScan</p>
-              
-              <button onclick="this.closest('[style*=\\'position: fixed\\']').remove()" style="background: white; color: black; border: none; padding: 12px 32px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px; width: 100%;">
-                OK
-              </button>
-            `;
-            
-            overlay.appendChild(popup);
-            document.body.appendChild(overlay);
-            
-            setTimeout(() => {
-              if (document.body.contains(overlay)) {
-                overlay.remove();
-              }
-            }, 15000);
-          }
+          // Simple success log (no fancy popup)
+          console.log('✅ IBC Transfer & Swap successful:', { transferTxHash, swapTxHash });
         } catch (swapError: any) {
           console.error('Swap error:', swapError);
           // Transfer succeeded but swap failed - show partial success
@@ -802,56 +747,8 @@ export default function IBCBridgeModal({
         setTxStatus('success');
         setTxMessage(`Transfer successful! Tx: ${transferTxHash}`);
         
-        // Show success popup
-        if (typeof window !== 'undefined') {
-          const overlay = document.createElement('div');
-          overlay.style.cssText = 'position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 9999; display: flex; align-items: center; justify-content: center;';
-          
-          const popup = document.createElement('div');
-          popup.style.cssText = 'background: #1a1a1a; border: 2px solid #22c55e; border-radius: 16px; padding: 32px; max-width: 400px; text-align: center; box-shadow: 0 20px 60px rgba(34, 197, 94, 0.3);';
-          popup.innerHTML = `
-            <style>
-              @keyframes pulse-glow {
-                0%, 100% { opacity: 1; transform: scale(1); }
-                50% { opacity: 0.5; transform: scale(1.1); }
-              }
-              @keyframes bounce-check {
-                0%, 100% { transform: translateY(0); }
-                50% { transform: translateY(-10px); }
-              }
-              .glow-bg { animation: pulse-glow 2s ease-in-out infinite; }
-              .bounce-icon { animation: bounce-check 1s ease-in-out 2; }
-            </style>
-            <div style="position: relative; width: 80px; height: 80px; margin: 0 auto 20px;">
-              <div class="glow-bg" style="position: absolute; inset: 0; background: rgba(34, 197, 94, 0.2); border-radius: 50%; filter: blur(24px);"></div>
-              <div style="position: relative; width: 80px; height: 80px; background: linear-gradient(135deg, #22c55e 0%, #10b981 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 32px rgba(34, 197, 94, 0.5);">
-                <svg class="bounce-icon" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                  <polyline points="20 6 9 17 4 12"></polyline>
-                </svg>
-              </div>
-            </div>
-            <h3 style="color: white; font-size: 24px; font-weight: bold; margin-bottom: 12px;">Transfer Successful!</h3>
-            <p style="color: #9ca3af; font-size: 14px; margin-bottom: 20px;">Your IBC transaction has been successfully sent</p>
-            <div style="background: #111; border: 1px solid #374151; border-radius: 8px; padding: 12px; margin-bottom: 12px;">
-              <p style="color: #6b7280; font-size: 12px; margin-bottom: 4px;">Transaction Hash</p>
-              <p style="color: #22c55e; font-size: 13px; font-family: monospace; word-break: break-all;">${transferTxHash}</p>
-            </div>
-            <p style="color: #9ca3af; font-size: 12px; margin-bottom: 12px;">Transfer will complete in 1-3 minutes</p>
-            <p style="color: #6b7280; font-size: 11px; margin-bottom: 20px;">Powered by WinScan</p>
-            <button onclick="this.closest('[style*=\\'position: fixed\\']').remove()" style="background: white; color: black; border: none; padding: 12px 32px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px; width: 100%;">
-              OK
-            </button>
-          `;
-          
-          overlay.appendChild(popup);
-          document.body.appendChild(overlay);
-          
-          setTimeout(() => {
-            if (document.body.contains(overlay)) {
-              overlay.remove();
-            }
-          }, 10000);
-        }
+        // Simple success log (no fancy popup)
+        console.log('✅ IBC Transfer successful:', transferTxHash);
       }
       
       setAmount('');

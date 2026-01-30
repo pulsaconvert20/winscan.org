@@ -493,53 +493,11 @@ export default function IBCTransferInterface({
         
         setTxStatus('success');
         setTxMessage(
-          `Transfer successful! ` +
+          `Swap & Transfer complete! ` +
           `Swap TX: ${result.swapTx?.slice(0, 8)}... | ` +
           `Transfer TX: ${result.transferTx.slice(0, 8)}...`
         );
         setAmount('');
-        
-        // Show success popup
-        if (typeof window !== 'undefined') {
-          const overlay = document.createElement('div');
-          overlay.style.cssText = 'position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 9999; display: flex; align-items: center; justify-content: center;';
-          
-          const popup = document.createElement('div');
-          popup.style.cssText = 'background: #1a1a1a; border: 2px solid #22c55e; border-radius: 16px; padding: 32px; max-width: 400px; text-align: center; box-shadow: 0 20px 60px rgba(34, 197, 94, 0.3);';
-          
-          popup.innerHTML = `
-            <div style="width: 64px; height: 64px; background: #22c55e; border-radius: 50%; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center;">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="20 6 9 17 4 12"></polyline>
-              </svg>
-            </div>
-            <h3 style="color: white; font-size: 24px; font-weight: bold; margin-bottom: 12px;">Swap & Transfer Complete!</h3>
-            <p style="color: #9ca3af; font-size: 14px; margin-bottom: 20px;">Your tokens have been swapped and transferred successfully</p>
-            <div style="background: #111; border: 1px solid #374151; border-radius: 8px; padding: 12px; margin-bottom: 12px;">
-              <p style="color: #6b7280; font-size: 12px; margin-bottom: 4px;">Swap TX</p>
-              <p style="color: #22c55e; font-size: 13px; font-family: monospace; word-break: break-all;">${result.swapTx}</p>
-            </div>
-            <div style="background: #111; border: 1px solid #374151; border-radius: 8px; padding: 12px; margin-bottom: 12px;">
-              <p style="color: #6b7280; font-size: 12px; margin-bottom: 4px;">Transfer TX</p>
-              <p style="color: #22c55e; font-size: 13px; font-family: monospace; word-break: break-all;">${result.transferTx}</p>
-            </div>
-            <p style="color: #9ca3af; font-size: 12px; margin-bottom: 12px;">Tokens will arrive on Lumera in 1-3 minutes</p>
-            <p style="color: #6b7280; font-size: 11px; margin-bottom: 20px;">Powered by WinScan</p>
-            <button onclick="this.closest('[style*=\\'position: fixed\\']').remove()" style="background: white; color: black; border: none; padding: 12px 32px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px; width: 100%;">
-              OK
-            </button>
-          `;
-          
-          overlay.appendChild(popup);
-          document.body.appendChild(overlay);
-          
-          setTimeout(() => {
-            if (document.body.contains(overlay)) {
-              overlay.remove();
-            }
-          }, 15000);
-        }
-        
         setIsProcessing(false);
         return;
       }
@@ -692,7 +650,10 @@ export default function IBCTransferInterface({
       }
 
       setTxStatus('success');
-      setTxMessage(`Transfer successful! Tx: ${result.transactionHash}`);
+      const autoSwapNote = enableAutoSwap && isDestinationOsmosis && !isReversed 
+        ? ` Auto-swap to ${swapToToken} will execute after IBC completes (~3 min).` 
+        : '';
+      setTxMessage(`Transfer successful! Tx: ${result.transactionHash}.${autoSwapNote}`);
       setAmount('');
       
       // Execute auto-swap if enabled and destination is Osmosis
@@ -710,54 +671,8 @@ export default function IBCTransferInterface({
           
           setTxMessage(`Auto-swap successful! Your ${swapToToken} tokens are now in your wallet.`);
         } catch (swapError: any) {
-          console.error('Auto-swap error:', swapError);
           setTxMessage(`Transfer successful (Tx: ${result.transactionHash}), but auto-swap failed: ${swapError.message}. Your IBC tokens are safe in your wallet.`);
         }
-      }
-      
-      // Show success popup
-      if (typeof window !== 'undefined') {
-        const overlay = document.createElement('div');
-        overlay.style.cssText = 'position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 9999; display: flex; align-items: center; justify-content: center;';
-        
-        const popup = document.createElement('div');
-        popup.style.cssText = 'background: #1a1a1a; border: 2px solid #22c55e; border-radius: 16px; padding: 32px; max-width: 400px; text-align: center; box-shadow: 0 20px 60px rgba(34, 197, 94, 0.3);';
-        
-        const autoSwapSection = enableAutoSwap && isDestinationOsmosis && !isReversed ? `
-          <div style="background: #7c3aed20; border: 1px solid #7c3aed40; border-radius: 8px; padding: 12px; margin-bottom: 12px;">
-            <p style="color: #a78bfa; font-size: 12px; margin-bottom: 4px;">🔄 Auto-Swap Enabled</p>
-            <p style="color: #c4b5fd; font-size: 11px;">Will swap to ${swapToToken} after IBC completes (~3 min)</p>
-          </div>
-        ` : '';
-        
-        popup.innerHTML = `
-          <div style="width: 64px; height: 64px; background: #22c55e; border-radius: 50%; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center;">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="20 6 9 17 4 12"></polyline>
-            </svg>
-          </div>
-          <h3 style="color: white; font-size: 24px; font-weight: bold; margin-bottom: 12px;">Transfer ${enableAutoSwap && isDestinationOsmosis && !isReversed ? '& Swap ' : ''}Initiated!</h3>
-          <p style="color: #9ca3af; font-size: 14px; margin-bottom: 20px;">Your IBC transaction has been successfully sent</p>
-          <div style="background: #111; border: 1px solid #374151; border-radius: 8px; padding: 12px; margin-bottom: 12px;">
-            <p style="color: #6b7280; font-size: 12px; margin-bottom: 4px;">Transaction Hash</p>
-            <p style="color: #22c55e; font-size: 13px; font-family: monospace; word-break: break-all;">${result.transactionHash}</p>
-          </div>
-          ${autoSwapSection}
-          <p style="color: #9ca3af; font-size: 12px; margin-bottom: 12px;">Transfer will complete in 1-3 minutes</p>
-          <p style="color: #6b7280; font-size: 11px; margin-bottom: 20px;">Powered by WinScan</p>
-          <button onclick="this.closest('[style*=\\'position: fixed\\']').remove()" style="background: white; color: black; border: none; padding: 12px 32px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px; width: 100%;">
-            OK
-          </button>
-        `;
-        
-        overlay.appendChild(popup);
-        document.body.appendChild(overlay);
-        
-        setTimeout(() => {
-          if (document.body.contains(overlay)) {
-            overlay.remove();
-          }
-        }, 10000);
       }
       
     } catch (error: any) {
@@ -1289,6 +1204,19 @@ export default function IBCTransferInterface({
               </>
             )}
           </button>
+
+          {/* Success Message */}
+          {txStatus === 'success' && (
+            <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4 mb-4">
+              <div className="flex items-start gap-3">
+                <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+                <div>
+                  <div className="text-green-400 font-medium mb-1">Success!</div>
+                  <div className="text-green-300 text-sm">{txMessage}</div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Error Message */}
           {txStatus === 'error' && (
