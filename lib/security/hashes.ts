@@ -1,16 +1,16 @@
 /**
  * File integrity hashes - DO NOT MODIFY
- * Generated: 2026-01-30T22:29:45.957Z
+ * Generated: 2026-01-30T22:34:16.366Z
  */
 
 export const FILE_HASHES = {
-  "app/layout.tsx": "322fe8841df12d64f75a1b96340d0cd4776fe7a725716694c5aa4ad1a56619c9",
-  "components/Header.tsx": "ef0dc9a9b17b663f19f6c6d458da40c5d5ba51f3abd3e7aaff8c8f2daff458dc",
-  "components/Sidebar.tsx": "139e03585d30c239cec70beee0395ea0f16cb36a5e4107ccb4000d604708a384",
-  "components/Footer.tsx": "2908cd4ec2f2982b62b8e2f8d1250d1a8de2d6f75ca5a2cdd588e44d29ba70b1",
-  "middleware.ts": "c03fb35d15a73f78ad42e2b910c0f11967d11a0dc19de46bfffa5caf3c59a83a",
-  "lib/api.ts": "5f841ece21390a6b70b21f7b69f25d5bbd33019a887cfb3ec79c7b54c4a0e031",
-  "lib/apiClient.ts": "cc0477931dfe08c2b4852c50d182bb5a633d60b9a81eb1881c5a80e8e62113c3"
+  "app/layout.tsx": "a3bf1e3129c9d86fb9b91663b0b109ce6d4ee1b807e6cf5b59338610842ac9b0",
+  "components/Header.tsx": "9aaf4acfbcc53f3e2a997c8dc9c3815f737be0a0a946bf18d514f7eb5569c0f1",
+  "components/Sidebar.tsx": "9dd63f9d551cff5d502ff9677116c2528048e0aadf84566199e76e707e20ed90",
+  "components/Footer.tsx": "d4b80f4100ce77da713642b4f67039d26458b57caa36d0e1169b9e6f27ae74e0",
+  "middleware.ts": "9cfdeaf803e127d1673e981c3d879c518e51482db04dfa89cf27c9980151ae2d",
+  "lib/api.ts": "cb507b9d4f6c0d8c97f85aa14ae44ae8b4f77dee04643286892a3dd4881f5dc4",
+  "lib/apiClient.ts": "dc67e90908cb68cb6e24ff36ad7dcf6eb297add296c06635655b54f0a8b82d52"
 } as const;
 
-export const GENERATED_AT = '2026-01-30T22:29:45.957Z';
+export const GENERATED_AT = '2026-01-30T22:34:16.366Z';

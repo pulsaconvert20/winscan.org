@@ -22,7 +22,12 @@ const CRITICAL_FILES = [
 export function generateFileHash(filePath: string): string {
   try {
     const fullPath = path.join(process.cwd(), filePath);
-    const fileContent = fs.readFileSync(fullPath, 'utf-8');
+    let fileContent = fs.readFileSync(fullPath, 'utf-8');
+    
+    // Normalize line endings to LF (Unix style) for consistent hashing
+    // This ensures same hash on Windows (CRLF) and Linux (LF)
+    fileContent = fileContent.replace(/\r\n/g, '\n');
+    
     return crypto.createHash('sha256').update(fileContent).digest('hex');
   } catch (error) {
     console.error(`Error generating hash for ${filePath}:`, error);
