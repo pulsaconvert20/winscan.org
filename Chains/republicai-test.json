@@ -1,6 +1,6 @@
 {
   "chain_name": "republicai-test",
-  "chain_id": "republic_77701-1",
+  "chain_id": "raitestnet_77701-1",
   "evm_chain_id": 77701,
   "pretty_name": "Republic AI",
   "network_type": "testnet",
