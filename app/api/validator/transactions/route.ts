@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { fetchJSONWithFailover } from '@/lib/sslLoadBalancer';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 export const revalidate = 0;
-
-const API_URL = process.env.API_URL || 'https://ssl.winsnip.xyz';
 
 export async function GET(request: NextRequest) {
   try {
@@ -17,29 +16,27 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Chain and address parameters required' }, { status: 400 });
     }
 
-    const backendUrl = `${API_URL}/api/validator/transactions?chain=${chain}&address=${address}&limit=${limit}`;
-    console.log('[Validator Transactions API] Fetching from backend:', backendUrl);
+    const path = `/api/validator/transactions?chain=${chain}&address=${address}&limit=${limit}`;
+    console.log('[Validator Transactions API] Fetching from backend with failover');
     
-    const response = await fetch(backendUrl, {
-      headers: { 'Accept': 'application/json' },
-      cache: 'no-store'
-    });
-
-    if (!response.ok) {
-      console.error('[Validator Transactions API] Backend error:', response.status);
+    try {
+      // Use failover: SSL1 -> SSL2
+      const data = await fetchJSONWithFailover(path, {
+        headers: { 'Accept': 'application/json' }
+      });
+      
+      return NextResponse.json(data, {
+        headers: {
+          'Cache-Control': 'no-store, must-revalidate'
+        }
+      });
+    } catch (error: any) {
+      console.error('[Validator Transactions API] All backends failed:', error.message);
       return NextResponse.json(
         { transactions: [], source: 'none' },
-        { status: response.status }
+        { status: 500 }
       );
     }
-
-    const data = await response.json();
-    
-    return NextResponse.json(data, {
-      headers: {
-        'Cache-Control': 'no-store, must-revalidate'
-      }
-    });
 
   } catch (error: any) {
     console.error('[Validator Transactions API] Error:', error.message);

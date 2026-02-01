@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { fetchJSONWithFailover } from '@/lib/sslLoadBalancer';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
-
-const API_URL = process.env.API_URL || 'https://ssl.winsnip.xyz';
 
 /**
  * Batch Asset Detail API
@@ -33,18 +32,13 @@ export async function POST(request: NextRequest) {
       
       const batchPromises = batch.map(async (denom) => {
         try {
-          const backendUrl = `${API_URL}/api/asset-detail?chain=${chain}&denom=${encodeURIComponent(denom)}`;
-          const response = await fetch(backendUrl, {
-            headers: { 'Accept': 'application/json' },
-            signal: AbortSignal.timeout(5000)
+          const path = `/api/asset-detail?chain=${chain}&denom=${encodeURIComponent(denom)}`;
+          
+          // Use failover: SSL1 -> SSL2
+          const data = await fetchJSONWithFailover(path, {
+            headers: { 'Accept': 'application/json' }
           });
-
-          if (!response.ok) {
-            console.error(`[Asset Detail Batch] Failed for ${denom}:`, response.status);
-            return { denom, error: 'Failed to fetch', status: response.status };
-          }
-
-          const data = await response.json();
+          
           return { denom, data };
         } catch (error: any) {
           console.error(`[Asset Detail Batch] Error for ${denom}:`, error.message);

@@ -1,9 +1,8 @@
 import { createRoute } from '@/lib/routes/factory';
+import { fetchJSONWithFailover } from '@/lib/sslLoadBalancer';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
-
-const API_URL = process.env.API_URL || 'https://ssl.winsnip.xyz';
 
 export const GET = createRoute({
   requiredParams: ['chain', 'height'],
@@ -12,18 +11,11 @@ export const GET = createRoute({
     staleWhileRevalidate: 120000 // 2 minutes
   },
   handler: async ({ chain, height }) => {
-    const backendUrl = `${API_URL}/api/blocks/${height}?chain=${chain}`;
-    console.log('[Block API] Fetching from backend:', backendUrl);
+    const path = `/api/blocks/${height}?chain=${chain}`;
     
-    const response = await fetch(backendUrl, {
-      headers: { 'Accept': 'application/json' },
-      next: { revalidate: 60 }
+    // Use failover: SSL1 -> SSL2
+    return await fetchJSONWithFailover(path, {
+      headers: { 'Accept': 'application/json' }
     });
-
-    if (!response.ok) {
-      throw new Error(`Block not found: HTTP ${response.status}`);
-    }
-
-    return await response.json();
   }
 });

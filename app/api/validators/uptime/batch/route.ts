@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { fetchJSONWithFailover } from '@/lib/sslLoadBalancer';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
-
-const API_URL = process.env.API_URL || 'https://ssl.winsnip.xyz';
 
 export async function POST(request: NextRequest) {
   try {
@@ -28,28 +27,16 @@ export async function POST(request: NextRequest) {
       
       const promises = batch.map(async (consensus: string) => {
         try {
-          const backendUrl = `${API_URL}/api/validators/uptime?chain=${chain}&consensus=${encodeURIComponent(consensus)}`;
+          const path = `/api/validators/uptime?chain=${chain}&consensus=${encodeURIComponent(consensus)}`;
           
-          // Create AbortController with 15 second timeout
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 15000);
-          
-          const response = await fetch(backendUrl, {
-            headers: { 'Accept': 'application/json' },
-            next: { revalidate: 60 }, // Cache 60 seconds
-            signal: controller.signal
+          // Use failover: SSL1 -> SSL2
+          const data = await fetchJSONWithFailover(path, {
+            headers: { 'Accept': 'application/json' }
           });
-
-          clearTimeout(timeoutId);
-
-          if (response.ok) {
-            const data = await response.json();
-            return { consensus, uptime: data.uptime || 100 };
-          }
-          return { consensus, uptime: 100 };
+          
+          return { consensus, uptime: data.uptime || 100 };
         } catch (error: any) {
           // Silent fail - just return default uptime
-          // Only log if it's not a timeout error
           if (error.name !== 'AbortError' && error.name !== 'TimeoutError') {
             console.error(`[Batch Uptime] Error for ${consensus}:`, error.message);
           }

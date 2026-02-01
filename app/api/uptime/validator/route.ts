@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { fetchJSONWithFailover } from '@/lib/sslLoadBalancer';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
-
-const API_URL = process.env.API_URL || 'https://ssl.winsnip.xyz';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -16,23 +15,13 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const backendUrl = `${API_URL}/api/uptime/validator?chain=${chain}&address=${address}&blocks=${blocks}`;
-    console.log('[Validator Uptime API] Fetching from backend:', backendUrl);
+    const path = `/api/uptime/validator?chain=${chain}&address=${address}&blocks=${blocks}`;
+    console.log('[Validator Uptime API] Fetching from backend with failover');
     
-    const response = await fetch(backendUrl, {
-      headers: { 'Accept': 'application/json' },
-      next: { revalidate: 10 }
+    // Use failover: SSL1 -> SSL2
+    const data = await fetchJSONWithFailover(path, {
+      headers: { 'Accept': 'application/json' }
     });
-
-    if (!response.ok) {
-      console.error('[Validator Uptime API] Backend error:', response.status);
-      return NextResponse.json(
-        { error: 'Failed to fetch validator uptime data' },
-        { status: response.status }
-      );
-    }
-
-    const data = await response.json();
     
     return NextResponse.json(data, {
       headers: {
@@ -41,9 +30,9 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('[Validator Uptime API] Error:', error);
+    console.error('[Validator Uptime API] All backends failed:', error);
     return NextResponse.json(
-      { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
+      { error: 'Failed to fetch validator uptime data', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }

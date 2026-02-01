@@ -9,10 +9,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { chain } = await params;
 
   try {
-    // fetch chain data using route param
+    // fetch chain data using route param with timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+    
     const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/api/chains`, {
       cache: "no-store",
+      signal: controller.signal,
     });
+    
+    clearTimeout(timeoutId);
     
     if (!res.ok) {
       throw new Error(`HTTP error! status: ${res.status}`);

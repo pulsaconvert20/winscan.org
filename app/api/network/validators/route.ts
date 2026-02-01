@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { fetchJSONWithFailover } from '@/lib/sslLoadBalancer';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
-
-const API_URL = process.env.API_URL || 'https://ssl.winsnip.xyz';
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,40 +13,25 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Chain parameter required' }, { status: 400 });
     }
 
-    // Priority: Use backend API with cache/indexer
-    const backendUrl = `${API_URL}/api/network/validators?chain=${chain}`;
-    console.log('[Validators API] Fetching from backend:', backendUrl);
-    
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000); // 15s timeout
+    const path = `/api/network/validators?chain=${chain}`;
+    console.log('[Validators API] Fetching from backend with failover');
     
     try {
-      const response = await fetch(backendUrl, {
-        headers: { 'Accept': 'application/json' },
-        signal: controller.signal,
-        next: { revalidate: 60 } // Cache 1 minute
+      // Use failover: SSL1 -> SSL2
+      const data = await fetchJSONWithFailover(path, {
+        headers: { 'Accept': 'application/json' }
       });
-
-      clearTimeout(timeout);
-
-      if (response.ok) {
-        const data = await response.json();
-        
-        // Return backend data (from cache or real-time)
-        console.log(`[Validators API] ✅ Backend returned ${data.total_locations || 0} locations for ${chain} (cached: ${data.cached || false})`);
-        
-        return NextResponse.json(data, {
-          headers: {
-            'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120'
-          }
-        });
-      } else {
-        console.error('[Validators API] Backend error:', response.status, chain);
-      }
+      
+      // Return backend data (from cache or real-time)
+      console.log(`[Validators API] ✅ Backend returned ${data.total_locations || 0} locations for ${chain} (cached: ${data.cached || false})`);
+      
+      return NextResponse.json(data, {
+        headers: {
+          'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120'
+        }
+      });
     } catch (fetchError: any) {
-      console.error('[Validators API] Backend fetch failed:', fetchError.message);
-    } finally {
-      clearTimeout(timeout);
+      console.error('[Validators API] All backends failed:', fetchError.message);
     }
 
     // Fallback: Return empty data (no location data available)

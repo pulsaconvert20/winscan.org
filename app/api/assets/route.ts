@@ -1,9 +1,8 @@
 import { createRoute } from '@/lib/routes/factory';
+import { fetchJSONWithFailover } from '@/lib/sslLoadBalancer';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
-
-const API_URL = process.env.API_URL || 'https://ssl.winsnip.xyz';
 
 export const GET = createRoute({
   requiredParams: ['chain'],
@@ -13,18 +12,11 @@ export const GET = createRoute({
     staleWhileRevalidate: 120000 // 2 minutes
   },
   handler: async ({ chain, limit = '100' }) => {
-    const backendUrl = `${API_URL}/api/assets?chain=${chain}&limit=${limit}`;
-    console.log('[Assets API] Fetching from backend:', backendUrl);
+    const path = `/api/assets?chain=${chain}&limit=${limit}`;
     
-    const response = await fetch(backendUrl, {
-      headers: { 'Accept': 'application/json' },
-      next: { revalidate: 60 }
+    // Use failover: SSL1 -> SSL2
+    return await fetchJSONWithFailover(path, {
+      headers: { 'Accept': 'application/json' }
     });
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch assets: HTTP ${response.status}`);
-    }
-
-    return await response.json();
   }
 });

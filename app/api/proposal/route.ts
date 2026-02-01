@@ -1,9 +1,8 @@
 import { createRoute } from '@/lib/routes/factory';
+import { fetchJSONWithFailover } from '@/lib/sslLoadBalancer';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
-
-const API_URL = process.env.API_URL || 'https://ssl.winsnip.xyz';
 
 export const GET = createRoute({
   requiredParams: ['chain', 'id'],
@@ -12,18 +11,11 @@ export const GET = createRoute({
     staleWhileRevalidate: 120000 // 2 minutes
   },
   handler: async ({ chain, id }) => {
-    const backendUrl = `${API_URL}/api/proposal?chain=${chain}&id=${id}`;
-    console.log('[Proposal API] Fetching from backend:', backendUrl);
+    const path = `/api/proposal?chain=${chain}&id=${id}`;
     
-    const response = await fetch(backendUrl, {
-      headers: { 'Accept': 'application/json' },
-      next: { revalidate: 60 }
+    // Use failover: SSL1 -> SSL2
+    return await fetchJSONWithFailover(path, {
+      headers: { 'Accept': 'application/json' }
     });
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch proposal: HTTP ${response.status}`);
-    }
-
-    return await response.json();
   }
 });

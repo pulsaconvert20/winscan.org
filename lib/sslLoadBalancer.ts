@@ -215,6 +215,67 @@ class SSLLoadBalancer {
   }
 }
 
+/**
+ * Simple SSL failover - try SSL1, if error try SSL2
+ */
+export async function fetchWithFailover(
+  path: string,
+  options?: RequestInit
+): Promise<Response> {
+  const endpoints = [
+    'https://ssl.winsnip.xyz',
+    'https://ssl2.winsnip.xyz'
+  ];
+
+  let lastError: Error | null = null;
+
+  for (let i = 0; i < endpoints.length; i++) {
+    const endpoint = endpoints[i];
+    const url = `${endpoint}${path}`;
+
+    try {
+      console.log(`[Failover] Trying ${endpoint}...`);
+      
+      const response = await fetch(url, {
+        ...options,
+        signal: AbortSignal.timeout(30000), // 30s timeout
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      console.log(`[Failover] ✓ Success with ${endpoint}`);
+      return response;
+
+    } catch (error: any) {
+      lastError = error;
+      console.error(`[Failover] ${endpoint} failed:`, error.message);
+      
+      // If this is the last endpoint, throw error
+      if (i === endpoints.length - 1) {
+        throw new Error(`All SSL endpoints failed. Last error: ${lastError?.message}`);
+      }
+      
+      // Small delay before trying next endpoint
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+  }
+
+  throw new Error(`All SSL endpoints failed. Last error: ${lastError?.message}`);
+}
+
+/**
+ * Fetch JSON with automatic SSL1 -> SSL2 failover
+ */
+export async function fetchJSONWithFailover<T = any>(
+  path: string,
+  options?: RequestInit
+): Promise<T> {
+  const response = await fetchWithFailover(path, options);
+  return response.json();
+}
+
 // Singleton instance
 const sslLoadBalancer = new SSLLoadBalancer();
 

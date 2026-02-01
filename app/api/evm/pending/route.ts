@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { fetchJSONWithFailover } from '@/lib/sslLoadBalancer';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 export const revalidate = 0;
-
-const API_URL = process.env.API_URL || 'https://ssl.winsnip.xyz';
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,24 +12,24 @@ export async function GET(request: NextRequest) {
     if (!chain) {
       return NextResponse.json({ error: 'Chain parameter required' }, { status: 400 });
     }
-    // Use backend API which supports EVM pending txs
-    const backendUrl = `${API_URL}/api/evm/pending?chain=${chain}`;
-    const response = await fetch(backendUrl, {
-      headers: { 'Accept': 'application/json' },
-      next: { revalidate: 5 }
-    });
-    if (!response.ok) {
+    
+    try {
+      // Use failover: SSL1 -> SSL2
+      const data = await fetchJSONWithFailover(`/api/evm/pending?chain=${chain}`, {
+        headers: { 'Accept': 'application/json' }
+      });
+      
+      return NextResponse.json(data, {
+        headers: {
+          'Cache-Control': 'public, s-maxage=5, stale-while-revalidate=30',
+        },
+      });
+    } catch (error) {
       return NextResponse.json(
         { pending: [], error: 'Failed to fetch EVM pending transactions' },
-        { status: response.status }
+        { status: 500 }
       );
     }
-    const data = await response.json();
-    return NextResponse.json(data, {
-      headers: {
-        'Cache-Control': 'public, s-maxage=5, stale-while-revalidate=30',
-      },
-    });
   } catch (error) {
     return NextResponse.json(
       { pending: [], error: 'Internal server error' },

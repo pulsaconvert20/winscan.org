@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { fetchJSONWithFailover } from '@/lib/sslLoadBalancer';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 export const revalidate = 0;
-
-const API_URL = process.env.API_URL || 'https://ssl.winsnip.xyz';
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,28 +15,25 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Chain and consensus parameters required' }, { status: 400 });
     }
 
-    // Try backend API first
-    const backendUrl = `${API_URL}/api/validators/uptime?chain=${chain}&consensus=${encodeURIComponent(consensus)}`;
-    console.log('[Validators Uptime API] Fetching from backend:', backendUrl);
+    const path = `/api/validators/uptime?chain=${chain}&consensus=${encodeURIComponent(consensus)}`;
+    console.log('[Validators Uptime API] Fetching from backend with failover');
     
-    const response = await fetch(backendUrl, {
-      headers: { 'Accept': 'application/json' },
-      next: { revalidate: 10 }
-    });
-
-    if (!response.ok) {
-      console.error('[Validators Uptime API] Backend error:', response.status);
+    try {
+      // Use failover: SSL1 -> SSL2
+      const data = await fetchJSONWithFailover(path, {
+        headers: { 'Accept': 'application/json' }
+      });
+      
+      return NextResponse.json(data, {
+        headers: {
+          'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=30',
+        },
+      });
+    } catch (error) {
+      console.error('[Validators Uptime API] All backends failed:', error);
       // Return default uptime if backend fails
       return NextResponse.json({ uptime: 100 });
     }
-
-    const data = await response.json();
-    
-    return NextResponse.json(data, {
-      headers: {
-        'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=30',
-      },
-    });
   } catch (error) {
     console.error('[Validators Uptime API] Error:', error);
     // Return default uptime on error

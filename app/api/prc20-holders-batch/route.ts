@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { fetchJSONWithFailover } from '@/lib/sslLoadBalancer';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
-
-const API_URL = process.env.API_URL || 'https://ssl.winsnip.xyz';
 
 /**
  * Batch PRC20 Holders API
@@ -33,18 +32,13 @@ export async function POST(request: NextRequest) {
       
       const batchPromises = batch.map(async (contract) => {
         try {
-          const backendUrl = `${API_URL}/api/prc20-holders?contract=${encodeURIComponent(contract)}`;
-          const response = await fetch(backendUrl, {
-            headers: { 'Accept': 'application/json' },
-            signal: AbortSignal.timeout(5000)
+          const path = `/api/prc20-holders?contract=${encodeURIComponent(contract)}`;
+          
+          // Use failover: SSL1 -> SSL2
+          const data = await fetchJSONWithFailover(path, {
+            headers: { 'Accept': 'application/json' }
           });
 
-          if (!response.ok) {
-            console.error(`[PRC20 Holders Batch] Failed for ${contract}:`, response.status);
-            return { contract, count: 0, error: 'Failed to fetch', success: false };
-          }
-
-          const data = await response.json();
           return { 
             contract, 
             count: data?.count || 0,

@@ -1,11 +1,10 @@
 import { createRoute } from '@/lib/routes/factory';
 import { apiClient } from '@/lib/api/client';
 import { NextRequest, NextResponse } from 'next/server';
+import { fetchJSONWithFailover } from '@/lib/sslLoadBalancer';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
-
-const API_URL = process.env.API_URL || 'https://ssl.winsnip.xyz';
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,29 +15,24 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Chain parameter required' }, { status: 400 });
     }
 
-    // Try backend first
-    const backendUrl = `${API_URL}/api/validators?chain=${chain}`;
-    console.log('[Validators API] Fetching from backend:', backendUrl);
+    // Try backend first with failover
+    const path = `/api/validators?chain=${chain}`;
+    console.log('[Validators API] Fetching with failover');
     
     try {
-      const response = await fetch(backendUrl, {
-        headers: { 'Accept': 'application/json' },
-        next: { revalidate: 30 }
+      // Use failover: SSL1 -> SSL2
+      const data = await fetchJSONWithFailover(path, {
+        headers: { 'Accept': 'application/json' }
       });
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log(`[Validators API] ✅ Backend returned ${data.validators?.length || 0} validators for ${chain}`);
-        return NextResponse.json(data, {
-          headers: {
-            'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60'
-          }
-        });
-      } else {
-        console.warn('[Validators API] Backend error:', response.status, chain);
-      }
+      
+      console.log(`[Validators API] ✅ Backend returned ${data.validators?.length || 0} validators for ${chain}`);
+      return NextResponse.json(data, {
+        headers: {
+          'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60'
+        }
+      });
     } catch (backendError: any) {
-      console.error('[Validators API] Backend fetch failed:', backendError.message);
+      console.error('[Validators API] All backends failed:', backendError.message);
     }
 
     // Fallback: Fetch from chain RPC

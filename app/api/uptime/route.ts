@@ -1,9 +1,8 @@
 import { createRoute } from '@/lib/routes/factory';
+import { fetchJSONWithFailover } from '@/lib/sslLoadBalancer';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
-
-const API_URL = process.env.API_URL || 'https://ssl.winsnip.xyz';
 
 export const GET = createRoute({
   requiredParams: ['chain'],
@@ -13,18 +12,11 @@ export const GET = createRoute({
     staleWhileRevalidate: 30000 // 30 seconds
   },
   handler: async ({ chain, blocks = '100' }) => {
-    const backendUrl = `${API_URL}/api/uptime?chain=${chain}&blocks=${blocks}`;
-    console.log('[Uptime API] Fetching from backend:', backendUrl);
+    const path = `/api/uptime?chain=${chain}&blocks=${blocks}`;
     
-    const response = await fetch(backendUrl, {
-      headers: { 'Accept': 'application/json' },
-      next: { revalidate: 10 }
+    // Use failover: SSL1 -> SSL2
+    return await fetchJSONWithFailover(path, {
+      headers: { 'Accept': 'application/json' }
     });
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch uptime data: HTTP ${response.status}`);
-    }
-
-    return await response.json();
   }
 });

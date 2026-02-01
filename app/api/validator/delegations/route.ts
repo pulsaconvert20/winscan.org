@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { fetchJSONWithFailover } from '@/lib/sslLoadBalancer';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 export const revalidate = 0;
-
-const API_URL = process.env.API_URL || 'https://ssl.winsnip.xyz';
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,30 +15,27 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Chain and address parameters required' }, { status: 400 });
     }
 
-    // Use backend API which supports both chain_name and chain_id with load balancer
-    const backendUrl = `${API_URL}/api/validator/delegations?chain=${chain}&address=${address}`;
-    console.log('[Delegations API] Fetching from backend:', backendUrl);
+    const path = `/api/validator/delegations?chain=${chain}&address=${address}`;
+    console.log('[Delegations API] Fetching from backend with failover');
     
-    const response = await fetch(backendUrl, {
-      headers: { 'Accept': 'application/json' },
-      cache: 'no-store'
-    });
-
-    if (!response.ok) {
-      console.error('[Delegations API] Backend error:', response.status);
+    try {
+      // Use failover: SSL1 -> SSL2
+      const data = await fetchJSONWithFailover(path, {
+        headers: { 'Accept': 'application/json' }
+      });
+      
+      return NextResponse.json(data, {
+        headers: {
+          'Cache-Control': 'no-store, must-revalidate'
+        }
+      });
+    } catch (error: any) {
+      console.error('[Delegations API] All backends failed:', error.message);
       return NextResponse.json(
         { delegations: [], unbonding: [], source: 'none' },
-        { status: response.status }
+        { status: 500 }
       );
     }
-
-    const data = await response.json();
-    
-    return NextResponse.json(data, {
-      headers: {
-        'Cache-Control': 'no-store, must-revalidate'
-      }
-    });
 
   } catch (error: any) {
     console.error('[Delegations API] Error:', error.message);
