@@ -189,16 +189,37 @@ export default function ValidatorDetailPage() {
       return;
     }
     
+    // 🚀 INSTANT LOAD: Show cached data immediately, no loading screen
     const validatorCacheKey = getCacheKey('validator', selectedChain.chain_name, params.address as string);
-    const cachedValidator = getStaleCache<ValidatorDetail>(validatorCacheKey);
+    const delegationsCacheKey = getCacheKey('validator-delegations', selectedChain.chain_name, params.address as string);
+    const txCacheKey = getCacheKey('validator-transactions', selectedChain.chain_name, params.address as string);
     
+    const cachedValidator = getStaleCache<ValidatorDetail>(validatorCacheKey);
+    const cachedDelegations = getStaleCache<any>(delegationsCacheKey);
+    const cachedTx = getStaleCache<any>(txCacheKey);
+    
+    // Show cached data INSTANTLY
     if (cachedValidator) {
       setValidator(cachedValidator);
       setLoading(false);
+      console.log('✅ [Validator] Loaded from cache instantly');
+    }
+    if (cachedDelegations) {
+      setDelegations(cachedDelegations.delegations || []);
+      setUnbondingDelegations(cachedDelegations.unbonding || []);
+      console.log('✅ [Delegations] Loaded from cache instantly');
+    }
+    if (cachedTx) {
+      setTransactions(Array.isArray(cachedTx) ? cachedTx : (cachedTx.transactions || []));
+      console.log('✅ [Transactions] Loaded from cache instantly');
     }
     
-    if (showLoading && !cachedValidator) setLoading(true);
-    else setIsRefreshing(true);
+    // Only show loading if no cache available
+    if (!cachedValidator && showLoading) {
+      setLoading(true);
+    } else {
+      setIsRefreshing(true);
+    }
     
     try {
       const controller = new AbortController();
@@ -224,6 +245,7 @@ export default function ValidatorDetailPage() {
       
       clearTimeout(timeoutId);
       
+      // Update validator data in background
       if (validatorRes.status === 'fulfilled' && validatorRes.value.ok) {
         const validatorData = await validatorRes.value.json();
         if (!validatorData.error) {
@@ -248,124 +270,116 @@ export default function ValidatorDetailPage() {
           }
           setValidator(validatorData);
           setCache(validatorCacheKey, validatorData);
+          console.log('🔄 [Validator] Updated from API');
           
-          // Fetch validator account balance
+          // Fetch validator account balance in background (non-blocking)
           if (validatorData.accountAddress && selectedChain.api?.[0]?.address) {
-            try {
-              const denom = selectedChain.assets?.[0]?.base || 'uatom';
-              const balanceUrl = `${selectedChain.api[0].address}/cosmos/bank/v1beta1/balances/${validatorData.accountAddress}`;
-              const balanceRes = await fetch(balanceUrl);
+            const denom = selectedChain.assets?.[0]?.base || 'uatom';
+            const balanceUrl = `${selectedChain.api[0].address}/cosmos/bank/v1beta1/balances/${validatorData.accountAddress}`;
+            fetch(balanceUrl).then(balanceRes => {
               if (balanceRes.ok) {
-                const balanceData = await balanceRes.json();
-                if (balanceData.balances && balanceData.balances.length > 0) {
-                  // Find the native token balance
-                  const nativeBalance = balanceData.balances.find((b: any) => b.denom === denom) || balanceData.balances[0];
-                  const exponent = Number(selectedChain.assets?.[0]?.exponent || 6);
-                  const formattedBalance = (parseFloat(nativeBalance.amount) / Math.pow(10, exponent)).toFixed(2);
-                  setValidatorBalance(`${formattedBalance} ${selectedChain.assets?.[0]?.symbol || 'ATOM'}`);
-                } else {
-                  setValidatorBalance('0');
-                }
-              } else {
-                setValidatorBalance('N/A');
+                return balanceRes.json();
               }
-            } catch (error) {
-              console.error('Error fetching validator balance:', error);
+              return null;
+            }).then(balanceData => {
+              if (balanceData && balanceData.balances && balanceData.balances.length > 0) {
+                const nativeBalance = balanceData.balances.find((b: any) => b.denom === denom) || balanceData.balances[0];
+                const exponent = Number(selectedChain.assets?.[0]?.exponent || 6);
+                const formattedBalance = (parseFloat(nativeBalance.amount) / Math.pow(10, exponent)).toFixed(2);
+                setValidatorBalance(`${formattedBalance} ${selectedChain.assets?.[0]?.symbol || 'ATOM'}`);
+              } else {
+                setValidatorBalance('0');
+              }
+            }).catch(() => {
               setValidatorBalance('N/A');
-            }
+            });
           } else {
             setValidatorBalance('N/A');
           }
 
-          // Fetch validator commission and rewards
+          // Fetch validator commission in background (non-blocking)
           const asset = selectedChain.assets?.[0];
           const validatorAddress = params.address as string;
 
-          // Fetch commission (validator's accumulated commission)
           if (selectedChain.api && selectedChain.api.length > 0) {
-            let commissionFetched = false;
-            for (const endpoint of selectedChain.api) {
-              try {
-                const commissionUrl = `${endpoint.address}/cosmos/distribution/v1beta1/validators/${validatorAddress}/commission`;
-                const commissionRes = await fetch(commissionUrl);
-                if (commissionRes.ok) {
-                  const commissionData = await commissionRes.json();
-                  
-                  // Handle both response structures
-                  let commissionList = [];
-                  if (commissionData.commission && commissionData.commission.commission) {
-                    commissionList = commissionData.commission.commission;
-                  } else if (commissionData.commission) {
-                    commissionList = commissionData.commission;
-                  }
-                  
-                  if (Array.isArray(commissionList) && commissionList.length > 0) {
-                    const mainCommission = commissionList.find((c: any) => c.denom === asset?.base);
-                    
-                    if (mainCommission && mainCommission.amount) {
-                      // Parse as string to handle decimal values accurately
-                      const commissionAmount = mainCommission.amount.includes('.') 
-                        ? parseFloat(mainCommission.amount)
-                        : parseFloat(mainCommission.amount);
-                      const exponent = Number(asset?.exponent || 6);
-                      const formattedCommission = (commissionAmount / Math.pow(10, exponent)).toFixed(2);
-                      setCommission(formattedCommission);
-                      commissionFetched = true;
-                      break;
-                    }
-                  }
-                }
-              } catch (error) {
-                continue;
+            const commissionUrl = `${selectedChain.api[0].address}/cosmos/distribution/v1beta1/validators/${validatorAddress}/commission`;
+            fetch(commissionUrl).then(commissionRes => {
+              if (commissionRes.ok) {
+                return commissionRes.json();
               }
-            }
-            if (!commissionFetched) {
+              return null;
+            }).then(commissionData => {
+              if (commissionData) {
+                let commissionList = [];
+                if (commissionData.commission && commissionData.commission.commission) {
+                  commissionList = commissionData.commission.commission;
+                } else if (commissionData.commission) {
+                  commissionList = commissionData.commission;
+                }
+                
+                if (Array.isArray(commissionList) && commissionList.length > 0) {
+                  const mainCommission = commissionList.find((c: any) => c.denom === asset?.base);
+                  
+                  if (mainCommission && mainCommission.amount) {
+                    const commissionAmount = mainCommission.amount.includes('.') 
+                      ? parseFloat(mainCommission.amount)
+                      : parseFloat(mainCommission.amount);
+                    const exponent = Number(asset?.exponent || 6);
+                    const formattedCommission = (commissionAmount / Math.pow(10, exponent)).toFixed(2);
+                    setCommission(formattedCommission);
+                  } else {
+                    setCommission('0.00');
+                  }
+                } else {
+                  setCommission('0.00');
+                }
+              } else {
+                setCommission('0.00');
+              }
+            }).catch(() => {
               setCommission('0.00');
-            }
+            });
           } else {
             setCommission('0.00');
           }
 
-          // Fetch validator's self-delegation rewards (rewards from their own stake that hasn't been claimed)
+          // Fetch validator's self-delegation rewards in background (non-blocking)
           if (validatorData.accountAddress && selectedChain.api && selectedChain.api.length > 0) {
-            let rewardsFetched = false;
-            for (const endpoint of selectedChain.api) {
-              try {
-                // Get rewards for the validator's account address from their own validator
-                const rewardsUrl = `${endpoint.address}/cosmos/distribution/v1beta1/delegators/${validatorData.accountAddress}/rewards/${validatorAddress}`;
-                const rewardsRes = await fetch(rewardsUrl);
-                if (rewardsRes.ok) {
-                  const rewardsData = await rewardsRes.json();
-                  
-                  // Handle rewards structure
-                  let rewardsList = [];
-                  if (rewardsData.rewards && Array.isArray(rewardsData.rewards)) {
-                    rewardsList = rewardsData.rewards;
-                  }
-                  
-                  if (Array.isArray(rewardsList) && rewardsList.length > 0) {
-                    const mainReward = rewardsList.find((r: any) => r.denom === asset?.base);
-                    
-                    if (mainReward && mainReward.amount) {
-                      // Parse as string to handle decimal values accurately
-                      const rewardAmount = mainReward.amount.includes('.')
-                        ? parseFloat(mainReward.amount)
-                        : parseFloat(mainReward.amount);
-                      const exponent = Number(asset?.exponent || 6);
-                      const formattedRewards = (rewardAmount / Math.pow(10, exponent)).toFixed(2);
-                      setRewards(formattedRewards);
-                      rewardsFetched = true;
-                      break;
-                    }
-                  }
-                }
-              } catch (error) {
-                continue;
+            const rewardsUrl = `${selectedChain.api[0].address}/cosmos/distribution/v1beta1/delegators/${validatorData.accountAddress}/rewards/${validatorAddress}`;
+            fetch(rewardsUrl).then(rewardsRes => {
+              if (rewardsRes.ok) {
+                return rewardsRes.json();
               }
-            }
-            if (!rewardsFetched) {
+              return null;
+            }).then(rewardsData => {
+              if (rewardsData) {
+                let rewardsList = [];
+                if (rewardsData.rewards && Array.isArray(rewardsData.rewards)) {
+                  rewardsList = rewardsData.rewards;
+                }
+                
+                if (Array.isArray(rewardsList) && rewardsList.length > 0) {
+                  const mainReward = rewardsList.find((r: any) => r.denom === asset?.base);
+                  
+                  if (mainReward && mainReward.amount) {
+                    const rewardAmount = mainReward.amount.includes('.')
+                      ? parseFloat(mainReward.amount)
+                      : parseFloat(mainReward.amount);
+                    const exponent = Number(asset?.exponent || 6);
+                    const formattedRewards = (rewardAmount / Math.pow(10, exponent)).toFixed(2);
+                    setRewards(formattedRewards);
+                  } else {
+                    setRewards('0.00');
+                  }
+                } else {
+                  setRewards('0.00');
+                }
+              } else {
+                setRewards('0.00');
+              }
+            }).catch(() => {
               setRewards('0.00');
-            }
+            });
           } else {
             setRewards('0.00');
           }
@@ -376,49 +390,49 @@ export default function ValidatorDetailPage() {
         setValidator(null);
       }
       
+      // Update delegations in background
       if (delegationsRes.status === 'fulfilled' && delegationsRes.value.ok) {
         const delegationsData = await delegationsRes.value.json();
         setDelegations(delegationsData.delegations || []);
         setUnbondingDelegations(delegationsData.unbonding || []);
+        setCache(delegationsCacheKey, delegationsData);
+        console.log('🔄 [Delegations] Updated from API');
       }
       
+      // Update transactions in background
       if (txRes.status === 'fulfilled' && txRes.value.ok) {
         const txData = await txRes.value.json();
-
         setTransactions(Array.isArray(txData) ? txData : (txData.transactions || []));
+        setCache(txCacheKey, txData);
+        console.log('🔄 [Transactions] Updated from API');
       }
 
+      // Fetch uptime in background (non-blocking)
       if (validatorRes.status === 'fulfilled' && selectedChain && params.address) {
-        const uptimeRes = await fetchApi(
+        fetchApi(
           `/api/uptime/validator?chain=${selectedChain.chain_name}&address=${params.address}&blocks=150`,
           { signal: controller.signal }
-        ).catch(() => null);
-
-        if (uptimeRes?.ok) {
-          const uptimeData = await uptimeRes.json();
-          console.log('[Validator Detail] Raw uptime data:', JSON.stringify(uptimeData).substring(0, 500));
-          
-          if (uptimeData.blocks && Array.isArray(uptimeData.blocks)) {
+        ).then(uptimeRes => {
+          if (uptimeRes?.ok) {
+            return uptimeRes.json();
+          }
+          return null;
+        }).then(uptimeData => {
+          if (uptimeData && uptimeData.blocks && Array.isArray(uptimeData.blocks)) {
             setUptimeBlocks(uptimeData.blocks);
             
-            // Debug: check first few blocks structure
-            console.log('[Validator Detail] First 3 blocks:', uptimeData.blocks.slice(0, 3));
-            
-            // Recalculate uptime dari blocks array (sama seperti uptime page)
             const totalBlocks = uptimeData.blocks.length;
-            // Handle both boolean and truthy values for signed property
             const signedCount = uptimeData.blocks.filter((block: any) => {
-              // Check if signed is true (boolean) or any truthy value
               return block.signed === true || block.signed === 1 || block.signed === '1' || block.signed;
             }).length;
             const calculatedUptime = totalBlocks > 0 ? (signedCount / totalBlocks) * 100 : 0;
             
             setUptimePercentage(calculatedUptime);
-            console.log(`[Validator Detail Chart] Uptime: ${signedCount}/${totalBlocks} = ${calculatedUptime.toFixed(2)}%`);
-          } else {
-            console.log('[Validator Detail] No blocks array found in uptime data');
+            console.log('🔄 [Uptime] Updated from API');
           }
-        }
+        }).catch(() => {
+          console.log('[Uptime] Failed to fetch, using cached data');
+        });
       }
     } catch (err) {
       if (!cachedValidator && !validator) {
