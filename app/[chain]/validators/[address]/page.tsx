@@ -1025,13 +1025,58 @@ export default function ValidatorDetailPage() {
         <Sidebar selectedChain={selectedChain} />
         <div className="flex-1 flex flex-col">
           <Header chains={chains} selectedChain={selectedChain} onSelectChain={setSelectedChain} />
-          <main className="flex-1 mt-32 md:mt-16 p-3 md:p-6 flex items-center justify-center">
-            <div className="flex flex-col items-center gap-4">
-              <div className="relative">
-                <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500/20 border-t-blue-500"></div>
-                <div className="absolute inset-0 rounded-full border-4 border-blue-500/10 animate-pulse"></div>
+          <main className="flex-1 mt-32 md:mt-16 p-3 md:p-6">
+            {/* Skeleton Loader - Instant UI */}
+            <div className="animate-pulse">
+              {/* Header Skeleton */}
+              <div className="mb-6">
+                <div className="h-4 bg-gray-800 rounded w-1/3 mb-2"></div>
+                <div className="h-8 bg-gray-800 rounded w-1/2 mb-2"></div>
+                <div className="h-4 bg-gray-800 rounded w-2/3"></div>
               </div>
-              <p className="text-gray-400 text-sm">{t('validatorDetail.loading')}</p>
+
+              {/* Overview Card Skeleton */}
+              <div className="bg-[#1a1a1a] rounded-lg p-6 mb-6">
+                <div className="flex items-start gap-4 mb-6">
+                  <div className="w-20 h-20 bg-gray-800 rounded-full"></div>
+                  <div className="flex-1">
+                    <div className="h-8 bg-gray-800 rounded w-1/3 mb-2"></div>
+                    <div className="h-4 bg-gray-800 rounded w-1/2"></div>
+                  </div>
+                </div>
+                
+                {/* Stats Grid Skeleton */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="bg-[#111111] rounded-lg p-4">
+                      <div className="h-4 bg-gray-800 rounded w-1/2 mb-2"></div>
+                      <div className="h-6 bg-gray-800 rounded w-3/4"></div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Tabs Skeleton */}
+              <div className="bg-[#1a1a1a] rounded-lg">
+                <div className="flex border-b border-gray-800">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="flex-1 px-6 py-4">
+                      <div className="h-6 bg-gray-800 rounded w-3/4 mx-auto"></div>
+                    </div>
+                  ))}
+                </div>
+                <div className="p-6">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <div key={i} className="h-12 bg-gray-800 rounded mb-2"></div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            
+            {/* Loading indicator */}
+            <div className="fixed bottom-4 right-4 flex items-center gap-2 bg-blue-500/20 backdrop-blur-sm px-4 py-2 rounded-full border border-blue-500/30">
+              <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-500/20 border-t-blue-500"></div>
+              <span className="text-blue-400 text-sm">Loading validator data...</span>
             </div>
           </main>
         </div>
