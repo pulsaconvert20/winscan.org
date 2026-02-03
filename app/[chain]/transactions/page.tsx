@@ -10,6 +10,8 @@ import { getCacheKey, setCache, getStaleCache } from '@/lib/cacheUtils';
 import { fetchApi } from '@/lib/api';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslation } from '@/lib/i18n';
+import { cachedFetch } from '@/lib/optimizedFetch';
+import { TableSkeleton } from '@/components/SkeletonLoader';
 
 export default function TransactionsPage() {
   const params = useParams();
@@ -68,106 +70,33 @@ export default function TransactionsPage() {
   const fetchTransactions = useCallback(async (showLoading = true) => {
     if (!selectedChain) return;
 
-    const cacheKey = getCacheKey('transactions', selectedChain.chain_name, `page${currentPage}`);
-    const cachedData = getStaleCache<TransactionData[]>(cacheKey);
-    
-    // Always show cached data immediately (optimistic UI)
-    if (cachedData && cachedData.length > 0) {
-      setTransactions(cachedData);
-      if (showLoading) {
-        setLoading(false);
-      }
-    } else if (showLoading) {
-      setLoading(true);
-    }
-    
-    // Silent background refresh
-    if (!showLoading) {
+    if (showLoading) {
+      setLoading(false); // Show skeleton immediately
+    } else {
       setIsRefreshing(true);
     }
     
     try {
-      // Try backend API first
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://ssl.winsnip.xyz';
-      const backendUrl = `${API_URL}/api/transactions?chain=${selectedChain.chain_id || selectedChain.chain_name}&limit=${txsPerPage}&page=${currentPage}`;
+      const chainId = selectedChain.chain_id || selectedChain.chain_name;
       
-      const res = await fetch(backendUrl, {
-        signal: AbortSignal.timeout(8000), // 8 second timeout
-      });
+      // Use optimized cached fetch
+      const data = await cachedFetch<any[]>(
+        `/api/transactions?chain=${chainId}&limit=${txsPerPage}&page=${currentPage}`,
+        { staleTime: 30 * 1000 } // 30 second cache for transactions
+      );
       
-      console.log('[Transactions Debug] Response status:', res.status, res.ok);
+      const txData = Array.isArray(data) ? data : [];
       
-      if (res.ok) {
-        const data = await res.json();
-        console.log('[Transactions Debug] Raw data:', data);
-        const txData = Array.isArray(data) ? data : [];
-        
-        console.log('[Transactions Debug] Backend response:', { 
-          chain: selectedChain?.chain_id || selectedChain?.chain_name,
-          txCount: txData.length,
-          firstTx: txData[0],
-          url: `${API_URL}/api/transactions?chain=${selectedChain?.chain_id || selectedChain?.chain_name}&limit=200&page=${currentPage}`
-        });
-        
-        if (txData.length > 0) {
-          // Smooth update: only update if data actually changed
-          setTransactions(prev => {
-            const hasChanges = JSON.stringify(prev) !== JSON.stringify(txData);
-            return hasChanges ? txData : prev;
-          });
-          setCache(cacheKey, txData);
-          setLoading(false);
-          setIsRefreshing(false);
-          return;
-        }
-      }
-      
-      // Fallback to cosmos-client (direct LCD)
-      const { fetchTransactionsDirectly } = await import('@/lib/cosmos-client');
-      const endpoints = selectedChain.api?.map((a: any) => ({
-        address: a.address,
-        provider: a.provider || 'unknown'
-      })) || [];
-      
-      if (endpoints.length > 0) {
-        const chainIdentifier = selectedChain.chain_id || selectedChain.chain_name;
-        const directData = await fetchTransactionsDirectly(endpoints, currentPage, txsPerPage, chainIdentifier);
-        
-        // Transform LCD format to backend format
-        const txData = (directData.tx_responses || directData.txs || []).map((tx: any) => {
-          const firstMsg = tx.tx?.body?.messages?.[0];
-          const msgType = firstMsg?.['@type'] || '';
-          const type = msgType.split('.').pop() || 'Unknown';
-          
-          return {
-            hash: tx.txhash || tx.hash,
-            height: tx.height || '0',
-            time: tx.timestamp || new Date().toISOString(),
-            type: type,
-            result: tx.code === 0 ? 'Success' : 'Failed',
-            code: tx.code || 0,
-          };
-        });
-        
-        // Smooth update: only update if data actually changed
+      if (txData.length > 0) {
         setTransactions(prev => {
           const hasChanges = JSON.stringify(prev) !== JSON.stringify(txData);
           return hasChanges ? txData : prev;
         });
-        setCache(cacheKey, txData);
         setLoading(false);
         setIsRefreshing(false);
-        return;
       }
-      
-      throw new Error('No LCD endpoints available');
-      
     } catch (err) {
-      console.error('[Transactions Debug] Error fetching transactions:', err);
-      console.error('[Transactions Debug] Error details:', {
-        message: err instanceof Error ? err.message : 'Unknown error',
-        chain: selectedChain?.chain_id || selectedChain?.chain_name
-      });
+      console.error('[Transactions] Error:', err);
       setTransactions([]);
       setLoading(false);
       setIsRefreshing(false);
@@ -220,10 +149,7 @@ export default function TransactionsPage() {
           </div>
 
           {loading && transactions.length === 0 ? (
-            <div className="text-center py-20">
-              <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-              <p className="mt-4 text-gray-400">{t('transactions.loading')}</p>
-            </div>
+            <TableSkeleton rows={50} />
           ) : (
             <TransactionsTable 
               transactions={transactions} 

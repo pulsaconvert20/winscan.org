@@ -11,6 +11,8 @@ import { fetchWithCache, CACHE_CONFIG } from '@/lib/apiCache';
 import { getCacheKey, setCache, getStaleCache } from '@/lib/cacheUtils';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslation } from '@/lib/i18n';
+import { cachedFetch } from '@/lib/optimizedFetch';
+import { TableSkeleton } from '@/components/SkeletonLoader';
 
 export default function BlocksPage() {
   const params = useParams();
@@ -55,80 +57,29 @@ export default function BlocksPage() {
   const fetchBlocks = useCallback(async (showLoading = true) => {
     if (!selectedChain) return;
 
-    const cacheKey = getCacheKey('blocks', selectedChain.chain_name, `page${currentPage}`);
-    const cachedData = getStaleCache<BlockData[]>(cacheKey);
-    
-    // Always show cached data immediately (optimistic UI)
-    if (cachedData && cachedData.length > 0) {
-      setBlocks(cachedData);
-      if (showLoading) {
-        setLoading(false);
-      }
-    } else if (showLoading) {
-      setLoading(true);
-    }
-    
-    // Silent background refresh
-    if (!showLoading) {
+    if (showLoading) {
+      setLoading(false); // Show skeleton immediately
+    } else {
       setIsRefreshing(true);
     }
     
     try {
-      // Try backend API first
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://ssl.winsnip.xyz';
-      const backendUrl = `${API_URL}/api/blocks?chain=${selectedChain.chain_id || selectedChain.chain_name}&limit=${blocksPerPage}&page=${currentPage}`;
+      const chainId = selectedChain.chain_id || selectedChain.chain_name;
       
-      const res = await fetch(backendUrl, {
-        signal: AbortSignal.timeout(8000), // 8 second timeout
-      });
+      // Use optimized cached fetch
+      const data = await cachedFetch<any[]>(
+        `/api/blocks?chain=${chainId}&limit=${blocksPerPage}&page=${currentPage}`,
+        { staleTime: 30 * 1000 } // 30 second cache for blocks
+      );
       
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data) && data.length > 0) {
-          // Smooth update: only update if data actually changed
-          setBlocks(prev => {
-            const hasChanges = JSON.stringify(prev) !== JSON.stringify(data);
-            return hasChanges ? data : prev;
-          });
-          setCache(cacheKey, data);
-          setLoading(false);
-          setIsRefreshing(false);
-          return;
-        }
-      }
-      
-      // Fallback to cosmos-client (direct LCD)
-      const { fetchBlocksDirectly } = await import('@/lib/cosmos-client');
-      const endpoints = selectedChain.api?.map((a: any) => ({
-        address: a.address,
-        provider: a.provider || 'unknown'
-      })) || [];
-      
-      if (endpoints.length > 0) {
-        const directBlocks = await fetchBlocksDirectly(endpoints, blocksPerPage);
-        
-        // Transform LCD format to backend format
-        const blockData = directBlocks.map((b: any) => ({
-          height: b.block?.header?.height || b.header?.height || '0',
-          hash: b.block_id?.hash || b.block?.last_block_id?.hash || '',
-          time: b.block?.header?.time || b.header?.time || new Date().toISOString(),
-          txs: b.block?.data?.txs?.length || b.data?.txs?.length || 0,
-          proposer: b.block?.header?.proposer_address || b.header?.proposer_address || '',
-        }));
-        
-        // Smooth update: only update if data actually changed
+      if (Array.isArray(data) && data.length > 0) {
         setBlocks(prev => {
-          const hasChanges = JSON.stringify(prev) !== JSON.stringify(blockData);
-          return hasChanges ? blockData : prev;
+          const hasChanges = JSON.stringify(prev) !== JSON.stringify(data);
+          return hasChanges ? data : prev;
         });
-        setCache(cacheKey, blockData);
         setLoading(false);
         setIsRefreshing(false);
-        return;
       }
-      
-      throw new Error('No LCD endpoints available');
-      
     } catch (err) {
       console.error('Error fetching blocks:', err);
       setBlocks([]);
@@ -183,10 +134,7 @@ export default function BlocksPage() {
           </div>
 
           {loading && blocks.length === 0 ? (
-            <div className="text-center py-20">
-              <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-              <p className="mt-4 text-gray-400">{t('blocks.loading')}</p>
-            </div>
+            <TableSkeleton rows={50} />
           ) : (
             <BlocksTable 
               blocks={blocks} 
