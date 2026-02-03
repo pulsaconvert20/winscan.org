@@ -189,7 +189,7 @@ export default function ValidatorDetailPage() {
       return;
     }
     
-    // 🚀 INSTANT LOAD: Show cached data immediately, no loading screen
+    // 🚀 PING.PUB PATTERN: Show cached data INSTANTLY, no loading state
     const validatorCacheKey = getCacheKey('validator', selectedChain.chain_name, params.address as string);
     const delegationsCacheKey = getCacheKey('validator-delegations', selectedChain.chain_name, params.address as string);
     const txCacheKey = getCacheKey('validator-transactions', selectedChain.chain_name, params.address as string);
@@ -198,10 +198,10 @@ export default function ValidatorDetailPage() {
     const cachedDelegations = getStaleCache<any>(delegationsCacheKey);
     const cachedTx = getStaleCache<any>(txCacheKey);
     
-    // Show cached data INSTANTLY
+    // Show cached data INSTANTLY - no loading screen
     if (cachedValidator) {
       setValidator(cachedValidator);
-      setLoading(false);
+      setLoading(false); // Hide skeleton immediately
       console.log('✅ [Validator] Loaded from cache instantly');
     }
     if (cachedDelegations) {
@@ -214,9 +214,34 @@ export default function ValidatorDetailPage() {
       console.log('✅ [Transactions] Loaded from cache instantly');
     }
     
-    // Only show loading if no cache available
+    // If no cache, show skeleton briefly then render with placeholder
     if (!cachedValidator && showLoading) {
       setLoading(true);
+      // Auto-hide skeleton after 500ms even if data not loaded (Ping.pub pattern)
+      setTimeout(() => {
+        if (!validator) {
+          setLoading(false);
+          // Set placeholder validator so UI renders
+          setValidator({
+            address: params.address as string,
+            moniker: 'Loading...',
+            website: '',
+            details: '',
+            identity: '',
+            votingPower: '0',
+            votingPowerPercentage: '0',
+            commission: '0',
+            maxCommission: '0',
+            maxChangeRate: '0',
+            status: 'BOND_STATUS_BONDED',
+            jailed: false,
+            tokens: '0',
+            delegatorShares: '0',
+            unbondingHeight: '0',
+            unbondingTime: '',
+          });
+        }
+      }, 500);
     } else {
       setIsRefreshing(true);
     }
@@ -1019,14 +1044,15 @@ export default function ValidatorDetailPage() {
     }
   };
 
-  if (loading) {
+  if (loading && !validator) {
+    // 🚀 PING.PUB PATTERN: Show skeleton UI immediately, no loading screen
     return (
       <div className="min-h-screen bg-[#0a0a0a] flex">
         <Sidebar selectedChain={selectedChain} />
         <div className="flex-1 flex flex-col">
           <Header chains={chains} selectedChain={selectedChain} onSelectChain={setSelectedChain} />
           <main className="flex-1 mt-32 md:mt-16 p-3 md:p-6">
-            {/* Skeleton Loader - Instant UI */}
+            {/* Skeleton Loader - Instant UI like Ping.pub */}
             <div className="animate-pulse">
               {/* Header Skeleton */}
               <div className="mb-6">
@@ -1073,10 +1099,10 @@ export default function ValidatorDetailPage() {
               </div>
             </div>
             
-            {/* Loading indicator */}
-            <div className="fixed bottom-4 right-4 flex items-center gap-2 bg-blue-500/20 backdrop-blur-sm px-4 py-2 rounded-full border border-blue-500/30">
-              <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-500/20 border-t-blue-500"></div>
-              <span className="text-blue-400 text-sm">Loading validator data...</span>
+            {/* Loading indicator - subtle like Ping.pub */}
+            <div className="fixed bottom-4 right-4 flex items-center gap-2 bg-blue-500/10 backdrop-blur-sm px-3 py-2 rounded-full border border-blue-500/20">
+              <div className="animate-spin rounded-full h-3 w-3 border-2 border-blue-500/20 border-t-blue-500"></div>
+              <span className="text-blue-400 text-xs">Loading...</span>
             </div>
           </main>
         </div>
