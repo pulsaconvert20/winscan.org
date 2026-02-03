@@ -14,6 +14,12 @@ export const metadata: Metadata = {
     icon: '/logo.svg',
     apple: '/logo.svg',
   },
+  manifest: '/manifest.json',
+  other: {
+    'mobile-web-app-capable': 'yes',
+    'apple-mobile-web-app-capable': 'yes',
+    'apple-mobile-web-app-status-bar-style': 'black-translucent',
+  },
 };
 
 export const viewport: Viewport = {
@@ -30,13 +36,14 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <style dangerouslySetInnerHTML={{
-          __html: `
-            html {
-              font-size: 90%;
-            }
-          `
-        }} />
+        {/* Preconnect to critical domains */}
+        <link rel="preconnect" href="https://ssl.winsnip.xyz" />
+        <link rel="preconnect" href="https://ssl2.winsnip.xyz" />
+        <link rel="dns-prefetch" href="https://ssl.winsnip.xyz" />
+        <link rel="dns-prefetch" href="https://ssl2.winsnip.xyz" />
+        
+        {/* Preload critical resources */}
+        <link rel="preload" href="/icon.svg" as="image" type="image/svg+xml" />
       </head>
       <body className="antialiased">
         <LoadingScreen />

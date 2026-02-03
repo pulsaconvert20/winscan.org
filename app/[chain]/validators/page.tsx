@@ -66,92 +66,144 @@ export default function ValidatorsPage() {
   const fetchValidators = useCallback(async () => {
     if (!selectedChain) return;
     
-    setLoading(false); // Show skeleton immediately
+    const cacheKey = getCacheKey('validators', selectedChain.chain_name);
+    const cachedData = getStaleCache<ValidatorData[]>(cacheKey);
+    
+    // Show cached data immediately if available
+    if (cachedData && cachedData.length > 0) {
+      setValidators(cachedData);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
     
     try {
       const chainPath = params?.chain as string;
       const chainId = selectedChain.chain_id || selectedChain.chain_name;
       
-      // Use optimized cached fetch
-      const data = await cachedFetch<any>(
-        `/api/validators?chain=${chainPath}`,
-        { staleTime: 5 * 60 * 1000 } // 5 minute cache
-      );
-      
-      if (data && Array.isArray(data.validators) && data.validators.length > 0) {
-        const formattedValidators = data.validators.map((v: any) => ({
-          address: v.address || v.operator_address,
-          moniker: v.moniker || 'Unknown',
-          identity: v.identity,
-          website: v.website,
-          details: v.details,
-          status: v.status,
-          jailed: v.jailed || false,
-          votingPower: v.votingPower || v.tokens || '0',
-          commission: v.commission || '0',
-          delegatorsCount: v.delegatorsCount || 0,
-          uptime: v.uptime || 100,
-          consensus_pubkey: v.consensus_pubkey,
-        }));
+      // Try optimized cached fetch first
+      try {
+        const data = await cachedFetch<any>(
+          `/api/validators?chain=${chainPath}`,
+          { staleTime: 5 * 60 * 1000 } // 5 minute cache
+        );
         
-        // Calculate 24h changes
-        const changes24h = get24hChanges(chainId, formattedValidators);
-        const validatorsWithChanges = formattedValidators.map((v: any) => ({
-          ...v,
-          votingPowerChange24h: changes24h.get(v.address) || '0',
-        }));
-        
-        // Save snapshot if needed
-        if (shouldSaveSnapshot(chainId)) {
-          saveValidatorSnapshot(chainId, formattedValidators);
-        }
-        
-        startTransition(() => {
-          setValidators(validatorsWithChanges);
-        });
-        
-        // Background fetch delegators and uptime
-        const validatorAddresses = formattedValidators.map((v: any) => v.address);
-        
-        fetch('/api/validators-delegators-batch', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ validators: validatorAddresses, chain: chainId }),
-          signal: AbortSignal.timeout(60000)
-        })
-        .then(res => res.json())
-        .then((data) => {
-          const delegatorsMap = new Map(data.results.map((r: any) => [r.validator, r.count]));
-          setValidators(prev => prev.map(v => ({
+        if (data && Array.isArray(data.validators) && data.validators.length > 0) {
+          const formattedValidators = data.validators.map((v: any) => ({
+            address: v.address || v.operator_address,
+            moniker: v.moniker || 'Unknown',
+            identity: v.identity,
+            website: v.website,
+            details: v.details,
+            status: v.status,
+            jailed: v.jailed || false,
+            votingPower: v.votingPower || v.tokens || '0',
+            commission: v.commission || '0',
+            delegatorsCount: v.delegatorsCount || 0,
+            uptime: v.uptime || 100,
+            consensus_pubkey: v.consensus_pubkey,
+          }));
+          
+          // Calculate 24h changes
+          const changes24h = get24hChanges(chainId, formattedValidators);
+          const validatorsWithChanges = formattedValidators.map((v: any) => ({
             ...v,
-            delegatorsCount: (delegatorsMap.get(v.address) || v.delegatorsCount || 0) as number
-          })));
-        })
-        .catch(() => {});
-
-        // Batch fetch uptime for top 20
-        const top20 = formattedValidators.slice(0, 20);
-        const consensusAddresses = top20.map((v: any) => v.consensus_pubkey?.key).filter(Boolean) as string[];
-        
-        if (consensusAddresses.length > 0) {
-          fetch('/api/validators/uptime/batch', {
+            votingPowerChange24h: changes24h.get(v.address) || '0',
+          }));
+          
+          // Save snapshot if needed
+          if (shouldSaveSnapshot(chainId)) {
+            saveValidatorSnapshot(chainId, formattedValidators);
+          }
+          
+          startTransition(() => {
+            setValidators(validatorsWithChanges);
+            setCache(cacheKey, validatorsWithChanges);
+            setLoading(false);
+          });
+          
+          // Background fetch delegators and uptime
+          const validatorAddresses = formattedValidators.map((v: any) => v.address);
+          
+          fetch('/api/validators-delegators-batch', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chain: chainPath, validators: consensusAddresses })
+            body: JSON.stringify({ validators: validatorAddresses, chain: chainId }),
+            signal: AbortSignal.timeout(60000)
           })
           .then(res => res.json())
-          .then((uptimeMap: { [key: string]: number }) => {
-            setValidators(prev => prev.map(v => {
-              const consensusKey = v.consensus_pubkey?.key;
-              const uptime = consensusKey ? (uptimeMap[consensusKey] || 100) : 100;
-              return { ...v, uptime };
-            }));
+          .then((data) => {
+            const delegatorsMap = new Map(data.results.map((r: any) => [r.validator, r.count]));
+            setValidators(prev => prev.map(v => ({
+              ...v,
+              delegatorsCount: (delegatorsMap.get(v.address) || v.delegatorsCount || 0) as number
+            })));
           })
           .catch(() => {});
+
+          // Batch fetch uptime for top 20
+          const top20 = formattedValidators.slice(0, 20);
+          const consensusAddresses = top20.map((v: any) => v.consensus_pubkey?.key).filter(Boolean) as string[];
+          
+          if (consensusAddresses.length > 0) {
+            fetch('/api/validators/uptime/batch', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ chain: chainPath, validators: consensusAddresses })
+            })
+            .then(res => res.json())
+            .then((uptimeMap: { [key: string]: number }) => {
+              setValidators(prev => prev.map(v => {
+                const consensusKey = v.consensus_pubkey?.key;
+                const uptime = consensusKey ? (uptimeMap[consensusKey] || 100) : 100;
+                return { ...v, uptime };
+              }));
+            })
+            .catch(() => {});
+          }
+          
+          return; // Success
+        }
+      } catch (error) {
+        console.warn('[Validators] Optimized fetch failed, using fallback:', error);
+      }
+      
+      // Fallback: Use regular fetch
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
+      
+      const res = await fetch(`/api/validators?chain=${chainId}`, {
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+      
+      if (res.ok) {
+        const data = await res.json();
+        const validatorsData = data.validators || data;
+        
+        if (Array.isArray(validatorsData) && validatorsData.length > 0) {
+          startTransition(() => {
+            setValidators(validatorsData);
+            setCache(cacheKey, validatorsData);
+            setLoading(false);
+          });
+          return;
         }
       }
+      
+      // Last resort: use cached data
+      if (cachedData && cachedData.length > 0) {
+        setValidators(cachedData);
+      }
+      setLoading(false);
+      
     } catch (err) {
       console.error('[Validators] Error:', err);
+      // Use cached data if available
+      if (cachedData && cachedData.length > 0) {
+        setValidators(cachedData);
+      }
+      setLoading(false);
     }
   }, [selectedChain, params, startTransition]);
 

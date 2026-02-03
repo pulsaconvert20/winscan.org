@@ -1,10 +1,11 @@
 /**
  * Optimized Data Fetcher
- * Parallel fetching + aggressive caching + stale-while-revalidate
+ * Parallel fetching + aggressive caching + stale-while-revalidate + request deduplication
  */
 
 import { enhancedCache } from './enhancedCache';
 import { fetchApi } from './api';
+import { deduplicatedFetch } from './requestDeduplication';
 
 interface FetchOptions {
   staleTime?: number; // How long data is considered fresh (default: 5 minutes)
@@ -40,19 +41,15 @@ export async function cachedFetch<T>(
 }
 
 /**
- * Fetch and cache data
+ * Fetch and cache data with request deduplication
  */
 async function fetchAndCache<T>(
   url: string,
   cacheKey: string,
   staleTime: number
 ): Promise<T> {
-  const response = await fetchApi(url);
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`);
-  }
-
-  const data = await response.json();
+  // Use deduplicated fetch to prevent duplicate requests
+  const data = await deduplicatedFetch<T>(url);
   enhancedCache.set(cacheKey, data, staleTime);
   return data;
 }
