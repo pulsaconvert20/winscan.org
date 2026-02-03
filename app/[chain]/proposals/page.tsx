@@ -10,6 +10,8 @@ import { getApiUrl } from '@/lib/config';
 import { Vote, CheckCircle, XCircle, Clock, TrendingUp } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslation } from '@/lib/i18n';
+import { cachedFetch } from '@/lib/optimizedFetch';
+import { CardSkeleton } from '@/components/SkeletonLoader';
 
 interface Proposal {
   id: string;
@@ -66,51 +68,21 @@ export default function ProposalsPage() {
   useEffect(() => {
     if (!selectedChain) return;
     
-    const cacheKey = `proposals_${selectedChain.chain_name}`;
-    const cacheTimeout = 600000; // 10 minutes
-    
-    try {
-      const cached = sessionStorage.getItem(cacheKey);
-      if (cached) {
-        const { data, timestamp } = JSON.parse(cached);
-        setProposals(data);
-        setLoading(false);
-        if (Date.now() - timestamp < cacheTimeout) {
-          return;
-        }
-      }
-    } catch (e) {}
+    setLoading(false); // Show skeleton immediately
     
     const fetchProposals = async () => {
       try {
-        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://ssl.winsnip.xyz';
-        const backendUrl = `${API_URL}/api/proposals?chain=${selectedChain.chain_name}`;
-        
-        const res = await fetch(backendUrl, {
-          signal: AbortSignal.timeout(15000),
-        });
-        
-        if (!res.ok) {
-          if (res.status === 404) {
-            setError('chain_not_found');
-            setLoading(false);
-            return;
-          }
-          if (res.status === 501) {
-            setError('governance_not_available');
-            setLoading(false);
-            return;
-          }
-          throw new Error(`Backend API returned ${res.status}`);
-        }
-        
-        const data = await res.json();
+        // Use optimized cached fetch
+        const data = await cachedFetch<any[]>(
+          `/api/proposals?chain=${selectedChain.chain_name}`,
+          { staleTime: 10 * 60 * 1000 } // 10 minute cache
+        );
         
         if (!Array.isArray(data)) {
           setProposals([]);
-          setLoading(false);
           return;
         }
+        
         const transformedData = data.map((p: any) => ({
           id: p.proposal_id || p.id,
           title: p.content?.title || p.title || `Proposal #${p.proposal_id || p.id}`,
@@ -132,15 +104,14 @@ export default function ProposalsPage() {
         });
         
         setProposals(transformedData);
-        setLoading(false);
-        
-        try {
-          sessionStorage.setItem(cacheKey, JSON.stringify({ data: transformedData, timestamp: Date.now() }));
-        } catch (e) {}
-        
-      } catch (err) {
-        setError('fetch_failed');
-        setLoading(false);
+      } catch (err: any) {
+        if (err.message?.includes('404')) {
+          setError('chain_not_found');
+        } else if (err.message?.includes('501')) {
+          setError('governance_not_available');
+        } else {
+          setError('fetch_failed');
+        }
       }
     };
     
@@ -189,13 +160,11 @@ export default function ProposalsPage() {
           </div>
 
           {loading && proposals.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20">
-              <div className="relative">
-                <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-500/20 border-t-blue-500"></div>
-                <div className="absolute inset-0 rounded-full border-4 border-blue-500/10 animate-pulse"></div>
-              </div>
-              <p className="text-gray-400 text-lg font-medium mt-6">{t('proposals.loading')}</p>
-              <p className="text-gray-500 text-sm mt-2">{t('proposals.fetchingData')}</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <CardSkeleton />
+              <CardSkeleton />
+              <CardSkeleton />
+              <CardSkeleton />
             </div>
           ) : error === 'governance_not_available' ? (
             <div className="flex flex-col items-center justify-center py-20">
