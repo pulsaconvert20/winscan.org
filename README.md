@@ -5,6 +5,8 @@
   
   **Modern, feature-rich blockchain explorer for Cosmos ecosystem with EVM support**
   
+  [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fwinsnip-official%2Fwinscan.org&env=NEXT_PUBLIC_API_URL&envDescription=API%20endpoint%20for%20blockchain%20data&project-name=winscan&repository-name=winscan)
+  
   [![Website](https://img.shields.io/badge/Website-winsnip.xyz-blue?style=for-the-badge)](https://winsnip.xyz)
   [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
   [![Twitter](https://img.shields.io/badge/Twitter-@winsnip-1DA1F2?style=for-the-badge)](https://twitter.com/winsnip)
@@ -695,7 +697,7 @@ New to the project? Look for issues labeled:
 
 ## 🌟 Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=winsnip-official/winscan&type=Date)](https://star-history.com/#winsnip-official/winscan&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=winsnip-official/winscan.org&type=Date)](https://star-history.com/#winsnip-official/winscan.org&Date)
 
 ---
 
