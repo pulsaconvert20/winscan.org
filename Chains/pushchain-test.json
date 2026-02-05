@@ -1,0 +1,100 @@
+{
+  "chain_name": "pushchain-test",
+  "chain_id": "push_42101-1",
+  "pretty_name": "Push Chain Testnet",
+  "network_type": "testnet",
+  "bech32_prefix": "upc",
+  "slip44": 60,
+  "fees": {
+    "fee_tokens": [
+      {
+        "denom": "upc",
+        "fixed_min_gas_price": 1000000000,
+        "low_gas_price": 1000000000,
+        "average_gas_price": 1125000000,
+        "high_gas_price": 1500000000,
+        "gas_price_step": {
+          "low": 1000000000,
+          "average": 1125000000,
+          "high": 1500000000
+        }
+      }
+    ]
+  },
+  "staking": {
+    "staking_tokens": [
+      {
+        "denom": "upc"
+      }
+    ]
+  },
+  "codebase": {
+    "git_repo": "https://github.com/orgs/pushchain/repositories",
+    "recommended_version": "v0.0.15",
+    "compatible_versions": ["v0.0.15"],
+    "cosmos_sdk_version": "0.50",
+    "consensus": {
+      "type": "cometbft",
+      "version": "v0.38"
+    }
+  },
+  "rpc": [
+    {
+      "address": "https://rpc-t.pushchain.nodestake.org",
+      "provider": "NodeStake"
+    },
+    {
+      "address": "https://rpc-test.pchain.vinjan-inc.com",
+      "provider": "Vinjan Inc"
+    }
+  ],
+  "api": [
+    {
+      "address": "https://api-t.pushchain.nodestake.org",
+      "provider": "NodeStake"
+    },
+    {
+      "address": "https://api-test.pchain.vinjan-inc.com",
+      "provider": "Vinjan Inc"
+    }
+  ],
+  "grpc": [
+    {
+      "address": "grpc-t.pushchain.nodestake.org:443",
+      "provider": "NodeStake"
+    }
+  ],
+  "evm_rpc": [
+    {
+      "address": "https://evm.donut.rpc.push.org",
+      "provider": "Push Protocol"
+    }
+  ],
+  "sdk_version": "0.50",
+  "coin_type": "60",
+  "min_tx_fee": "1000000000",
+  "addr_prefix": "upc",
+  "assets": [
+    {
+      "base": "upc",
+      "symbol": "PC",
+      "display": "PC",
+      "exponent": "18",
+      "coingecko_id": "",
+      "logo": "https://file.winsnip.xyz/file/uploads/PushChain.jpg"
+    }
+  ],
+  "theme_color": "#e91e63",
+  "logo": "https://file.winsnip.xyz/file/uploads/PushChain.jpg",
+  "explorers": [
+    {
+      "name": "Push Chain Explorer",
+      "url": "https://donut.push.network",
+      "tx_page": "https://donut.push.network/tx/${txHash}",
+      "account_page": "https://donut.push.network/address/${accountAddress}"
+    }
+  ],
+  "keywords": ["testnet", "universal", "cross-chain", "EVM", "IBC"],
+  "features": ["evm", "ibc-transfer", "ibc-go", "eth-address-gen", "eth-key-sign"],
+  "updated": "2026-02-05"
+}

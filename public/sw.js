@@ -4,6 +4,18 @@ const RUNTIME_CACHE = 'winscan-runtime-v1';
 
 // Cache API responses for instant loading
 const API_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const MAX_CACHE_SIZE = 100; // Limit cache entries to prevent overload
+const CACHE_CLEANUP_THRESHOLD = 80; // Clean when 80% full
+
+// URLs to skip caching (prevent overload)
+const SKIP_CACHE_PATTERNS = [
+  /\/api\/transactions/, // Too many unique URLs
+  /\/api\/blocks\/\d+/, // Block details change frequently
+  /chrome-extension:/, // Browser extensions
+  /moz-extension:/, // Firefox extensions
+  /safari-extension:/, // Safari extensions
+  /edge-extension:/, // Edge extensions
+];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -30,12 +42,38 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+// Helper: Clean old cache entries to prevent overload
+async function cleanupCache(cache) {
+  const keys = await cache.keys();
+  if (keys.length > CACHE_CLEANUP_THRESHOLD) {
+    // Remove oldest 20% of entries
+    const toDelete = keys.slice(0, Math.floor(keys.length * 0.2));
+    await Promise.all(toDelete.map(key => cache.delete(key)));
+  }
+}
+
+// Helper: Check if URL should be cached
+function shouldCache(url) {
+  // Skip non-http(s) protocols
+  if (!url.protocol.startsWith('http')) return false;
+  
+  // Skip extension URLs
+  for (const pattern of SKIP_CACHE_PATTERNS) {
+    if (pattern.test(url.href)) return false;
+  }
+  
+  return true;
+}
+
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
   // Only cache GET requests
   if (request.method !== 'GET') return;
+  
+  // Skip caching for certain URLs
+  if (!shouldCache(url)) return;
 
   // Cache API requests with stale-while-revalidate
   if (url.pathname.startsWith('/api/')) {
@@ -55,7 +93,7 @@ self.addEventListener('fetch', (event) => {
           
           // Stale cache - return it but fetch fresh data in background
           fetch(request)
-            .then((response) => {
+            .then(async (response) => {
               if (response.ok) {
                 const responseToCache = response.clone();
                 const headers = new Headers(responseToCache.headers);
@@ -67,7 +105,13 @@ self.addEventListener('fetch', (event) => {
                   headers: headers,
                 });
                 
-                cache.put(request, cachedResponse);
+                await cache.put(request, cachedResponse);
+                
+                // Cleanup old entries periodically
+                const keys = await cache.keys();
+                if (keys.length > MAX_CACHE_SIZE) {
+                  await cleanupCache(cache);
+                }
               }
             })
             .catch(() => {});
@@ -89,7 +133,13 @@ self.addEventListener('fetch', (event) => {
               headers: headers,
             });
             
-            cache.put(request, cachedResponse);
+            await cache.put(request, cachedResponse);
+            
+            // Cleanup old entries periodically
+            const keys = await cache.keys();
+            if (keys.length > MAX_CACHE_SIZE) {
+              await cleanupCache(cache);
+            }
           }
           return response;
         } catch (error) {
@@ -107,8 +157,14 @@ self.addEventListener('fetch', (event) => {
       .then((response) => {
         if (response.ok) {
           const responseToCache = response.clone();
-          caches.open(RUNTIME_CACHE).then((cache) => {
-            cache.put(request, responseToCache);
+          caches.open(RUNTIME_CACHE).then(async (cache) => {
+            await cache.put(request, responseToCache);
+            
+            // Cleanup if needed
+            const keys = await cache.keys();
+            if (keys.length > MAX_CACHE_SIZE) {
+              await cleanupCache(cache);
+            }
           });
         }
         return response;
