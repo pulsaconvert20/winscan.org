@@ -300,20 +300,35 @@ export default function AccountPage() {
   };
 
   const formatAmount = (amount: string, denom: string) => {
-    // Convert from micro units to base units
-    const decimals = 6; // Most Cosmos chains use 6 decimals
-    const numAmount = parseFloat(amount) / Math.pow(10, decimals);
+    // Get exponent from chain config
+    const exponent = Number(selectedChain?.assets?.[0]?.exponent || 6);
+    
+    // Handle different amount formats
+    let cleanAmount = amount;
+    if (typeof amount === 'string') {
+      // Remove any non-numeric characters except decimal point and minus
+      cleanAmount = amount.replace(/[^\d.-]/g, '');
+    }
+    
+    const numAmount = parseFloat(cleanAmount);
+    
+    // Handle NaN case
+    if (isNaN(numAmount)) {
+      return `0.00 ${denom.toUpperCase()}`;
+    }
+    
+    const displayAmount = numAmount / Math.pow(10, exponent);
     
     // Format with appropriate decimal places
-    const formatted = numAmount < 0.01 
-      ? numAmount.toFixed(6) 
-      : numAmount.toLocaleString('en-US', { 
+    const formatted = displayAmount < 0.01 
+      ? displayAmount.toFixed(6) 
+      : displayAmount.toLocaleString('en-US', { 
           minimumFractionDigits: 2, 
           maximumFractionDigits: 6 
         });
     
-    // Clean up denom (remove 'u' prefix)
-    const cleanDenom = denom.startsWith('u') && denom.length > 2 
+    // Clean up denom (remove 'u' or 'a' prefix for display)
+    const cleanDenom = (denom.startsWith('u') || denom.startsWith('a')) && denom.length > 2 
       ? denom.substring(1).toUpperCase() 
       : denom.toUpperCase();
     
@@ -669,7 +684,8 @@ export default function AccountPage() {
               {account.rewards && account.rewards.length > 0 && (() => {
                 // Calculate total rewards
                 const totalRewards = account.rewards.reduce((sum, reward) => {
-                  return sum + parseFloat(reward.amount || '0');
+                  const amount = parseFloat(reward.amount || '0');
+                  return sum + (isNaN(amount) ? 0 : amount);
                 }, 0);
                 
                 return (
@@ -718,7 +734,8 @@ export default function AccountPage() {
                   </div>
                 ) : transactions && transactions.length > 0 ? (
                   <div className="space-y-3">
-                    {transactions.map((tx) => (
+                    {transactions.map((tx) => {
+                      return (
                       <Link
                         key={tx.hash}
                         href={`/${chainPath}/transactions/${tx.hash}`}
@@ -738,7 +755,7 @@ export default function AccountPage() {
                             </div>
                             <div className="flex items-center gap-3 text-sm">
                               <span className="px-2 py-1 bg-gray-800 rounded text-gray-300">
-                                {getTypeShortName(tx.type)}
+                                {tx.type || 'Transaction'}
                               </span>
                               <span className="text-gray-400">
                                 {t('accountDetail.height')}: <span className="text-white">{tx.height?.toLocaleString()}</span>
@@ -750,7 +767,7 @@ export default function AccountPage() {
                               {tx.result === 'Success' ? t('accountDetail.success') : t('accountDetail.failed')}
                             </span>
                             <p className="text-gray-400 text-xs mt-1">
-                              {formatDistanceToNow(new Date(tx.time), { addSuffix: true })}
+                              {tx.time ? new Date(tx.time).toLocaleString() : `Block #${tx.height?.toLocaleString()}`}
                             </p>
                           </div>
                         </div>
@@ -760,7 +777,8 @@ export default function AccountPage() {
                           </div>
                         )}
                       </Link>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="text-center py-12">

@@ -218,7 +218,8 @@ export default function ChainOverviewPage() {
           }
 
           if (data.supply && data.supply.totalSupply) {
-            const supply = parseFloat(data.supply.totalSupply) / 1000000;
+            const exponent = Number(selectedChain?.assets?.[0]?.exponent || 6);
+            const supply = parseFloat(data.supply.totalSupply) / Math.pow(10, exponent);
             setTotalSupply(supply);
           } else {
             setTotalSupply(1000000);
@@ -511,8 +512,12 @@ export default function ChainOverviewPage() {
                     <div className="relative w-40 h-40">
                       <svg viewBox="0 0 100 100" className="transform -rotate-90">
                         {(() => {
+                          const exponent = Number(selectedChain?.assets?.[0]?.exponent || 6);
+                          const divisor = Math.pow(10, exponent);
+                          
+                          // totalSupply sudah dalam display unit, votingPower dalam base unit
                           const bonded = validators && validators.length > 0 
-                            ? validators.reduce((sum: number, v: any) => sum + (parseFloat(v.votingPower) || 0), 0) / 1000000
+                            ? validators.reduce((sum: number, v: any) => sum + (parseFloat(v.votingPower) || 0), 0) / divisor
                             : 0;
                           const supply = totalSupply > 0 ? totalSupply : 1000000;
                           const bondedPercentage = supply > 0 ? (bonded / supply) * 100 : 0;
@@ -571,9 +576,15 @@ export default function ChainOverviewPage() {
                       <div className="absolute inset-0 flex items-center justify-center">
                         <div className="text-center">
                           <p className="text-2xl font-bold text-white">
-                            {validators && validators.length > 0 && totalSupply > 0
-                              ? ((validators.reduce((sum: number, v: any) => sum + (parseFloat(v.votingPower) || 0), 0) / 1000000 / totalSupply) * 100).toFixed(1)
-                              : "0"}%
+                            {(() => {
+                              if (validators && validators.length > 0 && totalSupply > 0) {
+                                const exponent = Number(selectedChain?.assets?.[0]?.exponent || 6);
+                                const divisor = Math.pow(10, exponent);
+                                const bonded = validators.reduce((sum: number, v: any) => sum + (parseFloat(v.votingPower) || 0), 0) / divisor;
+                                return ((bonded / totalSupply) * 100).toFixed(1);
+                              }
+                              return "0";
+                            })()}%
                           </p>
                           <p className="text-xs text-gray-400">Bonded</p>
                         </div>
@@ -601,17 +612,32 @@ export default function ChainOverviewPage() {
                         <span className="text-sm text-gray-400">Unbonded</span>
                       </div>
                       <span className="text-sm font-bold text-white">
-                        {validators && validators.length > 0 && totalSupply > 0
-                          ? formatTokenAmount((totalSupply * Math.pow(10, parseInt(String(selectedChain?.assets?.[0]?.exponent || 6)))) - validators.reduce((sum: number, v: any) => sum + (parseFloat(v.votingPower) || 0), 0), true)
-                          : formatTokenAmount(totalSupply * Math.pow(10, parseInt(String(selectedChain?.assets?.[0]?.exponent || 6))), true)
-                        }
+                        {(() => {
+                          if (validators && validators.length > 0 && totalSupply > 0) {
+                            const exponent = Number(selectedChain?.assets?.[0]?.exponent || 6);
+                            const divisor = Math.pow(10, exponent);
+                            // totalSupply sudah dalam display unit, votingPower dalam base unit
+                            const totalBonded = validators.reduce((sum: number, v: any) => sum + (parseFloat(v.votingPower) || 0), 0) / divisor;
+                            const unbonded = totalSupply - totalBonded;
+                            // unbonded sudah dalam display unit, perlu convert ke base unit untuk formatTokenAmount
+                            return formatTokenAmount(unbonded * divisor, true);
+                          }
+                          const exponent = Number(selectedChain?.assets?.[0]?.exponent || 6);
+                          return formatTokenAmount(totalSupply * Math.pow(10, exponent), true);
+                        })()}
                       </span>
                     </div>
                     <div className="pt-2 border-t border-gray-800">
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-semibold text-gray-400">Total Supply</span>
                         <span className="text-base font-bold text-white">
-                          {totalSupply > 0 ? formatTokenAmount(totalSupply * Math.pow(10, parseInt(String(selectedChain?.assets?.[0]?.exponent || 6))), true) : "1M"}
+                          {(() => {
+                            if (totalSupply > 0) {
+                              const exponent = Number(selectedChain?.assets?.[0]?.exponent || 6);
+                              return formatTokenAmount(totalSupply * Math.pow(10, exponent), true);
+                            }
+                            return "1M";
+                          })()}
                         </span>
                       </div>
                     </div>

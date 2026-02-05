@@ -838,7 +838,10 @@ export default function TransactionDetailPage() {
                                     <div className="flex items-start gap-2 pt-2 border-t border-blue-500/30">
                                       <span className="text-gray-400 min-w-[80px]">Amount:</span>
                                       <span className="text-green-400 font-bold text-lg">
-                                        {(parseInt(msgValue.amount.amount) / 1000000).toLocaleString(undefined, { maximumFractionDigits: 6 })} {asset?.symbol}
+                                        {(() => {
+                                          const exponent = Number(selectedChain?.assets?.[0]?.exponent || 6);
+                                          return (parseInt(msgValue.amount.amount) / Math.pow(10, exponent)).toLocaleString(undefined, { maximumFractionDigits: 6 });
+                                        })()} {asset?.symbol}
                                       </span>
                                     </div>
                                   </div>
@@ -883,7 +886,10 @@ export default function TransactionDetailPage() {
                                     <div className="flex items-start gap-2 pt-2 border-t border-orange-500/30">
                                       <span className="text-gray-400 min-w-[80px]">Amount:</span>
                                       <span className="text-orange-400 font-bold text-lg">
-                                        {(parseInt(msgValue.amount.amount) / 1000000).toLocaleString(undefined, { maximumFractionDigits: 6 })} {asset?.symbol}
+                                        {(() => {
+                                          const exponent = Number(selectedChain?.assets?.[0]?.exponent || 6);
+                                          return (parseInt(msgValue.amount.amount) / Math.pow(10, exponent)).toLocaleString(undefined, { maximumFractionDigits: 6 });
+                                        })()} {asset?.symbol}
                                       </span>
                                     </div>
                                   </div>
@@ -937,7 +943,10 @@ export default function TransactionDetailPage() {
                                     <div className="flex items-start gap-2 pt-2 border-t border-purple-500/30">
                                       <span className="text-gray-400 min-w-[80px]">Amount:</span>
                                       <span className="text-purple-400 font-bold text-lg">
-                                        {(parseInt(msgValue.amount.amount) / 1000000).toLocaleString(undefined, { maximumFractionDigits: 6 })} {asset?.symbol}
+                                        {(() => {
+                                          const exponent = Number(selectedChain?.assets?.[0]?.exponent || 6);
+                                          return (parseInt(msgValue.amount.amount) / Math.pow(10, exponent)).toLocaleString(undefined, { maximumFractionDigits: 6 });
+                                        })()} {asset?.symbol}
                                       </span>
                                     </div>
                                   </div>
@@ -990,11 +999,14 @@ export default function TransactionDetailPage() {
                                           <div className="flex items-start gap-2 pt-2 border-t border-green-500/30">
                                             <span className="text-gray-400 min-w-[80px]">Amount:</span>
                                             <div className="space-y-1">
-                                              {msgValue.amount.map((amt: any, i: number) => (
-                                                <p key={i} className="text-green-400 font-bold text-lg">
-                                                  {(parseInt(amt.amount) / 1000000).toLocaleString(undefined, { maximumFractionDigits: 6 })} {asset?.symbol}
-                                                </p>
-                                              ))}
+                                              {msgValue.amount.map((amt: any, i: number) => {
+                                                const exponent = Number(selectedChain?.assets?.[0]?.exponent || 6);
+                                                return (
+                                                  <p key={i} className="text-green-400 font-bold text-lg">
+                                                    {(parseInt(amt.amount) / Math.pow(10, exponent)).toLocaleString(undefined, { maximumFractionDigits: 6 })} {asset?.symbol}
+                                                  </p>
+                                                );
+                                              })}
                                             </div>
                                           </div>
                                         )}
@@ -1095,11 +1107,14 @@ export default function TransactionDetailPage() {
                                       <div className="flex items-start gap-2 pt-2 border-t border-cyan-500/30">
                                         <span className="text-gray-400 min-w-[80px]">Funds:</span>
                                         <div className="space-y-1">
-                                          {msgValue.funds.map((fund: any, i: number) => (
-                                            <p key={i} className="text-cyan-400 font-semibold">
-                                              {(parseInt(fund.amount) / 1000000).toLocaleString(undefined, { maximumFractionDigits: 6 })} {fund.denom}
-                                            </p>
-                                          ))}
+                                          {msgValue.funds.map((fund: any, i: number) => {
+                                            const exponent = Number(selectedChain?.assets?.[0]?.exponent || 6);
+                                            return (
+                                              <p key={i} className="text-cyan-400 font-semibold">
+                                                {(parseInt(fund.amount) / Math.pow(10, exponent)).toLocaleString(undefined, { maximumFractionDigits: 6 })} {fund.denom}
+                                              </p>
+                                            );
+                                          })}
                                         </div>
                                       </div>
                                     )}

@@ -303,7 +303,10 @@ export default function ParametersPage() {
                       <div className="bg-[#0f0f0f] p-4 rounded-lg border border-gray-800">
                         <p className="text-gray-400 text-sm mb-1">{t('params.minDeposit')}</p>
                         <p className="text-white font-bold">
-                          {(parseInt(parameters.gov.min_deposit[0].amount) / 1000000).toLocaleString()} {selectedChain?.assets[0].symbol}
+                          {(() => {
+                            const exponent = Number(selectedChain?.assets?.[0]?.exponent || 6);
+                            return (parseInt(parameters.gov.min_deposit[0].amount) / Math.pow(10, exponent)).toLocaleString();
+                          })()} {selectedChain?.assets[0].symbol}
                         </p>
                       </div>
                     )}

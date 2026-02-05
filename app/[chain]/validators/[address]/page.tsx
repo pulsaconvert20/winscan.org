@@ -1582,7 +1582,11 @@ export default function ValidatorDetailPage() {
                   }%
                 </p>
                 <p className="text-gray-400 text-sm">
-                  {(parseInt(validator.votingPower || '0') / 1000000).toLocaleString(undefined, { maximumFractionDigits: 0 })} / {(parseInt(validator.tokens || '0') / 1000000).toLocaleString(undefined, { maximumFractionDigits: 0 })} {selectedChain?.assets[0].symbol}
+                  {(() => {
+                    const exponent = Number(selectedChain?.assets?.[0]?.exponent || 6);
+                    const divisor = Math.pow(10, exponent);
+                    return `${(parseInt(validator.votingPower || '0') / divisor).toLocaleString(undefined, { maximumFractionDigits: 0 })} / ${(parseInt(validator.tokens || '0') / divisor).toLocaleString(undefined, { maximumFractionDigits: 0 })} ${selectedChain?.assets[0].symbol}`;
+                  })()}
                 </p>
               </div>
               
@@ -1606,7 +1610,12 @@ export default function ValidatorDetailPage() {
                 </div>
                 <div className="bg-[#111111] rounded-lg p-3 hover:bg-[#111111]/70 hover:scale-105 transition-all duration-200">
                   <p className="text-gray-400 text-xs font-medium mb-1">Power</p>
-                  <p className="text-white font-bold text-lg">{(parseInt(validator.votingPower || '0') / 1000000).toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                  <p className="text-white font-bold text-lg">
+                    {(() => {
+                      const exponent = Number(selectedChain?.assets?.[0]?.exponent || 6);
+                      return (parseInt(validator.votingPower || '0') / Math.pow(10, exponent)).toLocaleString(undefined, { maximumFractionDigits: 0 });
+                    })()}
+                  </p>
                 </div>
                 <div className="bg-[#111111] rounded-lg p-3 hover:bg-[#111111]/70 hover:scale-105 transition-all duration-200">
                   <p className="text-gray-400 text-xs font-medium mb-1">Percentage</p>
@@ -1921,16 +1930,22 @@ export default function ValidatorDetailPage() {
                                 </Link>
                               </td>
                               <td className="px-4 py-3 text-right text-white font-medium">
-                                {(parseFloat(delegation.balance) / 1000000).toLocaleString(undefined, { 
-                                  minimumFractionDigits: 0,
-                                  maximumFractionDigits: 4 
-                                })} {selectedChain?.assets[0].symbol}
+                                {(() => {
+                                  const exponent = Number(selectedChain?.assets?.[0]?.exponent || 6);
+                                  return (parseFloat(delegation.balance) / Math.pow(10, exponent)).toLocaleString(undefined, { 
+                                    minimumFractionDigits: 0,
+                                    maximumFractionDigits: 4 
+                                  });
+                                })()} {selectedChain?.assets[0].symbol}
                               </td>
                               <td className="px-4 py-3 text-right text-gray-400">
-                                {(parseFloat(delegation.shares) / 1000000).toLocaleString(undefined, { 
-                                  minimumFractionDigits: 0,
-                                  maximumFractionDigits: 2 
-                                })}
+                                {(() => {
+                                  const exponent = Number(selectedChain?.assets?.[0]?.exponent || 6);
+                                  return (parseFloat(delegation.shares) / Math.pow(10, exponent)).toLocaleString(undefined, { 
+                                    minimumFractionDigits: 0,
+                                    maximumFractionDigits: 2 
+                                  });
+                                })()}
                               </td>
                             </tr>
                           ))}
@@ -1974,10 +1989,13 @@ export default function ValidatorDetailPage() {
                                   </Link>
                                 </td>
                                 <td className="px-4 py-3 text-right text-white font-medium">
-                                  {(parseFloat(entry.balance) / 1000000).toLocaleString(undefined, { 
-                                    minimumFractionDigits: 0,
-                                    maximumFractionDigits: 4 
-                                  })} {selectedChain?.assets[0].symbol}
+                                  {(() => {
+                                    const exponent = Number(selectedChain?.assets?.[0]?.exponent || 6);
+                                    return (parseFloat(entry.balance) / Math.pow(10, exponent)).toLocaleString(undefined, { 
+                                      minimumFractionDigits: 0,
+                                      maximumFractionDigits: 4 
+                                    });
+                                  })()} {selectedChain?.assets[0].symbol}
                                 </td>
                                 <td className="px-4 py-3 text-gray-400 text-sm">
                                   {new Date(entry.completionTime).toLocaleString()}
