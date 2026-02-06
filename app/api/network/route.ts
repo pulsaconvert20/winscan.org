@@ -11,12 +11,26 @@ export const GET = createRoute({
     staleWhileRevalidate: 60000 // 1 minute
   },
   handler: async ({ chain }) => {
-    const path = `/api/network?chain=${chain}`;
-    console.log('[Network API] Fetching with failover:', path);
-    
-    // Use failover: SSL1 -> SSL2
-    return await fetchJSONWithFailover(path, {
-      headers: { 'Accept': 'application/json' }
-    });
+    try {
+      const path = `/api/network?chain=${chain}`;
+      console.log('[Network API] Fetching with failover:', path);
+      
+      // Use failover: SSL1 -> SSL2
+      return await fetchJSONWithFailover(path, {
+        headers: { 'Accept': 'application/json' },
+        signal: AbortSignal.timeout(8000) // 8 second timeout for Vercel
+      });
+    } catch (error) {
+      console.warn(`[Network API] Failed for chain ${chain}:`, error);
+      // Return default network data instead of throwing error
+      return {
+        bondedTokens: '0',
+        notBondedTokens: '0',
+        totalSupply: '0',
+        bondedRatio: '0',
+        inflation: '0',
+        communityPool: '0'
+      };
+    }
   }
 });

@@ -12,11 +12,18 @@ export const GET = createRoute({
     staleWhileRevalidate: 30000 // 30 seconds
   },
   handler: async ({ chain, limit }) => {
-    const path = `/api/blocks?chain=${chain}${limit ? `&limit=${limit}` : ''}`;
-    
-    // Use failover: SSL1 -> SSL2
-    return await fetchJSONWithFailover(path, {
-      headers: { 'Accept': 'application/json' }
-    });
+    try {
+      const path = `/api/blocks?chain=${chain}${limit ? `&limit=${limit}` : ''}`;
+      
+      // Use failover: SSL1 -> SSL2
+      return await fetchJSONWithFailover(path, {
+        headers: { 'Accept': 'application/json' },
+        signal: AbortSignal.timeout(8000) // 8 second timeout for Vercel
+      });
+    } catch (error) {
+      console.warn(`[Blocks API] Failed for chain ${chain}:`, error);
+      // Return empty array instead of throwing error
+      return { blocks: [] };
+    }
   }
 });
