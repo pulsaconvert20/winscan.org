@@ -450,9 +450,10 @@ export default function IBCTransferInterface({
 
       await (window as any).keplr.enable(actualSourceChainId);
       
+      // For EVM chains (coin_type 60), use Amino signer only to avoid EthAccount issues
       const isEvmChain = actualSourceChainId.includes('_');
       const offlineSigner = isEvmChain 
-        ? await (window as any).keplr.getOfflineSigner(actualSourceChainId)
+        ? await (window as any).keplr.getOfflineSignerOnlyAmino(actualSourceChainId)
         : await (window as any).keplr.getOfflineSignerAuto(actualSourceChainId);
       
       const accounts = await offlineSigner.getAccounts();
@@ -471,7 +472,86 @@ export default function IBCTransferInterface({
 
       const { SigningStargateClient } = await import('@cosmjs/stargate');
       
-      const clientOptions: any = {};
+      // For EVM chains, we need custom account parser to handle EthAccount type
+      let clientOptions: any = {};
+      
+      if (isEvmChain) {
+        // Import account parser helper
+        const { accountFromAny } = await import('@cosmjs/stargate');
+        
+        // Fetch account info from REST API to get sequence number
+        let accountInfo: any = null;
+        try {
+          const restEndpoint = typeof actualSourceRpc === 'string'
+            ? actualSourceRpc.replace(/:\d+$/, ':1317') // Try to convert RPC to REST
+            : actualSourceRpc.address.replace(/:\d+$/, ':1317');
+          
+          // Try to fetch from configured API endpoints
+          const apiEndpoints = sourceChain.api || [];
+          let restUrl = apiEndpoints.length > 0 
+            ? (typeof apiEndpoints[0] === 'string' ? apiEndpoints[0] : apiEndpoints[0].address)
+            : restEndpoint;
+          
+          console.log(`🔍 Fetching account info from: ${restUrl}/cosmos/auth/v1beta1/accounts/${senderAddress}`);
+          
+          const accountResponse = await fetch(`${restUrl}/cosmos/auth/v1beta1/accounts/${senderAddress}`);
+          if (accountResponse.ok) {
+            const accountData = await accountResponse.json();
+            
+            // Extract base account from EthAccount
+            let baseAccount = accountData.account;
+            if (baseAccount.base_account) {
+              baseAccount = baseAccount.base_account;
+            } else if (baseAccount.BaseAccount) {
+              baseAccount = baseAccount.BaseAccount;
+            }
+            
+            accountInfo = {
+              address: baseAccount.address || senderAddress,
+              pubkey: baseAccount.pub_key || null,
+              accountNumber: parseInt(baseAccount.account_number || '0'),
+              sequence: parseInt(baseAccount.sequence || '0'),
+            };
+            
+            console.log('✅ Account info fetched:', accountInfo);
+          }
+        } catch (fetchError) {
+          console.warn('Failed to fetch account info, will use defaults:', fetchError);
+        }
+        
+        // Custom account parser that handles EthAccount
+        clientOptions.accountParser = (input: any) => {
+          try {
+            if (input.typeUrl === '/ethermint.types.v1.EthAccount') {
+              console.log('🔍 Parsing EthAccount for IBC transfer');
+              
+              // If we fetched account info, use it
+              if (accountInfo) {
+                return accountInfo;
+              }
+              
+              // Otherwise return minimal structure
+              return {
+                address: senderAddress,
+                pubkey: null,
+                accountNumber: 0,
+                sequence: 0,
+              };
+            }
+            
+            return accountFromAny(input);
+          } catch (error) {
+            console.error('Account parser error:', error);
+            // Fallback: use fetched account info or minimal structure
+            return accountInfo || {
+              address: senderAddress,
+              pubkey: null,
+              accountNumber: 0,
+              sequence: 0,
+            };
+          }
+        };
+      }
       
       let rpcEndpoint: string;
       if (isReversed) {

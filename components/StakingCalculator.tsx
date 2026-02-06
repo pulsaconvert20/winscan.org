@@ -26,68 +26,91 @@ export default function StakingCalculator({ selectedChain }: StakingCalculatorPr
       try {
         const chainPath = selectedChain.chain_name.toLowerCase().replace(/\s+/g, '-');
         
-        // Fetch inflation
-        const mintResponse = await fetch(`/api/mint?chain=${chainPath}`);
+        // Fetch inflation and network data
+        const [mintResponse, networkResponse] = await Promise.all([
+          fetch(`/api/mint?chain=${chainPath}`),
+          fetch(`/api/network?chain=${chainPath}`)
+        ]);
         
         console.log('[Staking Calculator] Fetching APR for:', chainPath);
-        console.log('[Staking Calculator] Mint response status:', mintResponse.status);
         
-        if (mintResponse.ok) {
+        if (mintResponse.ok && networkResponse.ok) {
           const mintData = await mintResponse.json();
-          console.log('[Staking Calculator] Mint data:', mintData);
+          const networkData = await networkResponse.json();
           
+          console.log('[Staking Calculator] Mint data:', mintData);
+          console.log('[Staking Calculator] Network data:', networkData);
+          
+          // Get inflation rate
+          let inflationRate = 0;
           if (mintData.inflation && mintData.inflation !== '0') {
-            let inflationValue = parseFloat(mintData.inflation);
+            const rawInflation = parseFloat(mintData.inflation);
             
-            // Convert to percentage if needed
-            if (!isNaN(inflationValue)) {
-              if (inflationValue < 1) {
-                inflationValue = inflationValue * 100;
-              }
-              
-              console.log('[Staking Calculator] Inflation:', inflationValue);
-              
-              // Now fetch staking pool to get bonded ratio for accurate APR
-              try {
-                const poolResponse = await fetch(`/api/network?chain=${chainPath}`);
-                if (poolResponse.ok) {
-                  const poolData = await poolResponse.json();
-                  console.log('[Staking Calculator] Pool data:', poolData);
-                  
-                  if (poolData.bondedTokens && poolData.supply) {
-                    const bondedTokens = parseFloat(poolData.bondedTokens);
-                    const totalSupply = parseFloat(poolData.supply);
-                    
-                    if (bondedTokens > 0 && totalSupply > 0) {
-                      const bondedRatio = bondedTokens / totalSupply;
-                      const calculatedApr = inflationValue / bondedRatio;
-                      
-                      console.log('[Staking Calculator] Bonded Ratio:', bondedRatio);
-                      console.log('[Staking Calculator] Calculated APR:', calculatedApr);
-                      
-                      setApr(calculatedApr.toFixed(2));
-                      setAprAutoDetected(true);
-                      return;
-                    }
-                  }
-                }
-              } catch (poolError) {
-                console.log('[Staking Calculator] Could not fetch pool data, using inflation as APR');
-              }
-              
-              // Fallback: use inflation as APR if bonded ratio not available
-              setApr(inflationValue.toFixed(2));
-              setAprAutoDetected(true);
+            // Cosmos SDK returns inflation as decimal (e.g., 0.1954 = 19.54%)
+            // We need to convert to percentage for display
+            if (rawInflation > 0 && rawInflation < 1) {
+              // Decimal format (e.g., 0.1954 = 19.54%)
+              inflationRate = rawInflation * 100;
+              console.log('[Staking Calculator] Converted decimal inflation to percentage:', inflationRate.toFixed(2) + '%');
+            } else if (rawInflation >= 1 && rawInflation <= 10) {
+              // Could be decimal > 1 (e.g., 1.5 = 150%) or already percentage (e.g., 5 = 5%)
+              // Check if it makes sense as percentage first
+              // If value is between 1-10, more likely it's already percentage
+              inflationRate = rawInflation;
+              console.log('[Staking Calculator] Inflation in percentage format:', inflationRate.toFixed(2) + '%');
+            } else if (rawInflation > 10) {
+              // Definitely percentage format (e.g., 150 = 150%)
+              inflationRate = rawInflation;
+              console.log('[Staking Calculator] Inflation already in percentage format:', inflationRate.toFixed(2) + '%');
             }
-          } else {
-            console.log('[Staking Calculator] No inflation data or inflation is 0, keeping default');
           }
-        } else {
-          console.log('[Staking Calculator] API request failed:', mintResponse.status);
+          
+          // Get bonded ratio
+          let bondedRatio = 0.67; // Default fallback (67%)
+          if (networkData.bondedTokens && networkData.totalSupply) {
+            const bondedTokens = parseFloat(networkData.bondedTokens);
+            const totalSupply = parseFloat(networkData.totalSupply);
+            if (bondedTokens > 0 && totalSupply > 0) {
+              bondedRatio = bondedTokens / totalSupply;
+              console.log('[Staking Calculator] Calculated bonded ratio from tokens:', (bondedRatio * 100).toFixed(2) + '%');
+            }
+          } else if (networkData.bondedRatio) {
+            bondedRatio = parseFloat(networkData.bondedRatio);
+            // If bonded ratio is > 1, it's in percentage format
+            if (bondedRatio > 1) {
+              bondedRatio = bondedRatio / 100;
+              console.log('[Staking Calculator] Converted bonded ratio from percentage:', (bondedRatio * 100).toFixed(2) + '%');
+            }
+          }
+          
+          console.log('[Staking Calculator] Inflation Rate:', inflationRate + '%');
+          console.log('[Staking Calculator] Bonded Ratio:', (bondedRatio * 100).toFixed(2) + '%');
+          
+          if (inflationRate > 0 && bondedRatio > 0) {
+            // Calculate base APR: Inflation / Bonded Ratio
+            // inflationRate is now in percentage (e.g., 150 for 150%)
+            // bondedRatio is in decimal (e.g., 0.67 for 67%)
+            // Formula: APR = (Inflation% / Bonded Ratio decimal) 
+            // Example: 150% / 0.67 = 223.88%
+            const baseApr = inflationRate / bondedRatio;
+            
+            // Assume average validator commission of 10% for display
+            // Users can adjust this manually
+            const avgCommission = 0.10;
+            const estimatedApr = baseApr * (1 - avgCommission);
+            
+            console.log('[Staking Calculator] Base APR:', baseApr.toFixed(2) + '%');
+            console.log('[Staking Calculator] Estimated APR (after 10% commission):', estimatedApr.toFixed(2) + '%');
+            
+            setApr(estimatedApr.toFixed(2));
+            setAprAutoDetected(true);
+            return;
+          }
         }
+        
+        console.log('[Staking Calculator] Could not calculate APR, keeping default');
       } catch (error) {
         console.error('[Staking Calculator] Error fetching APR:', error);
-        // Keep default value if fetch fails
       } finally {
         setLoadingApr(false);
       }
