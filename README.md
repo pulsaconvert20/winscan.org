@@ -77,20 +77,13 @@ npm run chain:validate   # Validate chain configs
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fwinsnip-official%2Fwinscan.org)
 
-**After deployment, configure environment variables:**
+**✨ No environment variables required!** 
 
-1. Go to **Project Settings** → **Environment Variables**
-2. Add these variables (copy from `.env.example`):
-   ```
-   NEXT_PUBLIC_API_URL=https://ssl.winsnip.xyz
-   NEXT_PUBLIC_API_URL_FALLBACK=https://ssl2.winsnip.xyz
-   NEXT_PUBLIC_BACKEND_URL=https://ssl.winsnip.xyz
-   NEXT_PUBLIC_API_TIMEOUT=8000
-   NEXT_PUBLIC_DEFAULT_CHAIN=paxi-mainnet
-   ```
-3. Click **Save** and **Redeploy**
+The app works out-of-the-box using RPC/API from chain config files (`Chains/*.json`). Just click deploy and it works!
 
-**Note:** If you don't have a custom backend, the app will automatically use RPC/API endpoints from chain configuration files.
+**Optional:** If you have a custom backend API, set these in Vercel Project Settings:
+- `NEXT_PUBLIC_API_URL` - Your backend URL
+- `NEXT_PUBLIC_DEFAULT_CHAIN` - Default chain (e.g., `paxi-mainnet`)
 
 📚 **[Homepage & Branding Guide](HOMEPAGE-CONFIG.md)** | **[Chain Configuration](CHAIN-GUIDELINES.md)**
 
