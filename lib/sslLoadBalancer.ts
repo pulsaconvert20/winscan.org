@@ -224,15 +224,10 @@ export async function fetchWithFailover(
   path: string,
   options?: RequestInit
 ): Promise<Response> {
-  // Get SSL endpoints from environment variables
-  const ssl1 = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL_SSL1;
-  const ssl2 = process.env.API_URL_FALLBACK || process.env.NEXT_PUBLIC_API_URL_SSL2;
+  // Get SSL endpoints - hardcoded with env override option
+  const ssl1 = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL_SSL1 || 'https://ssl.winsnip.xyz';
+  const ssl2 = process.env.API_URL_FALLBACK || process.env.NEXT_PUBLIC_API_URL_SSL2 || 'https://ssl2.winsnip.xyz';
   
-  // If no SSL backend configured, throw error to trigger RPC fallback
-  if (!ssl1 && !ssl2) {
-    throw new Error('No SSL backend configured - use chain RPC instead');
-  }
-
   const endpoints = [ssl1, ssl2].filter(Boolean) as string[];
   let lastError: Error | null = null;
 
