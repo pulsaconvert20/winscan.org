@@ -221,6 +221,8 @@ class SSLLoadBalancer {
  * 1. Chain RPC/API from Chains/*.json
  * 2. SSL backend (WinSnip)
  * 3. SSL2 backend (WinSnip fallback)
+ * 
+ * Note: This function is server-side only due to fs usage in chain-config
  */
 export async function fetchWithSmartFailover(
   path: string,
@@ -229,36 +231,38 @@ export async function fetchWithSmartFailover(
 ): Promise<Response> {
   const errors: string[] = [];
   
-  // Step 1: Try chain RPC/API first (if available)
-  try {
-    const { findChainConfig, getRestEndpoint } = await import('@/lib/utils/chain-config');
-    const chainConfig = findChainConfig(chainName);
-    
-    if (chainConfig) {
-      const restEndpoint = getRestEndpoint(chainConfig);
+  // Step 1: Try chain RPC/API first (server-side only)
+  if (typeof window === 'undefined') {
+    try {
+      const { findChainConfig, getRestEndpoint } = await import('@/lib/utils/chain-config');
+      const chainConfig = findChainConfig(chainName);
       
-      if (restEndpoint) {
-        console.log(`[Smart Failover] Step 1: Trying chain RPC: ${restEndpoint}`);
+      if (chainConfig) {
+        const restEndpoint = getRestEndpoint(chainConfig);
         
-        // Build proper URL - path already includes query params
-        const chainUrl = `${restEndpoint}${path}`;
-        
-        const response = await fetch(chainUrl, {
-          ...options,
-          signal: AbortSignal.timeout(5000), // 5s timeout for chain RPC
-        });
-        
-        if (response.ok) {
-          console.log(`[Smart Failover] ✓ Success with chain RPC`);
-          return response;
+        if (restEndpoint) {
+          console.log(`[Smart Failover] Step 1: Trying chain RPC: ${restEndpoint}`);
+          
+          // Build proper URL - path already includes query params
+          const chainUrl = `${restEndpoint}${path}`;
+          
+          const response = await fetch(chainUrl, {
+            ...options,
+            signal: AbortSignal.timeout(5000), // 5s timeout for chain RPC
+          });
+          
+          if (response.ok) {
+            console.log(`[Smart Failover] ✓ Success with chain RPC`);
+            return response;
+          }
+          
+          errors.push(`Chain RPC: HTTP ${response.status}`);
         }
-        
-        errors.push(`Chain RPC: HTTP ${response.status}`);
       }
+    } catch (error: any) {
+      errors.push(`Chain RPC: ${error.message}`);
+      console.warn(`[Smart Failover] Chain RPC failed, trying SSL...`);
     }
-  } catch (error: any) {
-    errors.push(`Chain RPC: ${error.message}`);
-    console.warn(`[Smart Failover] Chain RPC failed, trying SSL...`);
   }
   
   // Step 2 & 3: Fallback to SSL backends
