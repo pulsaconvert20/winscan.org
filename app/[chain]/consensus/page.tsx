@@ -28,6 +28,14 @@ export default function ConsensusPage() {
   const [activeRpc, setActiveRpc] = useState<string>('');
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
+  
+  // Block Height Checker state
+  const [targetHeight, setTargetHeight] = useState<string>('');
+  const [estimatedTime, setEstimatedTime] = useState<string>('');
+  const [blocksRemaining, setBlocksRemaining] = useState<number>(0);
+  const [avgBlockTime, setAvgBlockTime] = useState<number>(6); // Default 6 seconds
+  const [calculatingAvg, setCalculatingAvg] = useState<boolean>(false);
+  const [lastBlockTimes, setLastBlockTimes] = useState<number[]>([]);
 
   const checkRpcIndexer = async (rpcUrl: string): Promise<boolean> => {
     try {
@@ -226,6 +234,99 @@ export default function ConsensusPage() {
     }
     return num.toLocaleString();
   };
+  
+  // Auto-calculate average block time from recent blocks
+  const calculateAvgBlockTime = async () => {
+    if (!activeRpc || !consensusData) return;
+    
+    setCalculatingAvg(true);
+    try {
+      const currentHeight = parseInt(consensusData.height);
+      const blocksToCheck = 10; // Check last 10 blocks
+      
+      // Fetch last N blocks
+      const blockPromises = [];
+      for (let i = 0; i < blocksToCheck; i++) {
+        const height = currentHeight - i;
+        blockPromises.push(
+          fetch(`${activeRpc}/block?height=${height}`)
+            .then(r => r.json())
+            .then(data => ({
+              height: height,
+              time: new Date(data.result.block.header.time).getTime()
+            }))
+        );
+      }
+      
+      const blocks = await Promise.all(blockPromises);
+      
+      // Sort by height (ascending)
+      blocks.sort((a, b) => a.height - b.height);
+      
+      // Calculate time differences
+      const timeDiffs: number[] = [];
+      for (let i = 1; i < blocks.length; i++) {
+        const diff = (blocks[i].time - blocks[i-1].time) / 1000; // Convert to seconds
+        if (diff > 0 && diff < 60) { // Sanity check: block time should be < 60s
+          timeDiffs.push(diff);
+        }
+      }
+      
+      if (timeDiffs.length > 0) {
+        const avg = timeDiffs.reduce((a, b) => a + b, 0) / timeDiffs.length;
+        setAvgBlockTime(parseFloat(avg.toFixed(2)));
+        setLastBlockTimes(timeDiffs);
+        console.log('[Block Time] Calculated average:', avg.toFixed(2), 'seconds from', timeDiffs.length, 'blocks');
+      }
+    } catch (error) {
+      console.error('[Block Time] Error calculating average:', error);
+    } finally {
+      setCalculatingAvg(false);
+    }
+  };
+  
+  // Auto-calculate on load
+  useEffect(() => {
+    if (activeRpc && consensusData && !loading) {
+      calculateAvgBlockTime();
+    }
+  }, [activeRpc, consensusData, loading]);
+  
+  // Calculate estimated time to target block
+  useEffect(() => {
+    if (!targetHeight || !consensusData) return;
+    
+    const currentHeight = parseInt(consensusData.height);
+    const target = parseInt(targetHeight);
+    
+    if (isNaN(target) || target <= currentHeight) {
+      setEstimatedTime('');
+      setBlocksRemaining(0);
+      return;
+    }
+    
+    const remaining = target - currentHeight;
+    setBlocksRemaining(remaining);
+    
+    // Calculate estimated time
+    const totalSeconds = remaining * avgBlockTime;
+    const days = Math.floor(totalSeconds / 86400);
+    const hours = Math.floor((totalSeconds % 86400) / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = Math.floor(totalSeconds % 60);
+    
+    let timeStr = '';
+    if (days > 0) timeStr += `${days}d `;
+    if (hours > 0) timeStr += `${hours}h `;
+    if (minutes > 0) timeStr += `${minutes}m `;
+    if (seconds > 0 || timeStr === '') timeStr += `${seconds}s`;
+    
+    setEstimatedTime(timeStr.trim());
+    
+    // Calculate estimated arrival time
+    const arrivalDate = new Date(Date.now() + totalSeconds * 1000);
+    
+  }, [targetHeight, consensusData, avgBlockTime]);
 
   return (
     <div className="min-h-screen bg-[#0f0f0f] text-white flex">
@@ -297,6 +398,154 @@ export default function ConsensusPage() {
                 {/* Round Info */}
                 <div className="mt-4 p-3 bg-[#0f0f0f] rounded font-mono text-sm text-gray-300">
                   <div>Round: {consensusData.round}</div>
+                </div>
+              </div>
+
+              {/* Block Height Checker */}
+              <div className="bg-[#1a1a1a] rounded-lg p-6 border border-gray-800">
+                <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Block Height Checker
+                </h2>
+                <p className="text-gray-400 text-sm mb-4">
+                  Calculate estimated time until a specific block height
+                </p>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Input Section */}
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                        Target Block Height
+                      </label>
+                      <input
+                        type="number"
+                        value={targetHeight}
+                        onChange={(e) => setTargetHeight(e.target.value)}
+                        placeholder={`e.g., ${parseInt(consensusData.height) + 1000}`}
+                        className="w-full bg-[#0f0f0f] border border-gray-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-colors"
+                      />
+                    </div>
+                    
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="block text-sm font-medium text-gray-300">
+                          Average Block Time (seconds)
+                        </label>
+                        <button
+                          onClick={calculateAvgBlockTime}
+                          disabled={calculatingAvg}
+                          className="text-xs text-blue-400 hover:text-blue-300 disabled:text-gray-600 flex items-center gap-1"
+                        >
+                          {calculatingAvg ? (
+                            <>
+                              <svg className="animate-spin h-3 w-3" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                              Calculating...
+                            </>
+                          ) : (
+                            <>
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                              </svg>
+                              Auto-calculate
+                            </>
+                          )}
+                        </button>
+                      </div>
+                      <input
+                        type="number"
+                        value={avgBlockTime}
+                        onChange={(e) => setAvgBlockTime(parseFloat(e.target.value) || 6)}
+                        step="0.1"
+                        className="w-full bg-[#0f0f0f] border border-gray-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-colors"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        {lastBlockTimes.length > 0 ? (
+                          <span className="text-green-400">
+                            ✓ Auto-calculated from last {lastBlockTimes.length} blocks
+                          </span>
+                        ) : (
+                          'Click auto-calculate or enter manually'
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  {/* Results Section */}
+                  <div className="bg-[#0f0f0f] rounded-lg p-4 space-y-3">
+                    <div className="flex justify-between items-center pb-3 border-b border-gray-800">
+                      <span className="text-gray-400 text-sm">Current Height</span>
+                      <span className="text-white font-bold font-mono">{parseInt(consensusData.height).toLocaleString()}</span>
+                    </div>
+                    
+                    {targetHeight && parseInt(targetHeight) > parseInt(consensusData.height) && (
+                      <>
+                        <div className="flex justify-between items-center pb-3 border-b border-gray-800">
+                          <span className="text-gray-400 text-sm">Target Height</span>
+                          <span className="text-blue-400 font-bold font-mono">{parseInt(targetHeight).toLocaleString()}</span>
+                        </div>
+                        
+                        <div className="flex justify-between items-center pb-3 border-b border-gray-800">
+                          <span className="text-gray-400 text-sm">Blocks Remaining</span>
+                          <span className="text-orange-400 font-bold font-mono">{blocksRemaining.toLocaleString()}</span>
+                        </div>
+                        
+                        <div className="flex justify-between items-center pb-3 border-b border-gray-800">
+                          <span className="text-gray-400 text-sm">Estimated Time</span>
+                          <span className="text-green-400 font-bold">{estimatedTime}</span>
+                        </div>
+                        
+                        <div className="flex justify-between items-center">
+                          <span className="text-gray-400 text-sm">Estimated Arrival</span>
+                          <span className="text-purple-400 font-medium text-sm">
+                            {new Date(Date.now() + blocksRemaining * avgBlockTime * 1000).toLocaleString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </span>
+                        </div>
+                        
+                        {/* Progress Bar */}
+                        <div className="pt-3">
+                          <div className="flex justify-between text-xs text-gray-500 mb-1">
+                            <span>Progress</span>
+                            <span>{((parseInt(consensusData.height) / parseInt(targetHeight)) * 100).toFixed(2)}%</span>
+                          </div>
+                          <div className="w-full bg-gray-800 rounded-full h-2">
+                            <div 
+                              className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full transition-all duration-500"
+                              style={{ width: `${Math.min(100, (parseInt(consensusData.height) / parseInt(targetHeight)) * 100)}%` }}
+                            ></div>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                    
+                    {targetHeight && parseInt(targetHeight) <= parseInt(consensusData.height) && (
+                      <div className="text-center py-4">
+                        <AlertCircle className="w-8 h-8 mx-auto mb-2 text-yellow-500" />
+                        <p className="text-yellow-400 text-sm">
+                          Target height must be greater than current height
+                        </p>
+                      </div>
+                    )}
+                    
+                    {!targetHeight && (
+                      <div className="text-center py-8 text-gray-500">
+                        <svg className="w-12 h-12 mx-auto mb-2 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <p className="text-sm">Enter a target block height</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
