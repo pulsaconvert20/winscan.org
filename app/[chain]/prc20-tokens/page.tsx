@@ -83,7 +83,6 @@ export default function PRC20TokensPage() {
 
       // Use cache endpoint for instant response
       let url = `/api/prc20-tokens/cache`;
-      // Note: Cache returns all tokens, pagination handled client-side
 
       const response = await fetch(url);
       

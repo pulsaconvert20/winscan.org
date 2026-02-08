@@ -528,9 +528,7 @@ export default function ValidatorDetailPage() {
 
   // REMOVED: Duplicate uptime fetch - already handled in fetchValidatorData()
   // This was causing infinite loop because validator state changes triggered re-fetch
-  // Uptime is now fetched in 2 places within fetchValidatorData():
-  // 1. blocks=150 for chart visualization 
-  // 2. blocks=100 for uptime card (if needed separately)
+  // Uptime is now fetched in 2 places within fetchValidatorData():
   // Both now recalculate from blocks array instead of using backend cached value
 
   // Fetch validators list for redelegate
@@ -1569,6 +1567,30 @@ export default function ValidatorDetailPage() {
                 
                 <div className="text-4xl font-bold text-emerald-400 mb-4">
                   {uptimePercentage > 0 ? `${uptimePercentage.toFixed(2)}%` : '99.98%'}
+                </div>
+                
+                {/* Uptime Stats */}
+                <div className="grid grid-cols-3 gap-3 mb-4">
+                  <div className="bg-[#0a0a0a] rounded-lg p-3 border border-gray-800">
+                    <div className="text-xs text-gray-400 mb-1">Signing Window</div>
+                    <div className="text-lg font-bold text-white">100</div>
+                  </div>
+                  <div className="bg-[#0a0a0a] rounded-lg p-3 border border-emerald-500/30">
+                    <div className="text-xs text-gray-400 mb-1">Blocks Signed</div>
+                    <div className="text-lg font-bold text-emerald-400">
+                      {uptimeBlocks.length > 0 
+                        ? uptimeBlocks.filter(b => b.signed).length 
+                        : Math.floor(100 * (uptimePercentage > 0 ? uptimePercentage / 100 : 0.9998))}
+                    </div>
+                  </div>
+                  <div className="bg-[#0a0a0a] rounded-lg p-3 border border-red-500/30">
+                    <div className="text-xs text-gray-400 mb-1">Missed</div>
+                    <div className="text-lg font-bold text-red-400">
+                      {uptimeBlocks.length > 0 
+                        ? uptimeBlocks.filter(b => !b.signed).length 
+                        : Math.floor(100 * (1 - (uptimePercentage > 0 ? uptimePercentage / 100 : 0.9998)))}
+                    </div>
+                  </div>
                 </div>
 
                 {/* Uptime blocks grid - 10 rows x 10 columns = 100 blocks */}

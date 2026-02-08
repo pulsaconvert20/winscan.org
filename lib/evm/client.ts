@@ -591,8 +591,7 @@ export async function getAddressTransactions(
     const sent: EVMTransaction[] = [];
     const received: EVMTransaction[] = [];
     
-    // Scan blocks for transactions involving this address
-    // Note: This is inefficient for large ranges, better to use indexed backend
+    // Scan blocks for transactions involving this address
     const batchSize = 100; // Process 100 blocks at a time
     const numBatches = Math.ceil(blockRange / batchSize);
     

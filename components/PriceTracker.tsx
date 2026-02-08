@@ -58,9 +58,7 @@ export default function PriceTracker({ selectedChain }: PriceTrackerProps) {
 
       setIsLoading(true);
       try {
-        let priceResult: PriceData | null = null;
-
-        // 1. Try Osmosis API first (best for Cosmos tokens)
+        let priceResult: PriceData | null = null;
         if (!priceResult) {
           try {
             const osmoResponse = await fetch(
@@ -106,9 +104,7 @@ export default function PriceTracker({ selectedChain }: PriceTrackerProps) {
             }
           } catch (err) {
             }
-        }
-
-        // 2. Try CoinGecko if coingecko_id exists
+        }
         if (!priceResult && coingeckoId) {
           try {
             const cgResponse = await fetch(
@@ -128,9 +124,7 @@ export default function PriceTracker({ selectedChain }: PriceTrackerProps) {
             }
           } catch (err) {
             }
-        }
-
-        // 3. Try MEXC Exchange
+        }
         if (!priceResult) {
           try {
             const pairs = [`${symbol.toUpperCase()}USDT`, `${symbol.toUpperCase()}USDC`];
@@ -155,9 +149,7 @@ export default function PriceTracker({ selectedChain }: PriceTrackerProps) {
             }
           } catch (err) {
             }
-        }
-
-        // 4. Try Bitget Exchange
+        }
         if (!priceResult) {
           try {
             const pairs = [`${symbol.toUpperCase()}USDT`, `${symbol.toUpperCase()}USDC`];
@@ -182,9 +174,7 @@ export default function PriceTracker({ selectedChain }: PriceTrackerProps) {
             }
           } catch (err) {
             }
-        }
-
-        // 5. Try Gate.io Exchange
+        }
         if (!priceResult) {
           try {
             const pairs = [`${symbol.toUpperCase()}_USDT`, `${symbol.toUpperCase()}_USDC`];
@@ -209,9 +199,7 @@ export default function PriceTracker({ selectedChain }: PriceTrackerProps) {
             }
           } catch (err) {
             }
-        }
-
-        // 6. Try KuCoin Exchange
+        }
         if (!priceResult) {
           try {
             const pairs = [`${symbol.toUpperCase()}-USDT`, `${symbol.toUpperCase()}-USDC`];
@@ -236,9 +224,7 @@ export default function PriceTracker({ selectedChain }: PriceTrackerProps) {
             }
           } catch (err) {
             }
-        }
-
-        // 7. Try CoinMarketCap (requires no API key for basic data)
+        }
         if (!priceResult) {
           try {
             // CMC uses cryptocurrency names/slugs, try common variations
@@ -269,9 +255,7 @@ export default function PriceTracker({ selectedChain }: PriceTrackerProps) {
             }
           } catch (err) {
             }
-        }
-
-        // 8. Try Backend API as last resort
+        }
         if (!priceResult) {
           try {
             const response = await fetch(`/api/price?symbol=${symbol}`, {

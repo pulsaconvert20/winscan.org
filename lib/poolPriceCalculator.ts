@@ -71,8 +71,7 @@ async function queryTokenDecimals(tokenAddress: string): Promise<number> {
  * Query pool data and calculate price in PAXI
  */
 export async function getPoolPrice(tokenAddress: string): Promise<PoolPrice | null> {
-  try {
-    // Step 1: Query pool data FIRST (faster, no contract call)
+  try {
     let poolData: any = null;
     
     try {
@@ -91,9 +90,7 @@ export async function getPoolPrice(tokenAddress: string): Promise<PoolPrice | nu
     
     if (!poolData || !poolData.reserve_paxi || !poolData.reserve_prc20) {
       return null;
-    }
-    
-    // Step 2: Infer decimals from LCD price calculation
+    }
     // LCD returns price_paxi_per_prc20 which is calculated with correct decimals
     let tokenDecimals = 6; // Default for most tokens
     
@@ -126,9 +123,7 @@ export async function getPoolPrice(tokenAddress: string): Promise<PoolPrice | nu
       if (bestMatch.error < 0.05) { // Within 5%
         tokenDecimals = bestMatch.decimals;
       }
-    }
-    
-    // Step 3: Calculate price with inferred decimals
+    }
     const paxiReserveRaw = poolData.reserve_paxi;
     const tokenReserveRaw = poolData.reserve_prc20;
     

@@ -20,7 +20,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Security: Only allow whitelisted RPC domains
     const allowedDomains = [
       'rpc.testnet.safrochain.com',
       'rpc-safrochain-t.sychonix.com',

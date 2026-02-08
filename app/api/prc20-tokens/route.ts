@@ -27,8 +27,6 @@ interface PRC20Token {
 }
 
 async function fetchPRC20NumHolders(lcdUrls: string[], contractAddress: string): Promise<number> {
-  // Fetch all accounts with pagination - more reliable than num_accounts query
-  // NOTE: LCD API limits responses to ~30 accounts per query regardless of limit parameter
   for (const lcdUrl of lcdUrls) {
     try {
       let totalAccounts = 0;
@@ -246,9 +244,7 @@ export async function GET(request: NextRequest) {
       'https://ssl2.winsnip.xyz'
     ];
 
-    console.log(`📦 Fetching PRC20 tokens for ${chain} (fetching all)`);
-
-    // Step 1: Get ALL contract addresses with pagination
+    console.log(`📦 Fetching PRC20 tokens for ${chain} (fetching all)`);
     let allContracts: string[] = [];
     let nextKey: string | undefined = pageKey;
     let pageCount = 0;
@@ -278,9 +274,7 @@ export async function GET(request: NextRequest) {
       pageCount++;
     }
 
-    console.log(`✅ Found ${allContracts.length} total contracts`);
-
-    // Step 2: Fetch token info for each contract in parallel batches
+    console.log(`✅ Found ${allContracts.length} total contracts`);
     const tokens: PRC20Token[] = [];
     const BATCH_SIZE = 10; // Process 10 contracts at a time for faster loading
     

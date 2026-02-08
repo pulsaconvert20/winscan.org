@@ -35,9 +35,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Fallback: Return empty data (no location data available)
-    console.warn('[Validators API] Backend unavailable for', chain, '- returning empty location data');
-    
-    // Note: The frontend will fetch validators directly from /api/validators
+    console.warn('[Validators API] Backend unavailable for', chain, '- returning empty location data');
     // This endpoint only provides location data, which is not available for all chains
     
     // Final fallback: Return empty data

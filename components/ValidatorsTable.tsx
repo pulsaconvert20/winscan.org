@@ -417,6 +417,41 @@ const ValidatorRow = memo(({
           </div>
         )}
       </td>
+      <td className="hidden xl:table-cell px-6 py-4 text-center">
+        {(() => {
+          // Calculate blocks signed from uptime
+          // Assuming signing window of 100 blocks (default)
+          const signingWindow = 100;
+          const uptime = validator.uptime || 100;
+          const blocksSignedCalc = Math.round((uptime / 100) * signingWindow);
+          
+          return (
+            <div className="flex flex-col items-center gap-1">
+              <span className="text-green-400 font-bold text-base">
+                {blocksSignedCalc}
+              </span>
+              <span className="text-[9px] text-gray-500 font-mono">
+                of {signingWindow} blocks
+              </span>
+            </div>
+          );
+        })()}
+      </td>
+      <td className="hidden xl:table-cell px-6 py-4 text-center">
+        {(() => {
+          // Calculate missed blocks from uptime
+          const signingWindow = 100;
+          const uptime = validator.uptime || 100;
+          const blocksSignedCalc = Math.round((uptime / 100) * signingWindow);
+          const missedBlocks = signingWindow - blocksSignedCalc;
+          
+          return (
+            <span className="text-white font-medium bg-[#0f0f0f] px-3 py-1 rounded-lg border border-gray-800">
+              {missedBlocks}
+            </span>
+          );
+        })()}
+      </td>
       <td className="px-2 md:px-6 py-3 md:py-4">
         <div className="flex items-center gap-1 md:gap-2">
           {validator.jailed && isConnected && validator.address === accountAddress && (
@@ -1211,6 +1246,12 @@ export default function ValidatorsTable({ validators, chainName, asset, chain }:
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
                   </svg>
                 </div>
+              </th>
+              <th className="hidden xl:table-cell px-6 py-3 text-center text-xs font-semibold text-gray-400 uppercase">
+                Blocks Signed
+              </th>
+              <th className="hidden xl:table-cell px-6 py-3 text-center text-xs font-semibold text-gray-400 uppercase">
+                Missed
               </th>
               <th className="px-2 md:px-6 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-400 uppercase">Action</th>
               <th className="hidden lg:table-cell px-6 py-3 text-center text-xs font-semibold text-gray-400 uppercase">Auto-Compound</th>

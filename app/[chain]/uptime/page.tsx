@@ -597,6 +597,9 @@ export default function UptimePage() {
                       {t('uptime.uptimeLabel')}
                     </th>
                     <th className="hidden md:table-cell px-6 py-4 text-center text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                      Blocks Signed
+                    </th>
+                    <th className="hidden md:table-cell px-6 py-4 text-center text-xs font-semibold text-gray-400 uppercase tracking-wider">
                       {t('uptime.missed')}
                     </th>
                     <th className="hidden md:table-cell px-6 py-4 text-center text-xs font-semibold text-gray-400 uppercase tracking-wider">
@@ -631,7 +634,7 @@ export default function UptimePage() {
                     ))
                   ) : sortedValidators.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="px-4 py-12 text-center text-gray-400">
+                      <td colSpan={6} className="px-4 py-12 text-center text-gray-400">
                         {t('uptime.noValidators')}
                       </td>
                     </tr>
@@ -793,6 +796,16 @@ export default function UptimePage() {
                             </span>
                             <span className="text-[9px] text-gray-500 font-mono" title={`Signed ${validator.signedBlocks || 0} blocks, Missed ${validator.missedBlocks || 0} blocks`}>
                               {validator.signedBlocks || 0}/{validator.blockSignatures?.length || blocksToCheck} blocks
+                            </span>
+                          </div>
+                        </td>
+                        <td className="hidden md:table-cell px-6 py-4 text-center">
+                          <div className="flex flex-col items-center gap-1">
+                            <span className="text-green-400 font-bold text-lg">
+                              {validator.signedBlocks || 0}
+                            </span>
+                            <span className="text-[9px] text-gray-500 font-mono">
+                              of {signingWindow} blocks
                             </span>
                           </div>
                         </td>

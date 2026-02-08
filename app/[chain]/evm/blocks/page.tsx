@@ -334,7 +334,7 @@ export default function EVMBlocksPage() {
                               {formatTimestamp(block.timestamp)}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
-                              {block.transactions.length}
+                              {block.transactions?.length || 0}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400 font-mono">
                               {truncateHash(block.miner)}

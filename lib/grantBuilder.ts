@@ -18,9 +18,7 @@ export function createSimpleAutoCompoundGrant(
     nanos: 0,
   };
 
-  const grants: any[] = [];
-
-  // 1. StakeAuthorization for delegation
+  const grants: any[] = [];
   const stakeAuthPayload: any = {
     allowList: {
       address: [validatorAddress],
@@ -44,9 +42,7 @@ export function createSimpleAutoCompoundGrant(
   grants.push({
     typeUrl: '/cosmos.authz.v1beta1.MsgGrant',
     value: grantMsg1,
-  });
-
-  // 2. GenericAuthorization for MsgWithdrawDelegatorReward (REQUIRED)
+  });
   const withdrawRewardAuthPayload = {
     msg: '/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward',
   };
@@ -91,9 +87,7 @@ export function createAutoCompoundGrantsWithPermissions(
     nanos: 0,
   };
 
-  const grants: any[] = [];
-
-  // 1. Always include StakeAuthorization for delegation
+  const grants: any[] = [];
   const stakeAuthPayload: any = {
     allowList: {
       address: [validatorAddress],
@@ -117,9 +111,7 @@ export function createAutoCompoundGrantsWithPermissions(
   grants.push({
     typeUrl: '/cosmos.authz.v1beta1.MsgGrant',
     value: grantMsg1,
-  });
-
-  // 2. Always include GenericAuthorization for MsgWithdrawDelegatorReward (REQUIRED for auto-compound)
+  });
   const withdrawRewardAuthPayload = {
     msg: '/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward',
   };
@@ -140,9 +132,7 @@ export function createAutoCompoundGrantsWithPermissions(
   grants.push({
     typeUrl: '/cosmos.authz.v1beta1.MsgGrant',
     value: grantMsg2,
-  });
-
-  // 3. Add GenericAuthorization for MsgVote (governance)
+  });
   if (options.includeVote) {
     const voteAuthPayload = {
       msg: '/cosmos.gov.v1beta1.MsgVote',
@@ -165,9 +155,7 @@ export function createAutoCompoundGrantsWithPermissions(
       typeUrl: '/cosmos.authz.v1beta1.MsgGrant',
       value: grantMsg3,
     });
-  }
-
-  // 4. Add GenericAuthorization for MsgWithdrawValidatorCommission
+  }
   if (options.includeCommission) {
     const commissionAuthPayload = {
       msg: '/cosmos.distribution.v1beta1.MsgWithdrawValidatorCommission',

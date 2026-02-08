@@ -96,9 +96,7 @@ export async function executePreSwapOnOsmosis(
     console.log('[Pre-Swap] Source:', sourceToken);
     console.log('[Pre-Swap] Target:', targetToken);
     console.log('[Pre-Swap] Amount:', amount);
-    console.log('[Pre-Swap] Slippage:', slippage + '%');
-    
-    // 1. Connect to Osmosis
+    console.log('[Pre-Swap] Slippage:', slippage + '%');
     if (typeof window === 'undefined' || !(window as any).keplr) {
       throw new Error('Keplr wallet not found');
     }
@@ -108,9 +106,7 @@ export async function executePreSwapOnOsmosis(
     const accounts = await offlineSigner.getAccounts();
     const osmoAddress = accounts[0].address;
     
-    console.log('[Pre-Swap] Connected to Osmosis:', osmoAddress);
-    
-    // 2. Get swap route
+    console.log('[Pre-Swap] Connected to Osmosis:', osmoAddress);
     const routeResponse = await fetch(
       `/api/osmosis/pools?action=route&tokenIn=${encodeURIComponent(sourceToken)}&tokenOut=${encodeURIComponent(targetToken)}`
     );
@@ -126,9 +122,7 @@ export async function executePreSwapOnOsmosis(
       throw new Error('No swap route available for this token pair');
     }
     
-    console.log('[Pre-Swap] Route found:', route.poolId);
-    
-    // 3. Create swap message
+    console.log('[Pre-Swap] Route found:', route.poolId);
     const { SigningStargateClient } = await import('@cosmjs/stargate');
     
     const client = await SigningStargateClient.connectWithSigner(
@@ -163,9 +157,7 @@ export async function executePreSwapOnOsmosis(
       },
     };
     
-    console.log('[Pre-Swap] Swap message created');
-    
-    // 4. Execute swap
+    console.log('[Pre-Swap] Swap message created');
     const fee = {
       amount: [{ denom: 'uosmo', amount: '5000' }],
       gas: '500000',
@@ -180,9 +172,7 @@ export async function executePreSwapOnOsmosis(
     }
     
     console.log('[Pre-Swap] Swap successful!');
-    console.log('[Pre-Swap] TX Hash:', result.transactionHash);
-    
-    // 5. Parse output amount from events
+    console.log('[Pre-Swap] TX Hash:', result.transactionHash);
     let outputAmount: string;
     try {
       outputAmount = parseSwapOutputFromEvents(result.events);
@@ -221,8 +211,7 @@ export async function executeReverseTransferWithPreSwap(
   slippage: number = 3,
   onProgress?: (step: number, message: string) => void
 ): Promise<TransferResult> {
-  try {
-    // Step 1: Pre-swap on Osmosis
+  try {
     console.log('[Reverse Transfer] Step 1: Swapping on Osmosis...');
     onProgress?.(1, 'Swapping tokens on Osmosis...');
     
@@ -238,9 +227,7 @@ export async function executeReverseTransferWithPreSwap(
     }
     
     console.log('[Reverse Transfer] Swap complete:', swapResult.txHash);
-    console.log('[Reverse Transfer] Output amount:', swapResult.outputAmount);
-    
-    // Step 2: IBC Transfer swapped tokens to Lumera
+    console.log('[Reverse Transfer] Output amount:', swapResult.outputAmount);
     console.log('[Reverse Transfer] Step 2: IBC Transfer to Lumera...');
     onProgress?.(2, 'Transferring tokens to Lumera...');
     

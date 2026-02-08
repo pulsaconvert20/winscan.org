@@ -13,6 +13,12 @@ export const GET = createRoute({
   },
   handler: async ({ chain, limit }) => {
     try {
+      // Validate chain name - reject invalid chains like "evm"
+      if (!chain || chain === 'evm' || chain.length < 3) {
+        console.warn(`[Transactions API] Invalid chain name: ${chain}`);
+        return { transactions: [] };
+      }
+
       const path = `/api/transactions?chain=${chain}${limit ? `&limit=${limit}` : ''}`;
       
       // Use smart failover: Chain RPC -> SSL1 -> SSL2

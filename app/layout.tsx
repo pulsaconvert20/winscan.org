@@ -4,7 +4,6 @@ import { LanguageProvider } from "@/contexts/LanguageContext";
 import { WalletProvider } from "@/contexts/WalletContext";
 import LoadingScreen from "@/components/LoadingScreen";
 
-// Security: Verify file integrity at build time
 import '@/lib/security/runtime-check';
 
 export const metadata: Metadata = {

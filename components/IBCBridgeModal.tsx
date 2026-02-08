@@ -569,9 +569,7 @@ export default function IBCBridgeModal({
         }
 
         transferTxHash = result.transactionHash;
-      }
-      
-      // Step 2: If auto-swap is enabled and destination is Osmosis, wait and then swap
+      }
       if (enableAutoSwap && !isReversed && selectedChainInfo?.chainName.toLowerCase().includes('osmosis')) {
         setTransferStep('waiting');
         
@@ -579,9 +577,7 @@ export default function IBCBridgeModal({
         const maxWaitTime = 120000; // Max 2 minutes
         const pollInterval = 5000; // Check every 5 seconds
         let elapsedTime = 0;
-        let balanceArrived = false;
-        
-        // Step 3: Execute swap on Osmosis using osmojs with dynamic routing
+        let balanceArrived = false;
         try {
           const osmosisChainId = 'osmosis-1';
           await (window as any).keplr.enable(osmosisChainId);

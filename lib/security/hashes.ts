@@ -1,16 +1,16 @@
 /**
  * File integrity hashes - DO NOT MODIFY
- * Generated: 2026-02-06T11:02:45.708Z
+ * Generated: 2026-02-08T20:02:13.510Z
  */
 
 export const FILE_HASHES = {
-  "app/layout.tsx": "2f4afa5326608e690f43ff2c95b0f7140dbfb3596dccfae2122498eb4e00b8eb",
+  "app/layout.tsx": "1784da92883e4497391122c8df93f0daae12929574c10fd1c66f5080ea89d687",
   "components/Header.tsx": "9aaf4acfbcc53f3e2a997c8dc9c3815f737be0a0a946bf18d514f7eb5569c0f1",
-  "components/Sidebar.tsx": "a6f86e20d6384be07cc245f77dc78c7879f15a73ab7bcfc87c7997a261ebc86e",
+  "components/Sidebar.tsx": "f6c799c3b446eb0e94a4c69b08c45df5fa2eb4c2647b0a1dc1d6bdc9852f356e",
   "components/Footer.tsx": "d4b80f4100ce77da713642b4f67039d26458b57caa36d0e1169b9e6f27ae74e0",
   "middleware.ts": "9cfdeaf803e127d1673e981c3d879c518e51482db04dfa89cf27c9980151ae2d",
   "lib/api.ts": "cb507b9d4f6c0d8c97f85aa14ae44ae8b4f77dee04643286892a3dd4881f5dc4",
   "lib/apiClient.ts": "dc67e90908cb68cb6e24ff36ad7dcf6eb297add296c06635655b54f0a8b82d52"
 } as const;
 
-export const GENERATED_AT = '2026-02-06T11:02:45.708Z';
+export const GENERATED_AT = '2026-02-08T20:02:13.510Z';

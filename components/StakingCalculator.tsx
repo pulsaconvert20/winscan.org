@@ -15,6 +15,8 @@ export default function StakingCalculator({ selectedChain }: StakingCalculatorPr
   const [duration, setDuration] = useState<number>(365); // days
   const [compound, setCompound] = useState<boolean>(true);
   const [compoundFrequency, setCompoundFrequency] = useState<number>(1); // daily
+  const [tokenPrice, setTokenPrice] = useState<number | null>(null);
+  const [loadingPrice, setLoadingPrice] = useState<boolean>(false);
 
   // Fetch APR from API when chain changes
   useEffect(() => {
@@ -32,36 +34,25 @@ export default function StakingCalculator({ selectedChain }: StakingCalculatorPr
           fetch(`/api/network?chain=${chainPath}`)
         ]);
         
-        console.log('[Staking Calculator] Fetching APR for:', chainPath);
-        
         if (mintResponse.ok && networkResponse.ok) {
           const mintData = await mintResponse.json();
           const networkData = await networkResponse.json();
-          
-          console.log('[Staking Calculator] Mint data:', mintData);
-          console.log('[Staking Calculator] Network data:', networkData);
           
           // Get inflation rate
           let inflationRate = 0;
           if (mintData.inflation && mintData.inflation !== '0') {
             const rawInflation = parseFloat(mintData.inflation);
             
-            // Cosmos SDK returns inflation as decimal (e.g., 0.1954 = 19.54%)
-            // We need to convert to percentage for display
+            // Cosmos SDK inflation format detection:
+            // - Decimal < 1: e.g., 0.1954 = 19.54%
+            // - Percentage >= 1: e.g., 19.54 = 19.54% or 150 = 150%
+            
             if (rawInflation > 0 && rawInflation < 1) {
               // Decimal format (e.g., 0.1954 = 19.54%)
               inflationRate = rawInflation * 100;
-              console.log('[Staking Calculator] Converted decimal inflation to percentage:', inflationRate.toFixed(2) + '%');
-            } else if (rawInflation >= 1 && rawInflation <= 10) {
-              // Could be decimal > 1 (e.g., 1.5 = 150%) or already percentage (e.g., 5 = 5%)
-              // Check if it makes sense as percentage first
-              // If value is between 1-10, more likely it's already percentage
+            } else if (rawInflation >= 1) {
+              // Already in percentage format (e.g., 19.54 = 19.54% or 150 = 150%)
               inflationRate = rawInflation;
-              console.log('[Staking Calculator] Inflation in percentage format:', inflationRate.toFixed(2) + '%');
-            } else if (rawInflation > 10) {
-              // Definitely percentage format (e.g., 150 = 150%)
-              inflationRate = rawInflation;
-              console.log('[Staking Calculator] Inflation already in percentage format:', inflationRate.toFixed(2) + '%');
             }
           }
           
@@ -72,51 +63,112 @@ export default function StakingCalculator({ selectedChain }: StakingCalculatorPr
             const totalSupply = parseFloat(networkData.totalSupply);
             if (bondedTokens > 0 && totalSupply > 0) {
               bondedRatio = bondedTokens / totalSupply;
-              console.log('[Staking Calculator] Calculated bonded ratio from tokens:', (bondedRatio * 100).toFixed(2) + '%');
             }
           } else if (networkData.bondedRatio) {
-            bondedRatio = parseFloat(networkData.bondedRatio);
-            // If bonded ratio is > 1, it's in percentage format
-            if (bondedRatio > 1) {
-              bondedRatio = bondedRatio / 100;
-              console.log('[Staking Calculator] Converted bonded ratio from percentage:', (bondedRatio * 100).toFixed(2) + '%');
+            const rawBondedRatio = parseFloat(networkData.bondedRatio);
+            // If bonded ratio is > 1, it's in percentage format, convert to decimal
+            if (rawBondedRatio > 1) {
+              bondedRatio = rawBondedRatio / 100;
+            } else {
+              bondedRatio = rawBondedRatio;
             }
           }
           
-          console.log('[Staking Calculator] Inflation Rate:', inflationRate + '%');
-          console.log('[Staking Calculator] Bonded Ratio:', (bondedRatio * 100).toFixed(2) + '%');
-          
           if (inflationRate > 0 && bondedRatio > 0) {
-            // Calculate base APR: Inflation / Bonded Ratio
-            // inflationRate is now in percentage (e.g., 150 for 150%)
-            // bondedRatio is in decimal (e.g., 0.67 for 67%)
-            // Formula: APR = (Inflation% / Bonded Ratio decimal) 
-            // Example: 150% / 0.67 = 223.88%
-            const baseApr = inflationRate / bondedRatio;
+            // Standard Cosmos APR Formula (from Cosmostation):
+            // Nominal APR = [Inflation × (1 - Community Tax)] / Bonded Tokens Ratio
+            // Final APR = Nominal APR × (1 - Validator Commission)
+            //
+            // Example:
+            // - Inflation: 20%
+            // - Community Tax: 2% (0.02)
+            // - Bonded Ratio: 67% (0.67)
+            // - Validator Commission: 5% (0.05)
+            //
+            // Nominal APR = [20 × (1 - 0.02)] / 0.67 = 19.6 / 0.67 = 29.25%
+            // Final APR = 29.25 × (1 - 0.05) = 27.79%
             
-            // Assume average validator commission of 10% for display
-            // Users can adjust this manually
-            const avgCommission = 0.10;
-            const estimatedApr = baseApr * (1 - avgCommission);
+            // Get community tax (usually 2%, but can vary)
+            const communityTax = 0.02; // Default 2% community tax
             
-            console.log('[Staking Calculator] Base APR:', baseApr.toFixed(2) + '%');
-            console.log('[Staking Calculator] Estimated APR (after 10% commission):', estimatedApr.toFixed(2) + '%');
+            // Calculate nominal APR
+            const nominalApr = (inflationRate * (1 - communityTax)) / bondedRatio;
             
-            setApr(estimatedApr.toFixed(2));
+            // Apply validator commission (use 5% as average)
+            const avgCommission = 0.05;
+            const finalApr = nominalApr * (1 - avgCommission);
+            
+            setApr(finalApr.toFixed(2));
             setAprAutoDetected(true);
             return;
           }
         }
-        
-        console.log('[Staking Calculator] Could not calculate APR, keeping default');
       } catch (error) {
-        console.error('[Staking Calculator] Error fetching APR:', error);
+        console.error('Error fetching APR:', error);
       } finally {
         setLoadingApr(false);
       }
     };
 
     fetchApr();
+  }, [selectedChain]);
+
+  // Fetch token price from localStorage cache (shared with PriceTracker in header)
+  useEffect(() => {
+    if (!selectedChain) {
+      setTokenPrice(null);
+      return;
+    }
+    
+    // Only show price for mainnet chains (not testnet)
+    const isMainnet = !selectedChain.chain_name.toLowerCase().includes('test') && 
+                      !selectedChain.chain_id?.toLowerCase().includes('test');
+    
+    if (!isMainnet) {
+      setTokenPrice(null);
+      return;
+    }
+
+    const getPriceFromCache = () => {
+      try {
+        const symbol = selectedChain.assets?.[0]?.symbol?.toLowerCase();
+        const coingeckoId = selectedChain.assets?.[0]?.coingecko_id;
+        
+        if (!symbol) {
+          setTokenPrice(null);
+          return;
+        }
+        
+        // Get price from localStorage cache (same cache used by PriceTracker in header)
+        const cacheKey = `price_${symbol}_${coingeckoId || 'unknown'}`;
+        const cached = localStorage.getItem(cacheKey);
+        
+        if (cached) {
+          const { data, timestamp } = JSON.parse(cached);
+          const age = Date.now() - timestamp;
+          
+          // Use cache if less than 10 minutes old
+          if (age < 10 * 60 * 1000 && data.price) {
+            const price = parseFloat(data.price);
+            setTokenPrice(price);
+          } else {
+            setTokenPrice(null);
+          }
+        } else {
+          setTokenPrice(null);
+        }
+      } catch (error) {
+        setTokenPrice(null);
+      }
+    };
+
+    // Get price immediately
+    getPriceFromCache();
+    
+    // Update every 5 seconds to catch price updates from header
+    const interval = setInterval(getPriceFromCache, 5000);
+    
+    return () => clearInterval(interval);
   }, [selectedChain]);
 
   // Calculate rewards
@@ -174,6 +226,15 @@ export default function StakingCalculator({ selectedChain }: StakingCalculatorPr
     }).format(num);
   };
 
+  const formatUSD = (num: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(num);
+  };
+
   const denom = selectedChain?.assets?.[0]?.symbol || 'TOKEN';
 
   return (
@@ -212,6 +273,21 @@ export default function StakingCalculator({ selectedChain }: StakingCalculatorPr
                   {denom}
                 </span>
               </div>
+              {tokenPrice && !loadingPrice && parseFloat(amount) > 0 && (
+                <div className="mt-2 text-sm text-gray-400">
+                  ≈ {formatUSD(parseFloat(amount) * tokenPrice)}
+                </div>
+              )}
+              {loadingPrice && (
+                <div className="mt-2 text-sm text-gray-500">
+                  Loading price...
+                </div>
+              )}
+              {!tokenPrice && !loadingPrice && (
+                <div className="mt-2 text-sm text-gray-600">
+                  {/* Price not available - hidden */}
+                </div>
+              )}
             </div>
 
             {/* APR Input */}

@@ -229,9 +229,7 @@ export async function fetchWithSmartFailover(
   chainName: string,
   options?: RequestInit
 ): Promise<Response> {
-  const errors: string[] = [];
-  
-  // Step 1: Try chain RPC/API first (server-side only)
+  const errors: string[] = [];
   if (typeof window === 'undefined') {
     try {
       const { findChainConfig, getRestEndpoint } = await import('@/lib/utils/chain-config');
@@ -284,10 +282,7 @@ export async function fetchWithFailover(
   path: string,
   options?: RequestInit
 ): Promise<Response> {
-  // Priority order:
-  // 1. Custom env vars (user's own backend)
-  // 2. Hardcoded WinSnip SSL (default)
-  // 3. Chain RPC/API (handled by caller on error)
+  // Priority order:
   
   const hasCustomEnv = !!(process.env.API_URL || process.env.NEXT_PUBLIC_API_URL_SSL1);
   

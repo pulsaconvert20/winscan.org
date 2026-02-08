@@ -3565,9 +3565,7 @@ export async function executeProvideLiquidity(
     const accounts = await offlineSigner.getAccounts();
     const signerAddress = accounts[0].address;
     
-    console.log('👤 Signer address:', signerAddress);
-
-    // Step 1: Increase allowance for swap module
+    console.log('👤 Signer address:', signerAddress);
     const SWAP_MODULE_ACCOUNT = 'paxi1mfru9azs5nua2wxcd4sq64g5nt7nn4n80r745t';
     
     console.log('🔐 Increasing allowance for swap module...');
@@ -3593,10 +3591,7 @@ export async function executeProvideLiquidity(
     } catch (error: any) {
       console.error('❌ Allowance increase failed:', error);
       throw new Error(`Failed to increase allowance: ${error.message}`);
-    }
-
-    // Step 2: Provide liquidity
-    // Note: paxiAmount needs to include denom suffix
+    }
     const provideLiquidityMsg = {
       typeUrl: '/x.swap.types.MsgProvideLiquidity',
       value: {

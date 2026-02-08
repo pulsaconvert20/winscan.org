@@ -100,7 +100,17 @@ export default function Sidebar({ selectedChain }: SidebarProps) {
           { name: 'Proposals', translationKey: 'menu.proposals', path: `${chainPath}/proposals`, icon: <Vote className="w-4 h-4" /> },
         ]
       },
-      { name: 'Assets', translationKey: 'menu.assets', path: `${chainPath}/assets`, icon: <Coins className="w-5 h-5" /> },
+      { 
+        name: 'Assets', 
+        translationKey: 'menu.assets', 
+        path: `${chainPath}/assets`, 
+        icon: <Coins className="w-5 h-5" />,
+        subItems: [
+          { name: 'Assets', translationKey: 'menu.assets', path: `${chainPath}/assets`, icon: <Coins className="w-4 h-4" /> },
+          { name: 'IBC Transfer', translationKey: 'menu.ibcTransfer', path: `${chainPath}/ibc-transfer`, icon: <ArrowRightLeft className="w-4 h-4" /> },
+          { name: 'Relayers', translationKey: 'menu.relayers', path: `${chainPath}/relayers`, icon: <Network className="w-4 h-4" /> },
+        ]
+      },
       { name: 'Accounts', translationKey: 'menu.accounts', path: `${chainPath}/accounts`, icon: <Wallet className="w-5 h-5" /> },
     ];
 
@@ -131,9 +141,8 @@ export default function Sidebar({ selectedChain }: SidebarProps) {
         icon: <Globe className="w-5 h-5" />,
         subItems: [
           { name: 'Network', translationKey: 'menu.network', path: `${chainPath}/network`, icon: <Globe className="w-4 h-4" /> },
-          { name: 'Relayers', translationKey: 'menu.relayers', path: `${chainPath}/relayers`, icon: <Network className="w-4 h-4" /> },
-          { name: 'IBC Transfer', translationKey: 'menu.ibcTransfer', path: `${chainPath}/ibc-transfer`, icon: <ArrowRightLeft className="w-4 h-4" /> },
           { name: 'Consensus', translationKey: 'menu.consensus', path: `${chainPath}/consensus`, icon: <Shield className="w-4 h-4" /> },
+          { name: 'State Sync', translationKey: 'menu.statesync', path: `${chainPath}/statesync`, icon: <RefreshCw className="w-4 h-4" /> },
         ]
       },
       { 
@@ -143,7 +152,6 @@ export default function Sidebar({ selectedChain }: SidebarProps) {
         icon: <Settings className="w-5 h-5" />,
         subItems: [
           { name: 'Endpoint Checker', translationKey: 'menu.rpcChecker', path: `${chainPath}/endpoint-checker`, icon: <Activity className="w-4 h-4" /> },
-          { name: 'State Sync', translationKey: 'menu.statesync', path: `${chainPath}/statesync`, icon: <RefreshCw className="w-4 h-4" /> },
           { name: 'Parameters', translationKey: 'menu.parameters', path: `${chainPath}/parameters`, icon: <Settings className="w-4 h-4" /> },
           ...(selectedChain?.chain_name?.includes('lumera') ? [
             { name: 'Cascade Storage', translationKey: 'menu.cascade', path: `${chainPath}/cascade`, icon: <Cloud className="w-4 h-4" /> }

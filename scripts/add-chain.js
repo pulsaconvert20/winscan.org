@@ -41,43 +41,33 @@ async function testEndpoint(url, type = 'rpc') {
 
 async function main() {
   console.log('\n🚀 WinScan - Quick Chain Setup\n');
-  console.log('This wizard will help you add a new blockchain to WinScan.\n');
-
-  // Step 1: Chain Name
+  console.log('This wizard will help you add a new blockchain to WinScan.\n');
   const chainName = await question('1. Chain name (lowercase, e.g., "tellor", "osmosis"): ');
   const networkType = await question('2. Network type (mainnet/test) [mainnet]: ') || 'mainnet';
   const fullChainName = `${chainName}-${networkType}`;
 
-  console.log(`\n✓ Chain will be created as: ${fullChainName}\n`);
-
-  // Step 2: RPC Endpoint
+  console.log(`\n✓ Chain will be created as: ${fullChainName}\n`);
   console.log('3. Testing RPC endpoint...');
   let rpcUrl = await question('   Enter RPC URL (e.g., https://rpc.example.com): ');
   rpcUrl = rpcUrl.replace(/\/$/, ''); // Remove trailing slash
   
   process.stdout.write('   Testing connection... ');
   const rpcWorks = await testEndpoint(rpcUrl, 'rpc');
-  console.log(rpcWorks ? '✅ OK' : '❌ FAILED (continuing anyway)');
-
-  // Step 3: API Endpoint
+  console.log(rpcWorks ? '✅ OK' : '❌ FAILED (continuing anyway)');
   console.log('\n4. Testing REST API endpoint...');
   let apiUrl = await question('   Enter API URL (e.g., https://api.example.com): ');
   apiUrl = apiUrl.replace(/\/$/, '');
   
   process.stdout.write('   Testing connection... ');
   const apiWorks = await testEndpoint(apiUrl, 'api');
-  console.log(apiWorks ? '✅ OK' : '❌ FAILED (continuing anyway)');
-
-  // Step 4: Chain Details
+  console.log(apiWorks ? '✅ OK' : '❌ FAILED (continuing anyway)');
   console.log('\n5. Chain details...');
   const prettyName = await question(`   Display name [${chainName.charAt(0).toUpperCase() + chainName.slice(1)} ${networkType === 'mainnet' ? 'Mainnet' : 'Testnet'}]: `) 
     || `${chainName.charAt(0).toUpperCase() + chainName.slice(1)} ${networkType === 'mainnet' ? 'Mainnet' : 'Testnet'}`;
   
   const bech32Prefix = await question(`   Bech32 prefix (e.g., "cosmos", "tellor") [${chainName}]: `) || chainName;
   const chainId = await question(`   Chain ID (from RPC /status) [${fullChainName}]: `) || fullChainName;
-  const denom = await question('   Token denom (e.g., "uatom", "loya") [utoken]: ') || 'utoken';
-
-  // Step 5: Generate Config
+  const denom = await question('   Token denom (e.g., "uatom", "loya") [utoken]: ') || 'utoken';
   console.log('\n6. Generating configuration...');
   
   const config = {
@@ -105,9 +95,7 @@ async function main() {
       kind: "winscan",
       url: `https://winscan.winsnip.xyz/${fullChainName}`
     }]
-  };
-
-  // Step 6: Save File
+  };
   const chainsDir = path.join(__dirname, '..', 'Chains');
   const filePath = path.join(chainsDir, `${fullChainName}.json`);
 
@@ -121,9 +109,7 @@ async function main() {
   }
 
   fs.writeFileSync(filePath, JSON.stringify(config, null, 2));
-  console.log(`\n✅ Created: Chains/${fullChainName}.json`);
-
-  // Step 7: Instructions
+  console.log(`\n✅ Created: Chains/${fullChainName}.json`);
   console.log('\n📋 Next Steps:');
   console.log(`   1. Review the config: Chains/${fullChainName}.json`);
   console.log('   2. Add more RPC/API endpoints for redundancy (recommended)');

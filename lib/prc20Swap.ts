@@ -132,8 +132,7 @@ export async function swapTokenToPAXI(
   offerAmount: string,
   minReceive: string = '1',
   customGasPrice?: string
-) {
-  // Step 1: Increase allowance for swap module
+) {
   const increaseAllowanceMsg = {
     increase_allowance: {
       spender: SWAP_MODULE_ADDRESS,
@@ -157,9 +156,7 @@ export async function swapTokenToPAXI(
     'Approve token for swap'
   );
 
-  console.log('Allowance approved, tx hash:', allowanceTx.transactionHash);
-
-  // Step 2: Create MsgSwap message (official typesMsgSwap structure)
+  console.log('Allowance approved, tx hash:', allowanceTx.transactionHash);
   const swapMsg = {
     typeUrl: '/x.swap.types.MsgSwap',
     value: {
@@ -490,8 +487,7 @@ export async function provideLiquidity(
   paxiAmount: string,
   prc20Amount: string,
   customGasPrice?: string
-) {
-  // Step 1: Approve PRC20 tokens for swap module
+) {
   const approveMsg = {
     increase_allowance: {
       spender: SWAP_MODULE_ADDRESS,
@@ -511,9 +507,7 @@ export async function provideLiquidity(
     approveMsg,
     approveFee,
     'Approve tokens for liquidity'
-  );
-
-  // Step 2: Create MsgProvideLiquidity message (official structure)
+  );
   const provideLiquidityMsg = {
     typeUrl: '/x.swap.types.MsgProvideLiquidity',
     value: {

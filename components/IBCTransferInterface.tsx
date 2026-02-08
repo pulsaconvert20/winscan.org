@@ -245,8 +245,8 @@ export default function IBCTransferInterface({
               const client = await SigningStargateClient.connectWithSigner(rpc, offlineSigner);
               const bal = await client.getBalance(accounts[0].address, denom);
               
-              // Use 6 decimals for all Cosmos tokens (standard)
-              const exponent = 6;
+              // Use exponent from chain config
+              const exponent = parseInt(String(sourceChain.assets[0]?.exponent || '6'));
               const formatted = (parseInt(bal.amount) / Math.pow(10, exponent)).toFixed(6);
               
               setBalance(formatted);
@@ -621,9 +621,7 @@ export default function IBCTransferInterface({
 
       if (result.code !== 0) {
         throw new Error(result.rawLog || 'Transaction failed');
-      }
-
-      // Step 2: If auto-swap is enabled and destination is Osmosis, wait and then swap
+      }
       if (enableAutoSwap && !isReversed && isDestinationOsmosis) {
         setCurrentStep(1); // Step 1: Transfer complete, waiting for arrival
         setTxMessage(`Transfer successful! Waiting for tokens to arrive on Osmosis...`);
@@ -901,7 +899,8 @@ export default function IBCTransferInterface({
 
   const setMaxAmount = () => {
     const maxAmount = Math.max(0, parseFloat(balance) - 0.01);
-    setAmount(maxAmount.toFixed(6));
+    const decimals = Math.min(parseInt(String(sourceChain.assets[0]?.exponent || '6')), 6);
+    setAmount(maxAmount.toFixed(decimals));
     setSliderValue(100);
   };
 
@@ -909,7 +908,8 @@ export default function IBCTransferInterface({
     setSliderValue(value);
     const maxAmount = Math.max(0, parseFloat(balance) - 0.01);
     const calculatedAmount = (maxAmount * value) / 100;
-    setAmount(calculatedAmount.toFixed(6));
+    const decimals = Math.min(parseInt(String(sourceChain.assets[0]?.exponent || '6')), 6);
+    setAmount(calculatedAmount.toFixed(decimals));
   };
 
   const handleAmountChange = (value: string) => {
