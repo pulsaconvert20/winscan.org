@@ -1,9 +1,27 @@
 // GeoIP utility using MaxMind GeoLite2-Country and GeoLite2-ASN databases
-import maxmind, { CountryResponse, AsnResponse, Reader } from 'maxmind';
+import maxmind, { AsnResponse } from 'maxmind';
 import path from 'path';
 
-let countryLookup: Reader<CountryResponse> | null = null;
-let asnLookup: Reader<AsnResponse> | null = null;
+// Define CountryResponse type since it's not exported by maxmind
+interface CountryResponse {
+  country?: {
+    iso_code?: string;
+    names?: {
+      en?: string;
+      [key: string]: string | undefined;
+    };
+  };
+  registered_country?: {
+    iso_code?: string;
+    names?: {
+      en?: string;
+      [key: string]: string | undefined;
+    };
+  };
+}
+
+let countryLookup: any = null;
+let asnLookup: any = null;
 
 // Country capital coordinates for approximate location
 const COUNTRY_CAPITALS: Record<string, { city: string; lat: number; lon: number }> = {
@@ -57,12 +75,12 @@ const COUNTRY_CAPITALS: Record<string, { city: string; lat: number; lon: number 
 };
 
 // Initialize GeoIP Country reader
-export async function initCountry(): Promise<Reader<CountryResponse> | null> {
+export async function initCountry(): Promise<any> {
   if (countryLookup) return countryLookup;
 
   try {
     const dbPath = path.join(process.cwd(), 'data', 'GeoLite2-Country.mmdb');
-    countryLookup = await maxmind.open<CountryResponse>(dbPath);
+    countryLookup = await maxmind.open(dbPath);
     console.log('[GeoIP] ✅ GeoLite2-Country database loaded');
     return countryLookup;
   } catch (error: any) {
@@ -72,16 +90,77 @@ export async function initCountry(): Promise<Reader<CountryResponse> | null> {
 }
 
 // Initialize GeoIP ASN reader
-export async function initASN(): Promise<Reader<AsnResponse> | null> {
+export async function initASN(): Promise<any> {
   if (asnLookup) return asnLookup;
 
   try {
     const dbPath = path.join(process.cwd(), 'data', 'GeoLite2-ASN.mmdb');
-    asnLookup = await maxmind.open<AsnResponse>(dbPath);
+    asnLookup = await maxmind.open(dbPath);
     console.log('[GeoIP] ✅ GeoLite2-ASN database loaded');
     return asnLookup;
   } catch (error: any) {
     console.error('[GeoIP] Failed to load ASN database:', error.message);
+    return null;
+  }
+}
+
+// Lookup IP using free API (ip-api.com) as fallback
+async function lookupIPViaAPI(ip: string): Promise<{
+  city: string;
+  country: string;
+  countryCode: string;
+  latitude: number;
+  longitude: number;
+  provider?: string;
+} | null> {
+  try {
+    console.log('[GeoIP API] Fetching data for', ip);
+    // ip-api.com free tier: 45 requests per minute
+    const response = await fetch(`http://ip-api.com/json/${ip}?fields=status,message,country,countryCode,city,lat,lon,isp,org,as,asname`, {
+      signal: AbortSignal.timeout(5000)
+    });
+
+    if (!response.ok) {
+      console.error('[GeoIP API] Request failed:', response.status);
+      return null;
+    }
+
+    const data = await response.json();
+
+    if (data.status !== 'success') {
+      console.log('[GeoIP API] No data for IP:', ip, data.message);
+      return null;
+    }
+
+    const city = data.city || 'Unknown';
+    const country = data.country || 'Unknown';
+    const countryCode = data.countryCode || 'XX';
+    const latitude = data.lat || 0;
+    const longitude = data.lon || 0;
+
+    if (latitude === 0 && longitude === 0) {
+      console.log('[GeoIP API] No valid coordinates for', ip);
+      return null;
+    }
+
+    // Extract ASN and organization for provider detection
+    const asMatch = data.as?.match(/^AS(\d+)/);
+    const asn = asMatch ? asMatch[1] : undefined;
+    const organization = data.org || data.isp || data.asname;
+    const provider = detectProvider(ip, asn, organization);
+
+    console.log('[GeoIP API] ✅ Found location for', ip, ':', { city, country, provider });
+
+    return {
+      city,
+      country,
+      countryCode,
+      latitude,
+      longitude,
+      provider
+    };
+  } catch (error: any) {
+    console.error('[GeoIP API] Lookup error for', ip, ':', error.message);
     return null;
   }
 }
@@ -95,62 +174,60 @@ export async function lookupIP(ip: string): Promise<{
   longitude: number;
   provider?: string;
 } | null> {
+  // Try local database first
   try {
     const lookup = await initCountry();
-    if (!lookup) return null;
+    if (lookup) {
+      const result = lookup.get(ip);
+      if (result) {
+        const country = result.country?.names?.en || 'Unknown';
+        const countryCode = result.country?.iso_code || 'XX';
+        
+        // Use capital city coordinates as approximate location
+        const capital = COUNTRY_CAPITALS[countryCode] || { city: country, lat: 0, lon: 0 };
+        
+        if (capital.lat !== 0 || capital.lon !== 0) {
+          // Get ASN data for provider detection
+          let provider = 'Unknown';
+          try {
+            const asnDb = await initASN();
+            if (asnDb) {
+              const asnResult = asnDb.get(ip);
+              if (asnResult) {
+                const asn = asnResult.autonomous_system_number?.toString();
+                const organization = asnResult.autonomous_system_organization;
+                provider = detectProvider(ip, asn, organization);
+              } else {
+                provider = detectProvider(ip);
+              }
+            } else {
+              provider = detectProvider(ip);
+            }
+          } catch (asnError: any) {
+            console.warn('[GeoIP] ASN lookup failed for', ip, ':', asnError.message);
+            provider = detectProvider(ip);
+          }
 
-    const result = lookup.get(ip);
-    if (!result) {
-      console.log('[GeoIP] No data found for IP:', ip);
-      return null;
-    }
+          console.log('[GeoIP DB] ✅ Found location for', ip, ':', { country, city: capital.city, provider });
 
-    const country = result.country?.names?.en || 'Unknown';
-    const countryCode = result.country?.iso_code || 'XX';
-    
-    // Use capital city coordinates as approximate location
-    const capital = COUNTRY_CAPITALS[countryCode] || { city: country, lat: 0, lon: 0 };
-    
-    if (capital.lat === 0 && capital.lon === 0) {
-      console.log('[GeoIP] No coordinates for country:', countryCode);
-      return null;
-    }
-
-    // Get ASN data for provider detection
-    let provider = 'Unknown';
-    try {
-      const asnDb = await initASN();
-      if (asnDb) {
-        const asnResult = asnDb.get(ip);
-        if (asnResult) {
-          const asn = asnResult.autonomous_system_number?.toString();
-          const organization = asnResult.autonomous_system_organization;
-          provider = detectProvider(ip, asn, organization);
-          
-          console.log('[GeoIP] ✅ Found location for', ip, ':', { country, city: capital.city, provider });
-        } else {
-          provider = detectProvider(ip);
+          return {
+            city: capital.city,
+            country,
+            countryCode,
+            latitude: capital.lat,
+            longitude: capital.lon,
+            provider
+          };
         }
-      } else {
-        provider = detectProvider(ip);
       }
-    } catch (asnError: any) {
-      console.warn('[GeoIP] ASN lookup failed for', ip, ':', asnError.message);
-      provider = detectProvider(ip);
     }
-
-    return {
-      city: capital.city,
-      country,
-      countryCode,
-      latitude: capital.lat,
-      longitude: capital.lon,
-      provider
-    };
   } catch (error: any) {
-    console.error('[GeoIP] Lookup error for', ip, ':', error.message);
-    return null;
+    console.warn('[GeoIP DB] Lookup failed, falling back to API:', error.message);
   }
+
+  // Fallback to API if database lookup failed
+  console.log('[GeoIP] Using API fallback for', ip);
+  return lookupIPViaAPI(ip);
 }
 
 // Extract IP from various formats
