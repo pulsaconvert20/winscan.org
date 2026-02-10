@@ -23,17 +23,19 @@ async function tryVoteWithFallback(
   chainId: string
 ) {
   const voteMethods = [
+    // Try v1beta1 first (most compatible with older SDK versions)
     {
       name: 'cosmos.gov.v1beta1',
       typeUrl: '/cosmos.gov.v1beta1.MsgVote',
     },
+    // Then try v1 (newer SDK versions)
     {
       name: 'cosmos.gov.v1',
       typeUrl: '/cosmos.gov.v1.MsgVote',
     },
   ];
 
-  // Add atomone specific if needed
+  // Add atomone specific if needed (highest priority for atomone chains)
   if (chainId.includes('atomone')) {
     voteMethods.unshift({
       name: 'atomone.gov.v1beta1',
@@ -41,10 +43,11 @@ async function tryVoteWithFallback(
     });
   }
 
-  let lastError;
+  const errors: string[] = [];
+  
   for (const method of voteMethods) {
     try {
-      console.log(`Trying vote with ${method.name}...`);
+      console.log(`🔄 Trying vote with ${method.name}...`);
       
       const voteMsg = {
         typeUrl: method.typeUrl,
@@ -66,17 +69,25 @@ async function tryVoteWithFallback(
         console.log(`✅ Vote successful with ${method.name}`);
         return { success: true, txHash: result.transactionHash, method: method.name };
       } else {
-        console.log(`Failed with ${method.name}: ${result.rawLog}`);
-        lastError = result.rawLog;
+        const errorMsg = `${method.name}: ${result.rawLog}`;
+        console.log(`⚠️ ${errorMsg}`);
+        errors.push(errorMsg);
+        // Continue to next method
+        continue;
       }
     } catch (err: any) {
-      console.log(`Error with ${method.name}: ${err.message}`);
-      lastError = err.message;
+      const errorMsg = `${method.name}: ${err.message}`;
+      console.log(`⚠️ ${errorMsg}`);
+      errors.push(errorMsg);
+      // Continue to next method instead of throwing
       continue;
     }
   }
 
-  return { success: false, error: lastError || 'All vote methods failed' };
+  // All methods failed
+  const combinedError = `All vote methods failed:\n${errors.join('\n')}`;
+  console.error('❌', combinedError);
+  return { success: false, error: combinedError };
 }
 
 export function calculateFee(chain: ChainData, gasLimit: string): { amount: Array<{ denom: string; amount: string }>; gas: string } {
@@ -198,34 +209,34 @@ async function createEvmRegistry() {
 async function createCustomGovRegistry(chainId: string) {
   try {
     const { Registry } = await import('@cosmjs/proto-signing');
+    const { defaultRegistryTypes } = await import('@cosmjs/stargate');
     
     if (typeof Registry !== 'function') {
       console.warn('Registry is not a constructor, using default registry');
       return null;
     }
     
-    // Create empty registry - messages will be encoded manually
-    const registry = new Registry();
+    // Create registry with default types (includes gov v1beta1)
+    const registry = new Registry(defaultRegistryTypes);
     
-    // For AtomOne: map cosmos.gov types to atomone.gov
+    console.log('✅ Created registry with default types (includes gov v1beta1)');
+    
+    // For AtomOne: also register atomone.gov types
     if (chainId.includes('atomone')) {
-      console.log('Creating AtomOne-compatible registry...');
+      console.log('🔧 Adding AtomOne gov types...');
       
-      // Get the MsgVote type from default registry
-      const msgVoteType = (registry as any).lookupType?.('/cosmos.gov.v1beta1.MsgVote');
-      
-      if (msgVoteType) {
+      try {
+        // Import gov v1beta1 types
+        const { MsgVote } = await import('cosmjs-types/cosmos/gov/v1beta1/tx');
+        
         // Register AtomOne gov types using same structure as Cosmos
-        try {
-          registry.register('/atomone.gov.v1beta1.MsgVote', msgVoteType);
-          console.log('✅ Registered /atomone.gov.v1beta1.MsgVote');
-        } catch (err) {
-          console.warn('Could not register AtomOne types, will use cosmos types');
-        }
+        registry.register('/atomone.gov.v1beta1.MsgVote', MsgVote);
+        console.log('✅ Registered /atomone.gov.v1beta1.MsgVote');
+      } catch (err) {
+        console.warn('Could not register AtomOne types:', err);
       }
     }
     
-    console.log('✅ Created custom gov registry');
     return registry;
   } catch (error) {
     console.error('Error creating custom gov registry:', error);
@@ -3565,7 +3576,8 @@ export async function executeProvideLiquidity(
     const accounts = await offlineSigner.getAccounts();
     const signerAddress = accounts[0].address;
     
-    console.log('👤 Signer address:', signerAddress);
+    console.log('👤 Signer address:', signerAddress);
+
     const SWAP_MODULE_ACCOUNT = 'paxi1mfru9azs5nua2wxcd4sq64g5nt7nn4n80r745t';
     
     console.log('🔐 Increasing allowance for swap module...');
@@ -3591,7 +3603,8 @@ export async function executeProvideLiquidity(
     } catch (error: any) {
       console.error('❌ Allowance increase failed:', error);
       throw new Error(`Failed to increase allowance: ${error.message}`);
-    }
+    }
+
     const provideLiquidityMsg = {
       typeUrl: '/x.swap.types.MsgProvideLiquidity',
       value: {
