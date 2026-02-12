@@ -1,0 +1,14 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 💬 Community Support
+    url: https://t.me/winsnip
+    about: Join our Telegram group for community support and discussions
+  - name: 🐦 Twitter
+    url: https://twitter.com/winsnip
+    about: Follow us on Twitter for updates and announcements
+  - name: 📧 Email Support
+    url: mailto:admin@winsnip.xyz
+    about: Contact us directly via email for business inquiries
+  - name: 📚 Documentation
+    url: https://github.com/winsnip-official/winscan.org/blob/dev/README.md
+    about: Read our documentation for guides and tutorials
