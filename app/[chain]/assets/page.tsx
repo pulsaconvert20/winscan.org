@@ -778,6 +778,7 @@ export default function AssetsPage() {
   const tokensCount = assets.length - nativeCount;
 
   // Filter PRC20 tokens based on search query and sort by verified status
+  console.log(`🔍 Total PRC20 tokens in state: ${prc20Tokens.length}`);
   // Add index to each token to track original order (for "new tokens" sort)
   const tokensWithIndex = prc20Tokens.map((token, index) => ({ ...token, _originalIndex: index }));
   

@@ -8,11 +8,14 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import PRC20PriceChart from '@/components/PRC20PriceChart';
 import { ChainData } from '@/types/chain';
-import { Settings, Info, Zap, AlertCircle, RefreshCw, Shield, CheckCircle, XCircle } from 'lucide-react';
+import { ArrowDownUp, Settings, Info, Zap, AlertCircle, RefreshCw, Shield, CheckCircle, XCircle } from 'lucide-react';
 import { calculateFee } from '@/lib/keplr';
 import { getPoolPrice, calculateSwapOutput } from '@/lib/poolPriceCalculator';
 import AddLiquiditySection from '@/components/AddLiquiditySection';
 import RemoveLiquiditySection from '@/components/RemoveLiquiditySection';
+import TokenSelector from '@/components/TokenSelector';
+import ProgressModal from '@/components/ProgressModal';
+import { PlanTodo } from '@/components/Plan';
 
 interface Token {
   address: string;
@@ -46,9 +49,13 @@ export default function PRC20SwapPage() {
   const [activeTab, setActiveTab] = useState<'swap' | 'liquidity' | 'burn' | 'transfer' | 'info'>('swap');
   const [liquidityMode, setLiquidityMode] = useState<'add' | 'remove'>('add');
   const [refreshing, setRefreshing] = useState(false);
-  const [showFromTokenModal, setShowFromTokenModal] = useState(false);
-  const [showToTokenModal, setShowToTokenModal] = useState(false);
-  const [tokenSearchQuery, setTokenSearchQuery] = useState('');
+  
+  // Progress modal state
+  const [showProgressModal, setShowProgressModal] = useState(false);
+  const [progressTodos, setProgressTodos] = useState<PlanTodo[]>([]);
+  const [progressTitle, setProgressTitle] = useState('');
+  const [progressDescription, setProgressDescription] = useState('');
+  
   // Admin panel hidden
   // const [isAdmin, setIsAdmin] = useState(false);
   // const [showAdminPanel, setShowAdminPanel] = useState(false);
@@ -98,6 +105,28 @@ export default function PRC20SwapPage() {
       return () => clearInterval(refreshInterval);
     }
   }, [selectedChain]);
+
+  // Auto-fill PAXI when fromToken is PRC20 and toToken is empty
+  useEffect(() => {
+    if (fromToken && fromToken.address !== 'upaxi' && !toToken && tokens.length > 0) {
+      const paxiToken = tokens.find(t => t.address === 'upaxi');
+      if (paxiToken) {
+        console.log('🔄 Auto-filling PAXI as toToken for', fromToken.symbol);
+        setToToken(paxiToken);
+      }
+    }
+  }, [fromToken, toToken, tokens]);
+
+  // Auto-fill PAXI when toToken is PRC20 and fromToken is empty
+  useEffect(() => {
+    if (toToken && toToken.address !== 'upaxi' && !fromToken && tokens.length > 0) {
+      const paxiToken = tokens.find(t => t.address === 'upaxi');
+      if (paxiToken) {
+        console.log('🔄 Auto-filling PAXI as fromToken for', toToken.symbol);
+        setFromToken(paxiToken);
+      }
+    }
+  }, [toToken, fromToken, tokens]);
 
   const loadMarketPrices = async (tokensArray?: Token[]) => {
     const tokensToUse = tokensArray || tokens;
@@ -249,14 +278,13 @@ export default function PRC20SwapPage() {
       
       console.log('📦 Total tokens loaded:', data.tokens?.length);
       
-      // Add native PAXI token with logo
+      // Add native PAXI token
       const nativeToken: Token = {
         address: 'upaxi',
         name: 'PAXI',
         symbol: 'PAXI',
         decimals: 6,
         balance: '0',
-        logo: '/paxi.png'
       };
       
       // Map PRC20 tokens from cache
@@ -320,23 +348,35 @@ export default function PRC20SwapPage() {
 
   const loadBalances = async (selectedTokensOnly: boolean = false) => {
     if (!selectedChain?.api?.[0]?.address || !walletAddress) {
+      console.log('⚠️ Cannot load balances: missing chain or wallet');
       return;
     }
     
     setRefreshing(true);
     try {
+      console.log('🔄 Loading balances...');
+      console.log('   Wallet Address:', walletAddress);
+      console.log('   Selected tokens:', { from: fromToken?.symbol, to: toToken?.symbol });
+      console.log('   selectedTokensOnly:', selectedTokensOnly);
+      
       // Always fetch native PAXI balance
       const balanceUrl = `${selectedChain.api[0].address}/cosmos/bank/v1beta1/balances/${walletAddress}`;
-      const nativeBalanceRes = await fetch(balanceUrl);
+      const nativeBalanceRes = await fetch(balanceUrl, { 
+        cache: 'no-store',
+        signal: AbortSignal.timeout(10000)
+      });
       
       if (!nativeBalanceRes.ok) {
-        console.log('Could not fetch PAXI balance');
+        console.warn('⚠️ Failed to fetch PAXI balance, status:', nativeBalanceRes.status);
+        setRefreshing(false);
         return;
       }
       
       const nativeData = await nativeBalanceRes.json();
       const paxiBalance = nativeData.balances?.find((b: any) => b.denom === 'upaxi');
       const paxiAmount = paxiBalance?.amount || '0';
+      
+      console.log('✅ PAXI Balance:', (parseFloat(paxiAmount) / 1e6).toFixed(2), 'PAXI');
       
       // Update tokens dengan balance
       const updatedTokens = [...tokens];
@@ -351,48 +391,70 @@ export default function PRC20SwapPage() {
         if (fromToken && fromToken.address !== 'upaxi') tokensToFetch.push(fromToken);
         if (toToken && toToken.address !== 'upaxi') tokensToFetch.push(toToken);
         
+        console.log(`📥 Fetching balance for ${tokensToFetch.length} PRC20 tokens...`);
+        
         for (const token of tokensToFetch) {
           try {
+            console.log(`  Fetching ${token.symbol} balance...`);
+            console.log(`    Contract: ${token.address}`);
+            console.log(`    Address: ${walletAddress}`);
+            console.log(`    Decimals: ${token.decimals}`);
+            
             const balanceRes = await fetch(
               `/api/prc20-balance?contract=${token.address}&address=${walletAddress}`,
               { cache: 'no-store' }
             );
             
             if (!balanceRes.ok) {
+              console.error(`  ❌ Failed to fetch ${token.symbol}: ${balanceRes.status}`);
               continue;
             }
             
             const balanceData = await balanceRes.json();
             const balance = balanceData.balance || '0';
             
+            console.log(`  📊 Raw balance: ${balance}`);
+            const formatted = (parseFloat(balance) / Math.pow(10, token.decimals)).toFixed(4);
+            console.log(`  ✅ ${token.symbol} Balance: ${formatted}`);
+            
             // Update token in array
             const idx = updatedTokens.findIndex(t => t.address === token.address);
             if (idx !== -1) {
               updatedTokens[idx] = { ...updatedTokens[idx], balance };
+              console.log(`  📝 Updated ${token.symbol} in tokens array at index ${idx}`);
+            } else {
+              console.warn(`  ⚠️ Token ${token.symbol} not found in array`);
             }
           } catch (error) {
-            // Silently continue on error
+            console.error(`  ❌ Error loading ${token.symbol} balance:`, error);
           }
         }
       }
       
+      console.log('📦 Updating tokens state...');
       setTokens(updatedTokens);
       
       // Update selected tokens with new balance - ALWAYS update to force re-render
       if (fromToken) {
         const updated = updatedTokens.find(t => t.address === fromToken.address);
         if (updated) {
+          console.log(`🔄 Updating fromToken ${fromToken.symbol} balance: ${fromToken.balance || '0'} → ${updated.balance || '0'}`);
+          console.log(`   Formatted: ${formatBalance(updated.balance || '0', updated.decimals)} ${updated.symbol}`);
           setFromToken({ ...updated }); // Force new object to trigger re-render
         }
       }
       if (toToken) {
         const updated = updatedTokens.find(t => t.address === toToken.address);
         if (updated) {
+          console.log(`🔄 Updating toToken ${toToken.symbol} balance: ${toToken.balance || '0'} → ${updated.balance || '0'}`);
+          console.log(`   Formatted: ${formatBalance(updated.balance || '0', updated.decimals)} ${updated.symbol}`);
           setToToken({ ...updated }); // Force new object to trigger re-render
         }
       }
+      
+      console.log('✅ Balance loading complete!');
     } catch (error) {
-      // Silently handle errors - they're expected when wallet not connected
+      console.error('❌ Error loading balances:', error);
     } finally {
       setRefreshing(false);
     }
@@ -401,8 +463,11 @@ export default function PRC20SwapPage() {
   // Load balances when tokens selected
   useEffect(() => {
     if (walletAddress && tokens.length > 0 && (fromToken || toToken)) {
+      console.log('🔄 [useEffect] Triggering balance load for:', fromToken?.symbol, toToken?.symbol);
       const timer = setTimeout(() => {
-        loadBalances(true);
+        loadBalances(true).catch(err => {
+          console.warn('⚠️ Failed to load balances:', err.message);
+        });
       }, 100);
       return () => clearTimeout(timer);
     }
@@ -411,8 +476,11 @@ export default function PRC20SwapPage() {
   // Initial balance load after wallet connected and tokens loaded
   useEffect(() => {
     if (walletAddress && tokens.length > 0 && initialTokenSet) {
+      console.log('🔄 [useEffect] Initial balance load after tokens ready');
       const timer = setTimeout(() => {
-        loadBalances(true);
+        loadBalances(true).catch(err => {
+          console.warn('⚠️ Failed to load initial balances:', err.message);
+        });
       }, 500);
       return () => clearTimeout(timer);
     }
@@ -624,26 +692,6 @@ export default function PRC20SwapPage() {
   };
   */
 
-  // Filter tokens based on search query
-  const filteredTokens = tokens.filter(token => {
-    if (!tokenSearchQuery.trim()) return true;
-    
-    const query = tokenSearchQuery.toLowerCase();
-    return (
-      token.name.toLowerCase().includes(query) ||
-      token.symbol.toLowerCase().includes(query) ||
-      token.address.toLowerCase().includes(query)
-    );
-  });
-
-  // Filter for swap: only show PRC20 tokens (exclude PAXI) in from selector
-  const filteredFromTokens = filteredTokens.filter(token => token.address !== 'upaxi');
-  
-  // Filter for swap: only show PAXI in to selector when from is PRC20
-  const filteredToTokens = fromToken && fromToken.address !== 'upaxi' 
-    ? filteredTokens.filter(token => token.address === 'upaxi')
-    : filteredTokens.filter(token => token.address !== 'upaxi');
-
   const handleSwap = async () => {
     if (!fromToken || !toToken || !fromAmount) {
       setTxResult({ success: false, error: 'Please fill all fields' });
@@ -661,6 +709,17 @@ export default function PRC20SwapPage() {
     }
 
     setLoading(true);
+    
+    // Show progress modal
+    setShowProgressModal(true);
+    setProgressTitle('Swap Progress');
+    setProgressDescription(`Swapping ${fromToken.symbol} to ${toToken.symbol}`);
+    setProgressTodos([
+      { id: '1', label: 'Preparing Transaction', description: 'Validating swap parameters', status: 'in_progress' },
+      { id: '2', label: 'Broadcasting Swap', description: 'Sending transaction to blockchain', status: 'pending' },
+      { id: '3', label: 'Swap Complete', description: 'Tokens swapped successfully', status: 'pending' },
+    ]);
+    
     try {
       // CRITICAL: Query ACTUAL decimals from token contract (NOT inference!)
       let actualFromDecimals = fromToken.decimals;
@@ -992,6 +1051,13 @@ Request: ${fromAmount} × 10^${actualFromDecimals}
       // Import executeSwap from keplr.ts
       const { executeSwap } = await import('@/lib/keplr');
       
+      // Update progress - broadcasting
+      setProgressTodos([
+        { id: '1', label: 'Preparing Transaction', description: 'Validating swap parameters', status: 'completed' },
+        { id: '2', label: 'Broadcasting Swap', description: 'Sending transaction to blockchain', status: 'in_progress' },
+        { id: '3', label: 'Swap Complete', description: 'Tokens swapped successfully', status: 'pending' },
+      ]);
+      
       // Execute swap with custom registry
       const result = await executeSwap(
         selectedChain,
@@ -1009,6 +1075,14 @@ Request: ${fromAmount} × 10^${actualFromDecimals}
       
       if (result.success) {
         console.log('✅ Swap successful! TxHash:', result.txHash);
+        
+        // Update progress - complete
+        setProgressTodos([
+          { id: '1', label: 'Preparing Transaction', description: 'Validating swap parameters', status: 'completed' },
+          { id: '2', label: 'Broadcasting Swap', description: 'Transaction confirmed', status: 'completed' },
+          { id: '3', label: 'Swap Complete', description: `Successfully swapped ${fromToken.symbol} to ${toToken.symbol}`, status: 'completed' },
+        ]);
+        
         setTxResult({ success: true, txHash: result.txHash });
         
         // Reload balances after 3 seconds
@@ -1032,6 +1106,14 @@ Request: ${fromAmount} × 10^${actualFromDecimals}
     } finally {
       setLoading(false);
     }
+  };
+
+  const switchTokens = () => {
+    const temp = fromToken;
+    setFromToken(toToken);
+    setToToken(temp);
+    setFromAmount(toAmount);
+    setToAmount(fromAmount);
   };
 
   const connectWallet = async () => {
@@ -1078,19 +1160,6 @@ Request: ${fromAmount} × 10^${actualFromDecimals}
     if (!walletAddress) return;
     console.log('🔄 Manual balance refresh triggered');
     await loadBalances(true);
-  };
-
-  const switchTokens = () => {
-    if (!fromToken || !toToken) return;
-    
-    // Switch FROM and TO tokens
-    const temp = fromToken;
-    setFromToken(toToken);
-    setToToken(temp);
-    
-    // Switch amounts
-    setFromAmount(toAmount);
-    setToAmount(fromAmount);
   };
 
   return (
@@ -1327,7 +1396,10 @@ Request: ${fromAmount} × 10^${actualFromDecimals}
             <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-6">
               {/* Settings Button */}
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-semibold text-white">Swap</h2>
+                <div>
+                  <h2 className="text-lg font-semibold text-white">Swap</h2>
+                  <p className="text-xs text-gray-500 mt-1">All swaps are paired with PAXI</p>
+                </div>
                 <button
                   onClick={() => setShowSettings(!showSettings)}
                   className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
@@ -1392,24 +1464,27 @@ Request: ${fromAmount} × 10^${actualFromDecimals}
                       placeholder="0.0"
                       className="bg-transparent text-2xl text-white font-semibold focus:outline-none w-full"
                     />
-                    <button
-                      onClick={() => setShowFromTokenModal(true)}
-                      className="ml-4 px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors flex items-center gap-2 min-w-[120px]"
-                    >
-                      {fromToken ? (
-                        <>
-                          {fromToken.logo && (
-                            <Image src={fromToken.logo} alt={fromToken.symbol} width={20} height={20} className="w-5 h-5 rounded-full" unoptimized />
-                          )}
-                          <span>{fromToken.symbol}</span>
-                        </>
-                      ) : (
-                        <span>Select</span>
-                      )}
-                      <svg className="w-4 h-4 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </button>
+                    <div className="ml-4 min-w-[140px]">
+                      <TokenSelector
+                        tokens={tokens}
+                        selectedToken={fromToken}
+                        onSelect={(token) => {
+                          setFromToken(token);
+                          // Auto-pair dengan PAXI - SELALU set PAXI jika pilih PRC20
+                          const paxiToken = tokens.find(t => t.address === 'upaxi');
+                          if (token.address !== 'upaxi' && paxiToken) {
+                            // Jika pilih PRC20, auto-set PAXI di To
+                            setToToken(paxiToken);
+                            console.log('✅ Auto-paired', token.symbol, 'with PAXI');
+                          } else if (token.address === 'upaxi') {
+                            // Jika pilih PAXI, clear toToken (user harus pilih PRC20)
+                            setToToken(null);
+                          }
+                        }}
+                        excludeToken={toToken}
+                        formatBalance={formatBalance}
+                      />
+                    </div>
                   </div>
                   
                   {/* Amount Slider */}
@@ -1494,17 +1569,9 @@ Request: ${fromAmount} × 10^${actualFromDecimals}
               <div className="flex justify-center -my-2 relative z-10">
                 <button
                   onClick={switchTokens}
-                  disabled={!fromToken || !toToken}
-                  className={`p-2 bg-[#1a1a1a] border-2 border-gray-800 rounded-xl transition-all ${
-                    fromToken && toToken 
-                      ? 'hover:bg-gray-800 hover:border-blue-500 cursor-pointer' 
-                      : 'opacity-50 cursor-not-allowed'
-                  }`}
-                  title="Switch tokens"
+                  className="p-2 bg-[#1a1a1a] border-2 border-gray-800 hover:border-blue-500 rounded-xl transition-colors"
                 >
-                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
-                  </svg>
+                  <ArrowDownUp className="w-5 h-5 text-gray-400" />
                 </button>
               </div>
 
@@ -1521,28 +1588,27 @@ Request: ${fromAmount} × 10^${actualFromDecimals}
                       className="bg-transparent text-2xl text-white font-semibold focus:outline-none w-full"
                       readOnly
                     />
-                    <button
-                      onClick={() => setShowToTokenModal(true)}
-                      disabled={!fromToken || fromToken.address !== 'upaxi'}
-                      className={`ml-4 px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors flex items-center gap-2 min-w-[120px] ${
-                        !fromToken || fromToken.address !== 'upaxi' ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-700'
-                      }`}
-                      title={fromToken?.address === 'upaxi' ? 'Select PRC20 token' : 'TO token is always PAXI when swapping from PRC20'}
-                    >
-                      {toToken ? (
-                        <>
-                          {toToken.logo && (
-                            <Image src={toToken.logo} alt={toToken.symbol} width={20} height={20} className="w-5 h-5 rounded-full" unoptimized />
-                          )}
-                          <span>{toToken.symbol}</span>
-                        </>
-                      ) : (
-                        <span>Select</span>
-                      )}
-                      <svg className="w-4 h-4 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </button>
+                    <div className="ml-4 min-w-[140px]">
+                      <TokenSelector
+                        tokens={tokens}
+                        selectedToken={toToken}
+                        onSelect={(token) => {
+                          setToToken(token);
+                          // Auto-pair dengan PAXI - SELALU set PAXI jika pilih PRC20
+                          const paxiToken = tokens.find(t => t.address === 'upaxi');
+                          if (token.address !== 'upaxi' && paxiToken) {
+                            // Jika pilih PRC20, auto-set PAXI di From
+                            setFromToken(paxiToken);
+                            console.log('✅ Auto-paired', token.symbol, 'with PAXI');
+                          } else if (token.address === 'upaxi') {
+                            // Jika pilih PAXI, clear fromToken (user harus pilih PRC20)
+                            setFromToken(null);
+                          }
+                        }}
+                        excludeToken={fromToken}
+                        formatBalance={formatBalance}
+                      />
+                    </div>
                   </div>
                   {toToken && (
                     <div className="space-y-1">
@@ -1832,53 +1898,39 @@ Request: ${fromAmount} × 10^${actualFromDecimals}
                     </button>
                   </div>
                 ) : (
-                  <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-6">
-                    <h2 className="text-lg font-semibold text-white mb-4">Transfer Tokens</h2>
-                    
-                    {/* Token Selector */}
-                    {!fromToken || fromToken.address === 'upaxi' ? (
+                  <>
+                    <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-6">
+                      <h2 className="text-lg font-semibold text-white mb-4">Transfer Tokens</h2>
+                      
+                      {/* Token Selector */}
                       <div className="mb-6">
-                        <label className="block text-sm text-gray-400 mb-2">Select Token to Transfer</label>
-                        <button
-                          onClick={() => setShowFromTokenModal(true)}
-                          className="w-full px-4 py-3 bg-[#0f0f0f] border border-gray-700 rounded-lg text-gray-400 hover:border-blue-500 transition-colors text-left flex items-center justify-between"
-                        >
-                          <span>Select a PRC20 token...</span>
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                          </svg>
-                        </button>
+                        <label className="block text-sm text-gray-400 mb-2">Select Token</label>
+                        <TokenSelector
+                          tokens={tokens.filter(t => t.address !== 'upaxi')}
+                          selectedToken={fromToken?.address !== 'upaxi' ? fromToken : null}
+                          onSelect={(token) => setFromToken(token)}
+                          formatBalance={formatBalance}
+                        />
                       </div>
-                    ) : (
-                      <>
-                        {/* Token Info with Change Button */}
-                        <div className="mb-6 p-4 bg-[#0f0f0f] border border-gray-700 rounded-lg">
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-3">
-                              {fromToken.logo ? (
-                                <img 
-                                  src={fromToken.logo} 
-                                  alt={fromToken.symbol} 
-                                  className="w-10 h-10 rounded-full" 
-                                  onError={(e) => {
-                                    e.currentTarget.style.display = 'none';
-                                    const fallback = e.currentTarget.nextElementSibling as HTMLElement;
-                                    if (fallback) fallback.style.display = 'flex';
-                                  }}
-                                />
-                              ) : null}
-                              <div 
-                                className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold"
-                                style={{ display: fromToken.logo ? 'none' : 'flex' }}
-                              >
-                                {fromToken.symbol.substring(0, 2)}
+
+                      {fromToken && fromToken.address !== 'upaxi' ? (
+                        <>
+                          {/* Token Info */}
+                          <div className="mb-6 p-4 bg-[#0f0f0f] border border-gray-700 rounded-lg">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-3">
+                                {fromToken.logo ? (
+                                  <Image src={fromToken.logo} alt={fromToken.symbol} width={40} height={40} className="w-10 h-10 rounded-full" unoptimized />
+                                ) : (
+                                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold">
+                                    {fromToken.symbol.substring(0, 2)}
+                                  </div>
+                                )}
+                                <div>
+                                  <div className="text-white font-semibold">{fromToken.name}</div>
+                                  <div className="text-gray-400 text-sm">{fromToken.symbol}</div>
+                                </div>
                               </div>
-                              <div>
-                                <div className="text-white font-semibold">{fromToken.name}</div>
-                                <div className="text-gray-400 text-sm">{fromToken.symbol}</div>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-3">
                               {fromToken.balance && (
                                 <div className="text-right">
                                   <div className="text-xs text-gray-400">Available Balance</div>
@@ -1887,32 +1939,29 @@ Request: ${fromAmount} × 10^${actualFromDecimals}
                                   </div>
                                 </div>
                               )}
-                              <button
-                                onClick={() => setShowFromTokenModal(true)}
-                                className="px-3 py-1 bg-gray-800 hover:bg-gray-700 text-white text-sm rounded transition-colors"
-                              >
-                                Change
-                              </button>
                             </div>
                           </div>
-                        </div>
 
-                        {/* Import TransferTokensSection dynamically */}
-                        {(() => {
-                          const TransferTokensSection = require('@/components/TransferTokensSection').default;
-                          return (
-                            <TransferTokensSection
-                              chain={selectedChain.chain_id}
-                              token={fromToken}
-                              onTransferComplete={() => {
-                                loadBalances();
-                              }}
-                            />
-                          );
-                        })()}
-                      </>
-                    )}
-                  </div>
+                          {(() => {
+                            const TransferTokensSection = require('@/components/TransferTokensSection').default;
+                            return (
+                              <TransferTokensSection
+                                chain={selectedChain.chain_id}
+                                token={fromToken}
+                                onTransferComplete={() => {
+                                  loadBalances();
+                                }}
+                              />
+                            );
+                          })()}
+                        </>
+                      ) : (
+                        <div className="text-center py-8 text-gray-400">
+                          Please select a PRC20 token to transfer
+                        </div>
+                      )}
+                    </div>
+                  </>
                 )}
               </>
             )}
@@ -1931,53 +1980,39 @@ Request: ${fromAmount} × 10^${actualFromDecimals}
                     </button>
                   </div>
                 ) : (
-                  <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-6">
-                    <h2 className="text-lg font-semibold text-white mb-4">Burn Tokens</h2>
-                    
-                    {/* Token Selector */}
-                    {!fromToken || fromToken.address === 'upaxi' ? (
+                  <>
+                    <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-6">
+                      <h2 className="text-lg font-semibold text-white mb-4">Burn Tokens</h2>
+                      
+                      {/* Token Selector */}
                       <div className="mb-6">
-                        <label className="block text-sm text-gray-400 mb-2">Select Token to Burn</label>
-                        <button
-                          onClick={() => setShowFromTokenModal(true)}
-                          className="w-full px-4 py-3 bg-[#0f0f0f] border border-gray-700 rounded-lg text-gray-400 hover:border-red-500 transition-colors text-left flex items-center justify-between"
-                        >
-                          <span>Select a PRC20 token...</span>
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                          </svg>
-                        </button>
+                        <label className="block text-sm text-gray-400 mb-2">Select Token</label>
+                        <TokenSelector
+                          tokens={tokens.filter(t => t.address !== 'upaxi')}
+                          selectedToken={fromToken?.address !== 'upaxi' ? fromToken : null}
+                          onSelect={(token) => setFromToken(token)}
+                          formatBalance={formatBalance}
+                        />
                       </div>
-                    ) : (
-                      <>
-                        {/* Token Info with Change Button */}
-                        <div className="mb-6 p-4 bg-[#0f0f0f] border border-gray-700 rounded-lg">
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-3">
-                              {fromToken.logo ? (
-                                <img 
-                                  src={fromToken.logo} 
-                                  alt={fromToken.symbol} 
-                                  className="w-10 h-10 rounded-full" 
-                                  onError={(e) => {
-                                    e.currentTarget.style.display = 'none';
-                                    const fallback = e.currentTarget.nextElementSibling as HTMLElement;
-                                    if (fallback) fallback.style.display = 'flex';
-                                  }}
-                                />
-                              ) : null}
-                              <div 
-                                className="w-10 h-10 rounded-full bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center text-white font-bold"
-                                style={{ display: fromToken.logo ? 'none' : 'flex' }}
-                              >
-                                {fromToken.symbol.substring(0, 2)}
+
+                      {fromToken && fromToken.address !== 'upaxi' ? (
+                        <>
+                          {/* Token Info */}
+                          <div className="mb-6 p-4 bg-[#0f0f0f] border border-gray-700 rounded-lg">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-3">
+                                {fromToken.logo ? (
+                                  <Image src={fromToken.logo} alt={fromToken.symbol} width={40} height={40} className="w-10 h-10 rounded-full" unoptimized />
+                                ) : (
+                                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center text-white font-bold">
+                                    {fromToken.symbol.substring(0, 2)}
+                                  </div>
+                                )}
+                                <div>
+                                  <div className="text-white font-semibold">{fromToken.name}</div>
+                                  <div className="text-gray-400 text-sm">{fromToken.symbol}</div>
+                                </div>
                               </div>
-                              <div>
-                                <div className="text-white font-semibold">{fromToken.name}</div>
-                                <div className="text-gray-400 text-sm">{fromToken.symbol}</div>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-3">
                               {fromToken.balance && (
                                 <div className="text-right">
                                   <div className="text-xs text-gray-400">Available Balance</div>
@@ -1986,32 +2021,29 @@ Request: ${fromAmount} × 10^${actualFromDecimals}
                                   </div>
                                 </div>
                               )}
-                              <button
-                                onClick={() => setShowFromTokenModal(true)}
-                                className="px-3 py-1 bg-gray-800 hover:bg-gray-700 text-white text-sm rounded transition-colors"
-                              >
-                                Change
-                              </button>
                             </div>
                           </div>
-                        </div>
 
-                        {/* Import BurnTokensSection dynamically */}
-                        {(() => {
-                          const BurnTokensSection = require('@/components/BurnTokensSection').default;
-                          return (
-                            <BurnTokensSection
-                              chain={selectedChain}
-                              token={fromToken}
-                              onBurnComplete={() => {
-                                loadBalances();
-                              }}
-                            />
-                          );
-                        })()}
-                      </>
-                    )}
-                  </div>
+                          {(() => {
+                            const BurnTokensSection = require('@/components/BurnTokensSection').default;
+                            return (
+                              <BurnTokensSection
+                                chain={selectedChain}
+                                token={fromToken}
+                                onBurnComplete={() => {
+                                  loadBalances();
+                                }}
+                              />
+                            );
+                          })()}
+                        </>
+                      ) : (
+                        <div className="text-center py-8 text-gray-400">
+                          Please select a PRC20 token to burn
+                        </div>
+                      )}
+                    </div>
+                  </>
                 )}
               </>
             )}
@@ -2034,20 +2066,17 @@ Request: ${fromAmount} × 10^${actualFromDecimals}
                     <h2 className="text-lg font-semibold text-white mb-4">Manage Liquidity</h2>
                     
                     {/* Token Selector */}
-                    {!fromToken || fromToken.address === 'upaxi' ? (
-                      <div className="mb-6">
-                        <label className="block text-sm text-gray-400 mb-2">Select Token for Liquidity Pool</label>
-                        <button
-                          onClick={() => setShowFromTokenModal(true)}
-                          className="w-full px-4 py-3 bg-[#0f0f0f] border border-gray-700 rounded-lg text-gray-400 hover:border-cyan-500 transition-colors text-left flex items-center justify-between"
-                        >
-                          <span>Select a PRC20 token...</span>
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                          </svg>
-                        </button>
-                      </div>
-                    ) : (
+                    <div className="mb-6">
+                      <label className="block text-sm text-gray-400 mb-2">Select Token</label>
+                      <TokenSelector
+                        tokens={tokens.filter(t => t.address !== 'upaxi')}
+                        selectedToken={fromToken?.address !== 'upaxi' ? fromToken : null}
+                        onSelect={(token) => setFromToken(token)}
+                        formatBalance={formatBalance}
+                      />
+                    </div>
+
+                    {fromToken && fromToken.address !== 'upaxi' ? (
                       <>
                         {/* Sub-tabs for Add/Remove */}
                         <div className="flex gap-2 mb-6">
@@ -2073,49 +2102,30 @@ Request: ${fromAmount} × 10^${actualFromDecimals}
                           </button>
                         </div>
 
-                        {/* Token Info with Change Button */}
+                        {/* Token Info */}
                         <div className="mb-6 p-4 bg-[#0f0f0f] border border-gray-700 rounded-lg">
                           <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-3">
                               {fromToken.logo ? (
-                                <img 
-                                  src={fromToken.logo} 
-                                  alt={fromToken.symbol} 
-                                  className="w-10 h-10 rounded-full" 
-                                  onError={(e) => {
-                                    e.currentTarget.style.display = 'none';
-                                    const fallback = e.currentTarget.nextElementSibling as HTMLElement;
-                                    if (fallback) fallback.style.display = 'flex';
-                                  }}
-                                />
-                              ) : null}
-                              <div 
-                                className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center text-white font-bold"
-                                style={{ display: fromToken.logo ? 'none' : 'flex' }}
-                              >
-                                {fromToken.symbol.substring(0, 2)}
-                              </div>
+                                <Image src={fromToken.logo} alt={fromToken.symbol} width={40} height={40} className="w-10 h-10 rounded-full" unoptimized />
+                              ) : (
+                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center text-white font-bold">
+                                  {fromToken.symbol.substring(0, 2)}
+                                </div>
+                              )}
                               <div>
                                 <div className="text-white font-semibold">{fromToken.name}</div>
                                 <div className="text-gray-400 text-sm">{fromToken.symbol} / PAXI Pool</div>
                               </div>
                             </div>
-                            <div className="flex items-center gap-3">
-                              {fromToken.balance && (
-                                <div className="text-right">
-                                  <div className="text-xs text-gray-400">Available Balance</div>
-                                  <div className="text-white font-semibold">
-                                    {formatBalance(fromToken.balance, fromToken.decimals)} {fromToken.symbol}
-                                  </div>
+                            {fromToken.balance && (
+                              <div className="text-right">
+                                <div className="text-xs text-gray-400">Available Balance</div>
+                                <div className="text-white font-semibold">
+                                  {formatBalance(fromToken.balance, fromToken.decimals)} {fromToken.symbol}
                                 </div>
-                              )}
-                              <button
-                                onClick={() => setShowFromTokenModal(true)}
-                                className="px-3 py-1 bg-gray-800 hover:bg-gray-700 text-white text-sm rounded transition-colors"
-                              >
-                                Change
-                              </button>
-                            </div>
+                              </div>
+                            )}
                           </div>
                         </div>
 
@@ -2155,6 +2165,10 @@ Request: ${fromAmount} × 10^${actualFromDecimals}
                           />
                         )}
                       </>
+                    ) : (
+                      <div className="text-center py-8 text-gray-400">
+                        Please select a PRC20 token to manage liquidity
+                      </div>
                     )}
                   </div>
                 )}
@@ -2301,220 +2315,16 @@ Request: ${fromAmount} × 10^${actualFromDecimals}
           </div>
         </div>
       )}
-
-      {/* Token Selector Modal - From Token */}
-      {showFromTokenModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[60] px-4">
-          <div className="bg-[#1a1a1a] border border-gray-800 rounded-2xl p-6 max-w-md w-full shadow-2xl">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-bold text-white">Select Token</h3>
-              <button
-                onClick={() => {
-                  setShowFromTokenModal(false);
-                  setTokenSearchQuery('');
-                }}
-                className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
-              >
-                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            {/* Search Input */}
-            <div className="mb-4">
-              <input
-                type="text"
-                value={tokenSearchQuery}
-                onChange={(e) => setTokenSearchQuery(e.target.value)}
-                placeholder="Search by name, symbol, or contract address..."
-                className="w-full px-4 py-3 bg-[#0f0f0f] border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                autoFocus
-              />
-            </div>
-
-            {/* Token List - All tokens (PAXI and PRC20) for FROM selector */}
-            <div className="max-h-96 overflow-y-auto space-y-2">
-              {tokens
-                .filter(token => {
-                  if (!tokenSearchQuery) return true;
-                  const query = tokenSearchQuery.toLowerCase();
-                  return (
-                    token.name.toLowerCase().includes(query) ||
-                    token.symbol.toLowerCase().includes(query) ||
-                    token.address.toLowerCase().includes(query)
-                  );
-                }).length === 0 ? (
-                <div className="text-center py-8 text-gray-400">
-                  No tokens found
-                </div>
-              ) : (
-                tokens
-                  .filter(token => {
-                    if (!tokenSearchQuery) return true;
-                    const query = tokenSearchQuery.toLowerCase();
-                    return (
-                      token.name.toLowerCase().includes(query) ||
-                      token.symbol.toLowerCase().includes(query) ||
-                      token.address.toLowerCase().includes(query)
-                    );
-                  })
-                  .map((token) => (
-                  <button
-                    key={token.address}
-                    onClick={() => {
-                      setFromToken(token);
-                      // If FROM is PRC20, TO = PAXI. If FROM is PAXI, clear TO for user to select
-                      if (token.address !== 'upaxi') {
-                        const paxiToken = tokens.find(t => t.address === 'upaxi');
-                        if (paxiToken) setToToken(paxiToken);
-                      } else {
-                        setToToken(null);
-                      }
-                      setShowFromTokenModal(false);
-                      setTokenSearchQuery('');
-                    }}
-                    className="w-full flex items-center gap-3 p-3 bg-[#0f0f0f] hover:bg-gray-800 border border-gray-700 hover:border-blue-500 rounded-lg transition-all"
-                  >
-                    {token.logo ? (
-                      <img 
-                        src={token.logo} 
-                        alt={token.symbol} 
-                        className="w-8 h-8 rounded-full" 
-                        onError={(e) => {
-                          e.currentTarget.style.display = 'none';
-                          const fallback = e.currentTarget.nextElementSibling as HTMLElement;
-                          if (fallback) fallback.style.display = 'flex';
-                        }}
-                      />
-                    ) : null}
-                    <div 
-                      className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm"
-                      style={{ display: token.logo ? 'none' : 'flex' }}
-                    >
-                      {token.symbol.substring(0, 2)}
-                    </div>
-                    <div className="flex-1 text-left">
-                      <div className="text-white font-semibold">{token.symbol}</div>
-                      <div className="text-gray-400 text-xs">{token.name}</div>
-                    </div>
-                    {walletAddress && token.balance && (
-                      <div className="text-right">
-                        <div className="text-white text-sm">{formatBalance(token.balance, token.decimals)}</div>
-                      </div>
-                    )}
-                  </button>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Token Selector Modal - To Token */}
-      {showToTokenModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[60] px-4">
-          <div className="bg-[#1a1a1a] border border-gray-800 rounded-2xl p-6 max-w-md w-full shadow-2xl">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-bold text-white">Select Token</h3>
-              <button
-                onClick={() => {
-                  setShowToTokenModal(false);
-                  setTokenSearchQuery('');
-                }}
-                className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
-              >
-                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            {/* Search Input */}
-            <div className="mb-4">
-              <input
-                type="text"
-                value={tokenSearchQuery}
-                onChange={(e) => setTokenSearchQuery(e.target.value)}
-                placeholder="Search PRC20 tokens..."
-                className="w-full px-4 py-3 bg-[#0f0f0f] border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                autoFocus
-              />
-            </div>
-
-            {/* Token List - Only PRC20 for TO selector (when FROM is PAXI) */}
-            <div className="max-h-96 overflow-y-auto space-y-2">
-              {tokens
-                .filter(token => token.address !== 'upaxi') // Only PRC20, exclude PAXI
-                .filter(token => {
-                  if (!tokenSearchQuery) return true;
-                  const query = tokenSearchQuery.toLowerCase();
-                  return (
-                    token.name.toLowerCase().includes(query) ||
-                    token.symbol.toLowerCase().includes(query) ||
-                    token.address.toLowerCase().includes(query)
-                  );
-                }).length === 0 ? (
-                <div className="text-center py-8 text-gray-400">
-                  No tokens found
-                </div>
-              ) : (
-                tokens
-                  .filter(token => token.address !== 'upaxi') // Only PRC20, exclude PAXI
-                  .filter(token => {
-                    if (!tokenSearchQuery) return true;
-                    const query = tokenSearchQuery.toLowerCase();
-                    return (
-                      token.name.toLowerCase().includes(query) ||
-                      token.symbol.toLowerCase().includes(query) ||
-                      token.address.toLowerCase().includes(query)
-                    );
-                  })
-                  .map((token) => (
-                  <button
-                    key={token.address}
-                    onClick={() => {
-                      setToToken(token);
-                      // TO token is always PAXI, no need to change FROM
-                      setShowToTokenModal(false);
-                      setTokenSearchQuery('');
-                    }}
-                    className="w-full flex items-center gap-3 p-3 bg-[#0f0f0f] hover:bg-gray-800 border border-gray-700 hover:border-blue-500 rounded-lg transition-all"
-                  >
-                    {token.logo ? (
-                      <img 
-                        src={token.logo} 
-                        alt={token.symbol} 
-                        className="w-8 h-8 rounded-full" 
-                        onError={(e) => {
-                          e.currentTarget.style.display = 'none';
-                          const fallback = e.currentTarget.nextElementSibling as HTMLElement;
-                          if (fallback) fallback.style.display = 'flex';
-                        }}
-                      />
-                    ) : null}
-                    <div 
-                      className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm"
-                      style={{ display: token.logo ? 'none' : 'flex' }}
-                    >
-                      {token.symbol.substring(0, 2)}
-                    </div>
-                    <div className="flex-1 text-left">
-                      <div className="text-white font-semibold">{token.symbol}</div>
-                      <div className="text-gray-400 text-xs">{token.name}</div>
-                    </div>
-                    {walletAddress && token.balance && (
-                      <div className="text-right">
-                        <div className="text-white text-sm">{formatBalance(token.balance, token.decimals)}</div>
-                      </div>
-                    )}
-                  </button>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      
+      {/* Progress Modal */}
+      <ProgressModal
+        isOpen={showProgressModal}
+        onClose={() => setShowProgressModal(false)}
+        title={progressTitle}
+        description={progressDescription}
+        todos={progressTodos}
+        allowClose={!loading}
+      />
     </div>
   );
 }

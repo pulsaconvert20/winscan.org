@@ -64,9 +64,9 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <Image src="/logo.svg" alt="Veriznode" width={40} height={40} />
+              <Image src="/logo.svg" alt="Winscan" width={40} height={40} />
               <div>
-                <h1 className="text-xl font-bold text-white">Veriznode Explorer</h1>
+                <h1 className="text-xl font-bold text-white">Winscan Explorer</h1>
                 <p className="text-xs text-gray-400">Multi-chain blockchain explorer</p>
               </div>
             </div>
@@ -83,85 +83,110 @@ export default function Home() {
       </header>
 
       {/* Hero Section */}
-      <section className="relative py-20 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-b from-blue-500/5 to-transparent"></div>
+      <section className="relative py-24 overflow-hidden">
+        {/* Animated Background */}
+        <div className="absolute inset-0">
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-purple-500/5 to-transparent"></div>
+          <div className="absolute top-20 left-10 w-72 h-72 bg-blue-500/10 rounded-full blur-3xl animate-pulse"></div>
+          <div className="absolute bottom-20 right-10 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
+        </div>
+        
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
-          <h2 className="text-5xl md:text-6xl font-bold text-white mb-6">
-            Blockchain Explorer for
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-500/10 border border-blue-500/20 rounded-full mb-6">
+            <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+            <span className="text-blue-400 text-sm font-medium">Powered by Cosmos SDK</span>
+          </div>
+          
+          <h2 className="text-5xl md:text-7xl font-bold text-white mb-6 leading-tight">
+            Explore the
             <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500">
-              Cosmos Ecosystem
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 animate-gradient">
+              Cosmos Universe
             </span>
           </h2>
-          <p className="text-xl text-gray-400 mb-8 max-w-3xl mx-auto">
-            Explore and analyze blockchain data across multiple{' '}
-            <span className="text-blue-400 font-semibold">Cosmos networks</span>
+          
+          <p className="text-xl md:text-2xl text-gray-400 mb-12 max-w-3xl mx-auto leading-relaxed">
+            Your gateway to explore, analyze, and interact with{' '}
+            <span className="text-blue-400 font-semibold">{chains.length}+ blockchain networks</span>
+            {' '}in the Cosmos ecosystem
           </p>
           
-          {/* Features */}
-          <div className="flex items-center justify-center gap-8 text-sm text-gray-400 mb-8">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-              <span>Real-time Data</span>
+          {/* Features Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto mb-12">
+            <div className="flex items-center justify-center gap-3 px-6 py-4 bg-[#1a1a1a]/50 backdrop-blur-sm border border-gray-800 rounded-xl">
+              <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+              <span className="text-gray-300 font-medium">Real-time Updates</span>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-              <span>Multi-Chain Support</span>
+            <div className="flex items-center justify-center gap-3 px-6 py-4 bg-[#1a1a1a]/50 backdrop-blur-sm border border-gray-800 rounded-xl">
+              <div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>
+              <span className="text-gray-300 font-medium">Multi-Chain Support</span>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-              <span>Advanced Analytics</span>
+            <div className="flex items-center justify-center gap-3 px-6 py-4 bg-[#1a1a1a]/50 backdrop-blur-sm border border-gray-800 rounded-xl">
+              <div className="w-3 h-3 bg-purple-500 rounded-full animate-pulse"></div>
+              <span className="text-gray-300 font-medium">Advanced Analytics</span>
             </div>
           </div>
 
           {/* Search */}
           <div className="relative max-w-2xl mx-auto">
-            <input
-              type="text"
-              placeholder="Search chains..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-[#1a1a1a] border border-gray-700 rounded-lg px-6 py-4 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 text-lg"
-            />
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-2xl blur-xl"></div>
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="🔍 Search for any blockchain network..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-[#1a1a1a] border border-gray-700 rounded-2xl px-8 py-5 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 text-lg transition-all"
+              />
+            </div>
           </div>
         </div>
       </section>
 
       {/* Stats */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-12">
-          <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-6">
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-blue-500/10 rounded-lg">
-                <Globe className="w-6 h-6 text-blue-500" />
-              </div>
-              <div>
-                <p className="text-gray-400 text-sm">Total Networks</p>
-                <p className="text-2xl font-bold text-white">{chains.length}</p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-6">
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-green-500/10 rounded-lg">
-                <TrendingUp className="w-6 h-6 text-green-500" />
-              </div>
-              <div>
-                <p className="text-gray-400 text-sm">Mainnets</p>
-                <p className="text-2xl font-bold text-white">{mainnets.length}</p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
+          <div className="relative group">
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-blue-600/20 rounded-2xl blur-xl group-hover:blur-2xl transition-all"></div>
+            <div className="relative bg-[#1a1a1a] border border-gray-800 rounded-2xl p-8 hover:border-blue-500/50 transition-all">
+              <div className="flex items-center gap-4">
+                <div className="p-4 bg-gradient-to-br from-blue-500/20 to-blue-600/20 rounded-xl">
+                  <Globe className="w-8 h-8 text-blue-400" />
+                </div>
+                <div>
+                  <p className="text-gray-400 text-sm font-medium mb-1">Total Networks</p>
+                  <p className="text-4xl font-bold text-white">{chains.length}</p>
+                </div>
               </div>
             </div>
           </div>
           
-          <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-6">
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-purple-500/10 rounded-lg">
-                <Network className="w-6 h-6 text-purple-500" />
+          <div className="relative group">
+            <div className="absolute inset-0 bg-gradient-to-r from-green-500/20 to-green-600/20 rounded-2xl blur-xl group-hover:blur-2xl transition-all"></div>
+            <div className="relative bg-[#1a1a1a] border border-gray-800 rounded-2xl p-8 hover:border-green-500/50 transition-all">
+              <div className="flex items-center gap-4">
+                <div className="p-4 bg-gradient-to-br from-green-500/20 to-green-600/20 rounded-xl">
+                  <TrendingUp className="w-8 h-8 text-green-400" />
+                </div>
+                <div>
+                  <p className="text-gray-400 text-sm font-medium mb-1">Mainnets</p>
+                  <p className="text-4xl font-bold text-white">{mainnets.length}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-gray-400 text-sm">Testnets</p>
-                <p className="text-2xl font-bold text-white">{testnets.length}</p>
+            </div>
+          </div>
+          
+          <div className="relative group">
+            <div className="absolute inset-0 bg-gradient-to-r from-purple-500/20 to-purple-600/20 rounded-2xl blur-xl group-hover:blur-2xl transition-all"></div>
+            <div className="relative bg-[#1a1a1a] border border-gray-800 rounded-2xl p-8 hover:border-purple-500/50 transition-all">
+              <div className="flex items-center gap-4">
+                <div className="p-4 bg-gradient-to-br from-purple-500/20 to-purple-600/20 rounded-xl">
+                  <Network className="w-8 h-8 text-purple-400" />
+                </div>
+                <div>
+                  <p className="text-gray-400 text-sm font-medium mb-1">Testnets</p>
+                  <p className="text-4xl font-bold text-white">{testnets.length}</p>
+                </div>
               </div>
             </div>
           </div>
@@ -169,31 +194,37 @@ export default function Home() {
 
         {/* Mainnet Chains */}
         {mainnets.length > 0 && (
-          <div className="mb-12">
-            <div className="flex items-center gap-3 mb-6">
-              <h2 className="text-2xl font-bold text-white">Mainnet Networks</h2>
-              <span className="px-3 py-1 bg-gray-800 text-gray-400 text-sm rounded-lg">
-                {mainnets.length}
-              </span>
+          <div className="mb-16">
+            <div className="flex items-center gap-4 mb-8">
+              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-800 to-transparent"></div>
+              <div className="flex items-center gap-3">
+                <h2 className="text-3xl font-bold text-white">Mainnet Networks</h2>
+                <span className="px-4 py-1.5 bg-gradient-to-r from-blue-500/20 to-blue-600/20 border border-blue-500/30 text-blue-400 text-sm font-semibold rounded-full">
+                  {mainnets.length}
+                </span>
+              </div>
+              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-800 to-transparent"></div>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
               {mainnets.map((chain) => (
                 <button
                   key={chain.chain_name}
                   onClick={() => router.push(`/${chain.chain_name.toLowerCase().replace(/\s+/g, '-')}`)}
-                  className="group bg-[#1a1a2e] border border-gray-800 hover:border-blue-500/50 rounded-xl p-6 transition-all hover:scale-105 hover:bg-[#1f1f35]"
+                  className="group relative bg-gradient-to-br from-[#1a1a2e] to-[#16162a] border border-gray-800 hover:border-blue-500/50 rounded-2xl p-6 transition-all hover:scale-105 hover:shadow-xl hover:shadow-blue-500/10"
                 >
-                  <div className="flex flex-col items-center gap-3">
+                  <div className="absolute inset-0 bg-gradient-to-br from-blue-500/0 to-purple-500/0 group-hover:from-blue-500/10 group-hover:to-purple-500/10 rounded-2xl transition-all"></div>
+                  <div className="relative flex flex-col items-center gap-4">
                     <div className="relative">
+                      <div className="absolute inset-0 bg-blue-500/20 rounded-full blur-xl group-hover:blur-2xl transition-all"></div>
                       <Image
                         src={chain.logo}
                         alt={chain.chain_name}
-                        width={56}
-                        height={56}
-                        className="rounded-full transition-transform group-hover:scale-110"
+                        width={64}
+                        height={64}
+                        className="relative rounded-full transition-transform group-hover:scale-110 ring-2 ring-gray-800 group-hover:ring-blue-500/50"
                       />
                     </div>
-                    <h3 className="text-sm font-semibold text-white text-center line-clamp-1">
+                    <h3 className="text-sm font-semibold text-white text-center line-clamp-2 group-hover:text-blue-400 transition-colors">
                       {chain.chain_name.replace('-mainnet', '').replace('-test', '')}
                     </h3>
                   </div>
@@ -206,30 +237,36 @@ export default function Home() {
         {/* Testnet Chains */}
         {testnets.length > 0 && (
           <div>
-            <div className="flex items-center gap-3 mb-6">
-              <h2 className="text-2xl font-bold text-white">Testnet Networks</h2>
-              <span className="px-3 py-1 bg-gray-800 text-gray-400 text-sm rounded-lg">
-                {testnets.length}
-              </span>
+            <div className="flex items-center gap-4 mb-8">
+              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-800 to-transparent"></div>
+              <div className="flex items-center gap-3">
+                <h2 className="text-3xl font-bold text-white">Testnet Networks</h2>
+                <span className="px-4 py-1.5 bg-gradient-to-r from-purple-500/20 to-purple-600/20 border border-purple-500/30 text-purple-400 text-sm font-semibold rounded-full">
+                  {testnets.length}
+                </span>
+              </div>
+              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-800 to-transparent"></div>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
               {testnets.map((chain) => (
                 <button
                   key={chain.chain_name}
                   onClick={() => router.push(`/${chain.chain_name.toLowerCase().replace(/\s+/g, '-')}`)}
-                  className="group bg-[#1a1a2e] border border-gray-800 hover:border-purple-500/50 rounded-xl p-6 transition-all hover:scale-105 hover:bg-[#1f1f35]"
+                  className="group relative bg-gradient-to-br from-[#1a1a2e] to-[#16162a] border border-gray-800 hover:border-purple-500/50 rounded-2xl p-6 transition-all hover:scale-105 hover:shadow-xl hover:shadow-purple-500/10"
                 >
-                  <div className="flex flex-col items-center gap-3">
+                  <div className="absolute inset-0 bg-gradient-to-br from-purple-500/0 to-pink-500/0 group-hover:from-purple-500/10 group-hover:to-pink-500/10 rounded-2xl transition-all"></div>
+                  <div className="relative flex flex-col items-center gap-4">
                     <div className="relative">
+                      <div className="absolute inset-0 bg-purple-500/20 rounded-full blur-xl group-hover:blur-2xl transition-all"></div>
                       <Image
                         src={chain.logo}
                         alt={chain.chain_name}
-                        width={56}
-                        height={56}
-                        className="rounded-full transition-transform group-hover:scale-110"
+                        width={64}
+                        height={64}
+                        className="relative rounded-full transition-transform group-hover:scale-110 ring-2 ring-gray-800 group-hover:ring-purple-500/50"
                       />
                     </div>
-                    <h3 className="text-sm font-semibold text-white text-center line-clamp-1">
+                    <h3 className="text-sm font-semibold text-white text-center line-clamp-2 group-hover:text-purple-400 transition-colors">
                       {chain.chain_name.replace('-mainnet', '').replace('-test', '')}
                     </h3>
                   </div>
@@ -243,7 +280,7 @@ export default function Home() {
       {/* Footer */}
       <footer className="border-t border-gray-800 bg-[#0f0f0f] mt-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 text-center text-gray-400 text-sm">
-          © 2025 Veriznode. Multi-chain blockchain explorer.
+          © 2025 Winscan. Multi-chain blockchain explorer.
         </div>
       </footer>
     </div>

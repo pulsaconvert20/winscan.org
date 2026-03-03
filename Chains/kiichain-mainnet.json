@@ -26,7 +26,9 @@
   "codebase": {
     "git_repo": "https://github.com/KiiChain/kiichain",
     "recommended_version": "v1.0.0",
-    "compatible_versions": ["v1.0.0"],
+    "compatible_versions": [
+      "v1.0.0"
+    ],
     "cosmos_sdk_version": "0.53",
     "consensus": {
       "type": "cometbft",
@@ -104,7 +106,15 @@
       "account_page": "https://explorer.kiichain.io/address/${accountAddress}"
     }
   ],
-  "keywords": ["RWA", "stablecoins", "EVM"],
-  "features": ["evm", "cosmwasm"],
-  "updated": "2026-01-30"
+  "keywords": [
+    "RWA",
+    "stablecoins",
+    "EVM"
+  ],
+  "features": [
+    "evm",
+    "cosmwasm"
+  ],
+  "updated": "2026-01-30",
+  "github": "https://github.com/KiiChain/kiichain"
 }

@@ -30,27 +30,14 @@ export default function AssetHoldersPage() {
 
   useEffect(() => {
     async function loadChainData() {
-      try {
-        const response = await fetch('/api/chains');
-        if (!response.ok) throw new Error('Failed to fetch chains');
-        const data = await response.json();
-        setChains(data);
+      const response = await fetch('/chains.json');
+      const data = await response.json();
+      setChains(data);
 
-        const chain = data.find((c: ChainData) => 
-          c.chain_name.toLowerCase().replace(/\s+/g, '-') === chainName.toLowerCase()
-        );
-        
-        if (chain) {
-          setSelectedChain(chain);
-        } else {
-          // Fallback to first chain if not found
-          setSelectedChain(data[0] || null);
-        }
-      } catch (error) {
-        console.error('Error loading chains:', error);
-        // Set empty array to prevent undefined errors
-        setChains([]);
-      }
+      const chain = data.find((c: ChainData) => 
+        c.chain_name.toLowerCase().replace(/\s+/g, '-') === chainName.toLowerCase()
+      ) || data[0];
+      setSelectedChain(chain);
     }
     loadChainData();
   }, [chainName]);

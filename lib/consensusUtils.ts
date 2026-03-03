@@ -5,9 +5,8 @@ async function sha256(data: Uint8Array): Promise<Uint8Array> {
     const hashBuffer = await window.crypto.subtle.digest('SHA-256', data as BufferSource);
     return new Uint8Array(hashBuffer);
   } else {
-    // Use dynamic import for Node.js crypto to avoid bundling issues
-    const { createHash } = await import('crypto');
-    const hash = createHash('sha256').update(Buffer.from(data)).digest();
+    const crypto = require('crypto');
+    const hash = crypto.createHash('sha256').update(Buffer.from(data)).digest();
     return new Uint8Array(hash);
   }
 }

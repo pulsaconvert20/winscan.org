@@ -57,5 +57,6 @@
   "logo": "https://raw.githubusercontent.com/cosmos/chain-registry/master/gitopia/images/gitopia.png",
   "explorers": [],
   "updated": "2025-11-17",
-  "delegate": "https://winscan.winsnip.xyz/gitopia-mainnet/validators/gitopiavaloper1clpqr4nrk4khgkxj78fcwwh6dl3uw4epsluffn"
+  "delegate": "https://winscan.winsnip.xyz/gitopia-mainnet/validators/gitopiavaloper1clpqr4nrk4khgkxj78fcwwh6dl3uw4epsluffn",
+  "github": "https://github.com/gitopia/gitopia"
 }

@@ -10,7 +10,7 @@ export default function LoadingScreen() {
 
   useEffect(() => {
     // Check if this is first visit in this session
-    const hasVisited = sessionStorage.getItem('Veriznode_visited');
+    const hasVisited = sessionStorage.getItem('winscan_visited');
     
     if (hasVisited) {
       // Already visited, don't show loading screen
@@ -20,8 +20,8 @@ export default function LoadingScreen() {
     
     // First visit - show loading screen
     setIsLoading(true);
-    sessionStorage.setItem('Veriznode_visited', 'true');
-    
+    sessionStorage.setItem('winscan_visited', 'true');
+
     // Smooth progress animation
     const progressInterval = setInterval(() => {
       setProgress(prev => {
@@ -29,7 +29,7 @@ export default function LoadingScreen() {
           clearInterval(progressInterval);
           return 100;
         }
-        return prev + 2;
+        return prev + 3;
       });
     }, 30);
 
@@ -55,100 +55,215 @@ export default function LoadingScreen() {
   return (
     <div 
       suppressHydrationWarning
-      className={`fixed inset-0 z-[9999] bg-[#0a0a0a] flex items-center justify-center transition-opacity duration-500 ${
+      className={`fixed inset-0 z-[9999] bg-black flex items-center justify-center transition-opacity duration-500 ${
         fadeOut ? 'opacity-0' : 'opacity-100'
       }`}
     >
-      {/* Animated grid background */}
+      {/* Floating particles */}
       <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#1a1a1a_1px,transparent_1px),linear-gradient(to_bottom,#1a1a1a_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_80%_50%_at_50%_50%,#000_70%,transparent_110%)]"></div>
-        
-        {/* Animated gradient orbs */}
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-500/20 rounded-full blur-3xl animate-pulse-slow"></div>
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl animate-pulse-slower"></div>
+        {[...Array(12)].map((_, i) => (
+          <div
+            key={i}
+            className="absolute w-1 h-1 bg-blue-500/30 rounded-full animate-float"
+            style={{
+              left: `${Math.random() * 100}%`,
+              top: `${Math.random() * 100}%`,
+              animationDelay: `${Math.random() * 3}s`,
+              animationDuration: `${3 + Math.random() * 4}s`
+            }}
+          />
+        ))}
       </div>
 
-      <div className="relative flex flex-col items-center gap-12 px-4">
-        {/* Logo container with 3D effect */}
-        <div className="relative">
-          {/* Glow effect */}
-          <div className="absolute inset-0 -m-12">
-            <div className="w-48 h-48 bg-gradient-to-r from-blue-500/30 via-purple-500/30 to-pink-500/30 rounded-full blur-2xl animate-spin-very-slow"></div>
-          </div>
-          
-          {/* Rotating rings */}
-          <div className="absolute inset-0 -m-10">
-            <div className="w-44 h-44 border-2 border-blue-500/30 rounded-full animate-spin-slow"></div>
-          </div>
-          <div className="absolute inset-0 -m-8">
-            <div className="w-40 h-40 border-2 border-purple-500/30 rounded-full animate-spin-reverse"></div>
-          </div>
-          <div className="absolute inset-0 -m-6">
-            <div className="w-36 h-36 border border-pink-500/30 rounded-full animate-spin-slow" style={{ animationDuration: '5s' }}></div>
+      {/* Expanding rings */}
+      <div className="absolute inset-0 flex items-center justify-center">
+        <div className="absolute w-64 h-64 border border-purple-500/20 rounded-full animate-ping-slow"></div>
+        <div className="absolute w-96 h-96 border border-blue-500/10 rounded-full animate-ping-slower"></div>
+      </div>
+
+      <div className="flex flex-col items-center gap-10 relative z-10">
+        {/* Logo container with particles effect */}
+        <div className="relative w-96 h-96 flex items-center justify-center">
+          {/* Rotating gradient rings */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="absolute w-80 h-80 rounded-full border-2 border-transparent bg-gradient-to-r from-purple-500/30 via-blue-500/30 to-purple-500/30 animate-spin-slow" style={{ maskImage: 'linear-gradient(transparent 49%, black 50%, black 51%, transparent 52%)' }}></div>
+            <div className="absolute w-72 h-72 rounded-full border-2 border-transparent bg-gradient-to-l from-blue-500/20 via-purple-500/20 to-blue-500/20 animate-spin-reverse" style={{ maskImage: 'linear-gradient(transparent 49%, black 50%, black 51%, transparent 52%)' }}></div>
           </div>
 
-          {/* Logo with scale animation */}
-          <div className="relative w-28 h-28 animate-scale-pulse">
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/30 to-purple-500/30 rounded-3xl blur-xl"></div>
-            <Image
-              src="/logo.svg"
-              alt="Veriznode Logo"
-              width={112}
-              height={112}
-              priority
-              className="relative object-contain drop-shadow-2xl"
-            />
-          </div>
-        </div>
-
-        {/* Text content */}
-        <div className="text-center space-y-6">
-          {/* Title with animated gradient */}
-          <div className="space-y-2">
-            <h1 className="text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 animate-gradient-x">
-              Veriznode
-            </h1>
-            <p className="text-gray-400 text-sm md:text-base font-medium tracking-wide">
-              Multi-Chain Blockchain Explorer
-            </p>
-          </div>
-          
-          {/* Modern progress bar */}
-          <div className="w-80 max-w-full space-y-2">
-            <div className="relative h-2 bg-gray-800/50 rounded-full overflow-hidden backdrop-blur-sm border border-gray-700/50">
-              <div 
-                className="absolute inset-y-0 left-0 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-full transition-all duration-300 ease-out"
-                style={{ width: `${progress}%` }}
-              >
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer"></div>
+          {/* Logo container with premium frame */}
+          <div className="relative z-10">
+            {/* Main logo container */}
+            <div className="relative w-48 h-48">
+              {/* 3D Shadow layers for depth */}
+              <div className="absolute inset-0 translate-y-2 translate-x-2 bg-gradient-to-br from-purple-900/40 to-blue-900/40 rounded-[32px] blur-md"></div>
+              <div className="absolute inset-0 translate-y-1 translate-x-1 bg-gradient-to-br from-purple-800/30 to-blue-800/30 rounded-[32px] blur-sm"></div>
+              
+              {/* Outer gradient border (thick) */}
+              <div className="absolute inset-0 bg-gradient-to-br from-purple-500 via-blue-500 to-purple-500 rounded-[32px] p-[3px] animate-border-pulse">
+                {/* Middle border layer */}
+                <div className="w-full h-full bg-gradient-to-br from-gray-800 via-gray-900 to-gray-800 rounded-[29px] p-[2px]">
+                  {/* Inner gradient border */}
+                  <div className="w-full h-full bg-gradient-to-br from-purple-600/50 via-blue-600/50 to-purple-600/50 rounded-[27px] p-[1px]">
+                    {/* Pure black background */}
+                    <div className="w-full h-full bg-black rounded-[26px] relative overflow-hidden">
+                      {/* Subtle radial gradient overlay */}
+                      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(59,130,246,0.08),transparent_60%)]"></div>
+                      
+                      {/* Inner border highlight */}
+                      <div className="absolute inset-[4px] rounded-[24px] border border-white/5"></div>
+                      
+                      {/* Top shine effect */}
+                      <div className="absolute top-0 left-1/4 right-1/4 h-16 bg-gradient-to-b from-white/10 via-white/5 to-transparent rounded-t-[26px]"></div>
+                      
+                      {/* Logo with emboss effect and triple glow */}
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="relative">
+                          {/* Outer glow layer */}
+                          <div className="absolute inset-0 blur-2xl opacity-70">
+                            <Image
+                              src="/logo.svg"
+                              alt="WinScan Logo Glow"
+                              width={120}
+                              height={120}
+                              priority
+                              className="object-contain"
+                            />
+                          </div>
+                          {/* Middle glow layer */}
+                          <div className="absolute inset-0 blur-xl opacity-90">
+                            <Image
+                              src="/logo.svg"
+                              alt="WinScan Logo Glow"
+                              width={120}
+                              height={120}
+                              priority
+                              className="object-contain"
+                            />
+                          </div>
+                          {/* Inner glow layer */}
+                          <div className="absolute inset-0 blur-md opacity-100">
+                            <Image
+                              src="/logo.svg"
+                              alt="WinScan Logo Glow"
+                              width={120}
+                              height={120}
+                              priority
+                              className="object-contain"
+                            />
+                          </div>
+                          {/* Main logo with emboss effect */}
+                          <Image
+                            src="/logo.svg"
+                            alt="WinScan Logo"
+                            width={120}
+                            height={120}
+                            priority
+                            className="relative object-contain"
+                            style={{
+                              filter: 'drop-shadow(0 -2px 4px rgba(255,255,255,0.1)) drop-shadow(0 2px 8px rgba(0,0,0,0.8)) drop-shadow(-2px 0 4px rgba(255,255,255,0.05)) drop-shadow(2px 0 4px rgba(0,0,0,0.6))'
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
+              
+              {/* Corner accents with glow */}
+              <div className="absolute top-2 left-2 w-8 h-8 border-t-2 border-l-2 border-purple-500/50 rounded-tl-2xl shadow-[0_0_10px_rgba(168,85,247,0.3)]"></div>
+              <div className="absolute top-2 right-2 w-8 h-8 border-t-2 border-r-2 border-blue-500/50 rounded-tr-2xl shadow-[0_0_10px_rgba(59,130,246,0.3)]"></div>
+              <div className="absolute bottom-2 left-2 w-8 h-8 border-b-2 border-l-2 border-blue-500/50 rounded-bl-2xl shadow-[0_0_10px_rgba(59,130,246,0.3)]"></div>
+              <div className="absolute bottom-2 right-2 w-8 h-8 border-b-2 border-r-2 border-purple-500/50 rounded-br-2xl shadow-[0_0_10px_rgba(168,85,247,0.3)]"></div>
+              
+              {/* Floating shadow */}
+              <div className="absolute -bottom-6 left-8 right-8 h-8 bg-gradient-to-b from-black/80 via-black/40 to-transparent blur-2xl rounded-full"></div>
             </div>
-            <div className="flex justify-between items-center text-xs text-gray-500">
-              <span>Loading...</span>
-              <span className="font-mono">{progress}%</span>
-            </div>
-          </div>
-
-          {/* Loading dots */}
-          <div className="flex items-center justify-center gap-2">
-            <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-            <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-            <div className="w-2 h-2 bg-pink-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
           </div>
         </div>
 
-        {/* Floating particles */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-[20%] left-[15%] w-2 h-2 bg-blue-400/40 rounded-full animate-float-1"></div>
-          <div className="absolute top-[30%] right-[20%] w-1.5 h-1.5 bg-purple-400/40 rounded-full animate-float-2"></div>
-          <div className="absolute bottom-[25%] left-[25%] w-1 h-1 bg-pink-400/40 rounded-full animate-float-3"></div>
-          <div className="absolute bottom-[35%] right-[30%] w-2 h-2 bg-blue-300/40 rounded-full animate-float-4"></div>
-          <div className="absolute top-[40%] left-[35%] w-1.5 h-1.5 bg-purple-300/40 rounded-full animate-float-5"></div>
-          <div className="absolute top-[60%] right-[15%] w-1 h-1 bg-pink-300/40 rounded-full animate-float-6"></div>
+        {/* Loading text */}
+        <div className="text-center space-y-3">
+          <h2 className="text-2xl font-bold bg-gradient-to-r from-purple-400 via-blue-400 to-purple-400 text-transparent bg-clip-text animate-gradient-x">
+            WinScan Explorer
+          </h2>
+          <p className="text-sm text-gray-500 font-medium">Initializing blockchain data...</p>
+        </div>
+
+        {/* Progress bar */}
+        <div className="w-80 space-y-2.5">
+          <div className="relative h-2.5 bg-gray-900 rounded-full overflow-hidden border border-gray-800/50 shadow-inner">
+            {/* Background shimmer */}
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-gray-800/30 to-transparent animate-shimmer"></div>
+            
+            {/* Progress fill */}
+            <div 
+              className="relative h-full bg-gradient-to-r from-purple-500 via-blue-500 to-purple-500 rounded-full transition-all duration-300 ease-out shadow-lg shadow-blue-500/50"
+              style={{ width: `${progress}%` }}
+            >
+              {/* Inner glow */}
+              <div className="absolute inset-0 bg-gradient-to-r from-purple-400 via-blue-400 to-purple-400 opacity-60 blur-sm"></div>
+              {/* Shine effect */}
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer-fast"></div>
+            </div>
+          </div>
+          
+          {/* Progress info */}
+          <div className="flex justify-between items-center text-xs">
+            <span className="text-gray-600 font-medium">Loading...</span>
+            <span className="text-gray-500 font-mono tabular-nums">{progress}%</span>
+          </div>
         </div>
       </div>
 
       <style jsx>{`
+        @keyframes float {
+          0%, 100% { 
+            transform: translateY(0) translateX(0);
+            opacity: 0;
+          }
+          10% {
+            opacity: 0.3;
+          }
+          50% { 
+            transform: translateY(-100px) translateX(50px);
+            opacity: 0.6;
+          }
+          90% {
+            opacity: 0.3;
+          }
+        }
+        
+        @keyframes ping-slow {
+          0% {
+            transform: scale(1);
+            opacity: 0.5;
+          }
+          50% {
+            transform: scale(1.5);
+            opacity: 0;
+          }
+          100% {
+            transform: scale(1);
+            opacity: 0;
+          }
+        }
+        
+        @keyframes ping-slower {
+          0% {
+            transform: scale(1);
+            opacity: 0.3;
+          }
+          50% {
+            transform: scale(1.3);
+            opacity: 0;
+          }
+          100% {
+            transform: scale(1);
+            opacity: 0;
+          }
+        }
+        
         @keyframes spin-slow {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
@@ -159,14 +274,19 @@ export default function LoadingScreen() {
           to { transform: rotate(0deg); }
         }
         
-        @keyframes spin-very-slow {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
+        @keyframes shimmer {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(100%); }
         }
         
-        @keyframes scale-pulse {
-          0%, 100% { transform: scale(1); }
-          50% { transform: scale(1.05); }
+        @keyframes shimmer-fast {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(100%); }
+        }
+        
+        @keyframes border-pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.7; }
         }
         
         @keyframes gradient-x {
@@ -174,112 +294,41 @@ export default function LoadingScreen() {
           50% { background-position: 100% 50%; }
         }
         
-        @keyframes shimmer {
-          0% { transform: translateX(-100%); }
-          100% { transform: translateX(100%); }
+        .animate-float {
+          animation: float 6s ease-in-out infinite;
         }
         
-        @keyframes pulse-slow {
-          0%, 100% { opacity: 0.3; transform: scale(1); }
-          50% { opacity: 0.5; transform: scale(1.1); }
+        .animate-ping-slow {
+          animation: ping-slow 3s cubic-bezier(0, 0, 0.2, 1) infinite;
         }
         
-        @keyframes pulse-slower {
-          0%, 100% { opacity: 0.2; transform: scale(1); }
-          50% { opacity: 0.4; transform: scale(1.15); }
-        }
-        
-        @keyframes float-1 {
-          0%, 100% { transform: translate(0, 0); }
-          33% { transform: translate(10px, -15px); }
-          66% { transform: translate(-5px, -25px); }
-        }
-        
-        @keyframes float-2 {
-          0%, 100% { transform: translate(0, 0); }
-          33% { transform: translate(-12px, 18px); }
-          66% { transform: translate(8px, 10px); }
-        }
-        
-        @keyframes float-3 {
-          0%, 100% { transform: translate(0, 0); }
-          33% { transform: translate(15px, 12px); }
-          66% { transform: translate(-8px, 20px); }
-        }
-        
-        @keyframes float-4 {
-          0%, 100% { transform: translate(0, 0); }
-          33% { transform: translate(-10px, -20px); }
-          66% { transform: translate(12px, -8px); }
-        }
-        
-        @keyframes float-5 {
-          0%, 100% { transform: translate(0, 0); }
-          33% { transform: translate(8px, 15px); }
-          66% { transform: translate(-15px, 5px); }
-        }
-        
-        @keyframes float-6 {
-          0%, 100% { transform: translate(0, 0); }
-          33% { transform: translate(-8px, -12px); }
-          66% { transform: translate(10px, -18px); }
+        .animate-ping-slower {
+          animation: ping-slower 4s cubic-bezier(0, 0, 0.2, 1) infinite;
         }
         
         .animate-spin-slow {
-          animation: spin-slow 3s linear infinite;
+          animation: spin-slow 20s linear infinite;
         }
         
         .animate-spin-reverse {
-          animation: spin-reverse 4s linear infinite;
+          animation: spin-reverse 15s linear infinite;
         }
         
-        .animate-spin-very-slow {
-          animation: spin-very-slow 8s linear infinite;
+        .animate-shimmer {
+          animation: shimmer 2s ease-in-out infinite;
         }
         
-        .animate-scale-pulse {
-          animation: scale-pulse 2s ease-in-out infinite;
+        .animate-shimmer-fast {
+          animation: shimmer-fast 1s ease-in-out infinite;
+        }
+        
+        .animate-border-pulse {
+          animation: border-pulse 2s ease-in-out infinite;
         }
         
         .animate-gradient-x {
           background-size: 200% 200%;
           animation: gradient-x 3s ease infinite;
-        }
-        
-        .animate-shimmer {
-          animation: shimmer 2s infinite;
-        }
-        
-        .animate-pulse-slow {
-          animation: pulse-slow 4s ease-in-out infinite;
-        }
-        
-        .animate-pulse-slower {
-          animation: pulse-slower 5s ease-in-out infinite;
-        }
-        
-        .animate-float-1 {
-          animation: float-1 6s ease-in-out infinite;
-        }
-        
-        .animate-float-2 {
-          animation: float-2 7s ease-in-out infinite;
-        }
-        
-        .animate-float-3 {
-          animation: float-3 5s ease-in-out infinite;
-        }
-        
-        .animate-float-4 {
-          animation: float-4 8s ease-in-out infinite;
-        }
-        
-        .animate-float-5 {
-          animation: float-5 6.5s ease-in-out infinite;
-        }
-        
-        .animate-float-6 {
-          animation: float-6 7.5s ease-in-out infinite;
         }
       `}</style>
     </div>

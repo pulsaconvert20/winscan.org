@@ -65,5 +65,6 @@
   "logo": "https://raw.githubusercontent.com/cosmos/chain-registry/master/lava/images/lava.png",
   "explorers": [],
   "updated": "2025-11-21",
-  "delegate": "https://winscan.winsnip.xyz/lava-mainnet/validators/lava@valoper1clpqr4nrk4khgkxj78fcwwh6dl3uw4epsluffn"
+  "delegate": "https://winscan.winsnip.xyz/lava-mainnet/validators/lava@valoper1clpqr4nrk4khgkxj78fcwwh6dl3uw4epsluffn",
+  "github": "https://github.com/lavanet/lava"
 }

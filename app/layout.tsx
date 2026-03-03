@@ -33,8 +33,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <head>
+    <html lang="en" suppressHydrationWarning>
+      <head suppressHydrationWarning>
         {/* Preconnect to critical domains */}
         <link rel="preconnect" href="https://ssl.winsnip.xyz" />
         <link rel="preconnect" href="https://ssl2.winsnip.xyz" />
@@ -47,19 +47,52 @@ export default function RootLayout({
       <body className="antialiased" suppressHydrationWarning>
         <script dangerouslySetInnerHTML={{
           __html: `
-            // Suppress wallet extension errors
+            // Suppress all wallet extension errors immediately
             (function() {
               const originalError = console.error;
+              const originalWarn = console.warn;
+              
               console.error = function(...args) {
                 const errorMsg = args[0]?.toString() || '';
-                // Ignore wallet extension property redefinition errors
-                if (errorMsg.includes('Cannot redefine property: ethereum') ||
+                const errorStack = args[0]?.stack?.toString() || '';
+                
+                // Ignore all wallet extension related errors
+                if (errorMsg.includes('chrome-extension://') ||
+                    errorMsg.includes('moz-extension://') ||
+                    errorMsg.includes('solana.js') ||
+                    errorMsg.includes('btc.js') ||
+                    errorMsg.includes('sui.js') ||
+                    errorMsg.includes('extensionPageScript.js') ||
+                    errorMsg.includes('Cannot redefine property') ||
+                    errorMsg.includes('Cannot assign to read only property') ||
                     errorMsg.includes('evmAsk.js') ||
-                    errorMsg.includes('chrome-extension://')) {
+                    errorMsg.includes('t is not a function') ||
+                    errorMsg.includes('registerSolanaInjectedWallet') ||
+                    errorMsg.includes('initSolanaConnect') ||
+                    errorStack.includes('chrome-extension://') ||
+                    errorStack.includes('moz-extension://')) {
                   return;
                 }
                 originalError.apply(console, args);
               };
+              
+              console.warn = function(...args) {
+                const warnMsg = args[0]?.toString() || '';
+                if (warnMsg.includes('chrome-extension://') || 
+                    warnMsg.includes('moz-extension://')) {
+                  return;
+                }
+                originalWarn.apply(console, args);
+              };
+              
+              // Suppress unhandled promise rejections from extensions
+              window.addEventListener('unhandledrejection', function(event) {
+                const reason = event.reason?.toString() || '';
+                if (reason.includes('chrome-extension://') || 
+                    reason.includes('moz-extension://')) {
+                  event.preventDefault();
+                }
+              });
             })();
           `
         }} />

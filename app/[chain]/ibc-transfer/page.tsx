@@ -132,39 +132,6 @@ export default function IBCTransferPage() {
             </p>
           </div>
 
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-4">
-              <div className="flex items-center gap-3 mb-2">
-                <Network className="w-5 h-5 text-blue-500" />
-                <span className="text-gray-400 text-sm">Connected Chains</span>
-              </div>
-              <p className="text-2xl font-bold text-white">
-                {loadingRelayers ? '...' : connectedChains.length}
-              </p>
-            </div>
-
-            <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-4">
-              <div className="flex items-center gap-3 mb-2">
-                <Globe className="w-5 h-5 text-green-500" />
-                <span className="text-gray-400 text-sm">Active Channels</span>
-              </div>
-              <p className="text-2xl font-bold text-white">
-                {loadingRelayers ? '...' : relayers.reduce((sum, r) => sum + parseInt(r.openChannels || '0'), 0)}
-              </p>
-            </div>
-
-            <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-4">
-              <div className="flex items-center gap-3 mb-2">
-                <CheckCircle className="w-5 h-5 text-purple-500" />
-                <span className="text-gray-400 text-sm">Total Transfers</span>
-              </div>
-              <p className="text-2xl font-bold text-white">
-                {loadingRelayers ? '...' : relayers.reduce((sum, r) => sum + parseInt(r.sended || '0') + parseInt(r.received || '0'), 0).toLocaleString()}
-              </p>
-            </div>
-          </div>
-
           {/* Transfer Interface */}
           <IBCTransferInterface sourceChain={selectedChain} />
         </main>

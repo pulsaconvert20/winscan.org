@@ -50,6 +50,7 @@ type TranslationKeys = {
   'home.liveStatus': string;
   'home.testStatus': string;
   'menu.overview': string;
+  'menu.docs': string;
   'menu.blocks': string;
   'menu.transactions': string;
   'menu.validators': string;
@@ -66,11 +67,15 @@ type TranslationKeys = {
   'menu.network': string;
   'menu.consensus': string;
   'menu.statesync': string;
+  'menu.updateBinary': string;
   'menu.parameters': string;
   'menu.tools': string;
   'menu.rpcChecker': string;
   'menu.ipLookup': string;
-  'menu.cascade': string;
+  'menu.guide': string;
+  'menu.guide.install': string;
+  'menu.guide.cheatSheet': string;
+  'menu.guide.updateBinary': string;
   'menu.evm': string;
   'menu.evm.blocks': string;
   'menu.evm.transactions': string;
@@ -101,7 +106,7 @@ type TranslationKeys = {
 };
 export const translations: Record<Language, TranslationKeys> = {
   en: {
-    'home.title': 'Veriznode Explorer',
+    'home.title': 'WinScan Explorer',
     'home.subtitle': 'Multi-chain blockchain explorer',
     'home.live': 'Live',
     'home.networks': 'Networks',
@@ -121,11 +126,12 @@ export const translations: Record<Language, TranslationKeys> = {
     'home.noNetworks': 'No Networks Available',
     'home.noNetworksDesc': 'Unable to load blockchain data. Please check API connection.',
     'home.retry': 'Retry',
-    'home.footer': '© 2025 Veriznode. Powered by Cosmos SDK.',
+    'home.footer': '© 2025 WinScan. Powered by Cosmos SDK.',
     'home.multiChain': 'Multi-Chain Explorer',
     'home.liveStatus': 'Live',
     'home.testStatus': 'Test',
     'menu.overview': 'Overview',
+    'menu.docs': 'Docs',
     'menu.blocks': 'Blocks',
     'menu.transactions': 'Transactions',
     'menu.validators': 'Validators',
@@ -142,11 +148,15 @@ export const translations: Record<Language, TranslationKeys> = {
     'menu.network': 'Network',
     'menu.consensus': 'Consensus',
     'menu.statesync': 'State Sync',
+    'menu.updateBinary': 'Update Binary',
     'menu.parameters': 'Parameters',
     'menu.tools': 'Tools',
     'menu.rpcChecker': 'Endpoint Checker',
     'menu.ipLookup': 'IP Lookup',
-    'menu.cascade': 'Cascade Storage',
+    'menu.guide': 'Guide',
+    'menu.guide.install': 'Install',
+    'menu.guide.cheatSheet': 'Cheat Sheet',
+    'menu.guide.updateBinary': 'Update Binary',
     'menu.evm': 'EVM',
     'menu.evm.blocks': 'EVM Blocks',
     'menu.evm.transactions': 'EVM Transactions',
@@ -176,7 +186,7 @@ export const translations: Record<Language, TranslationKeys> = {
     'common.entries': 'entries',
   },
   id: {
-    'home.title': 'Veriznode Explorer',
+    'home.title': 'WinScan Explorer',
     'home.subtitle': 'Penjelajah blockchain multi-chain',
     'home.live': 'Aktif',
     'home.networks': 'Jaringan',
@@ -196,11 +206,12 @@ export const translations: Record<Language, TranslationKeys> = {
     'home.noNetworks': 'Tidak Ada Jaringan',
     'home.noNetworksDesc': 'Tidak dapat memuat data blockchain. Silakan periksa koneksi API.',
     'home.retry': 'Coba Lagi',
-    'home.footer': '© 2025 Veriznode. Didukung oleh Cosmos SDK.',
+    'home.footer': '© 2025 WinScan. Didukung oleh Cosmos SDK.',
     'home.multiChain': 'Penjelajah Multi-Chain',
     'home.liveStatus': 'Aktif',
     'home.testStatus': 'Uji',
     'menu.overview': 'Ringkasan',
+    'menu.docs': 'Dokumentasi',
     'menu.blocks': 'Blok',
     'menu.transactions': 'Transaksi',
     'menu.validators': 'Validator',
@@ -217,11 +228,15 @@ export const translations: Record<Language, TranslationKeys> = {
     'menu.network': 'Jaringan',
     'menu.consensus': 'Konsensus',
     'menu.statesync': 'Sinkronisasi State',
+    'menu.updateBinary': 'Update Binary',
     'menu.parameters': 'Parameter',
     'menu.tools': 'Alat',
     'menu.rpcChecker': 'Cek Endpoint',
     'menu.ipLookup': 'Cek IP',
-    'menu.cascade': 'Penyimpanan Cascade',
+    'menu.guide': 'Panduan',
+    'menu.guide.install': 'Instalasi',
+    'menu.guide.cheatSheet': 'Cheat Sheet',
+    'menu.guide.updateBinary': 'Update Binary',
     'menu.evm': 'EVM',
     'menu.evm.blocks': 'Blok EVM',
     'menu.evm.transactions': 'Transaksi EVM',
@@ -251,7 +266,7 @@ export const translations: Record<Language, TranslationKeys> = {
     'common.entries': 'entri',
   },
   zh: {
-    'home.title': 'Veriznode Explorer',
+    'home.title': 'WinScan Explorer',
     'home.subtitle': '多链区块链浏览器',
     'home.live': '在线',
     'home.networks': '网络',
@@ -276,6 +291,7 @@ export const translations: Record<Language, TranslationKeys> = {
     'home.liveStatus': '在线',
     'home.testStatus': '测试',
     'menu.overview': '概览',
+    'menu.docs': '文档',
     'menu.blocks': '区块',
     'menu.transactions': '交易',
     'menu.validators': '验证者',
@@ -292,11 +308,15 @@ export const translations: Record<Language, TranslationKeys> = {
     'menu.network': '网络',
     'menu.consensus': '共识',
     'menu.statesync': '状态同步',
+    'menu.updateBinary': '更新二进制',
     'menu.parameters': '参数',
     'menu.tools': '工具',
     'menu.rpcChecker': '端点检查器',
     'menu.ipLookup': 'IP查询',
-    'menu.cascade': '级联存储',
+    'menu.guide': '指南',
+    'menu.guide.install': '安装',
+    'menu.guide.cheatSheet': '速查表',
+    'menu.guide.updateBinary': '更新二进制',
     'menu.evm': 'EVM',
     'menu.evm.blocks': 'EVM区块',
     'menu.evm.transactions': 'EVM交易',
@@ -326,7 +346,7 @@ export const translations: Record<Language, TranslationKeys> = {
     'common.entries': '条',
   },
   ja: {
-    'home.title': 'Veriznode Explorer',
+    'home.title': 'WinScan Explorer',
     'home.subtitle': 'マルチチェーンブロックチェーンエクスプローラー',
     'home.live': 'ライブ',
     'home.networks': 'ネットワーク',
@@ -351,6 +371,7 @@ export const translations: Record<Language, TranslationKeys> = {
     'home.liveStatus': 'ライブ',
     'home.testStatus': 'テスト',
     'menu.overview': '概要',
+    'menu.docs': 'ドキュメント',
     'menu.blocks': 'ブロック',
     'menu.transactions': '取引',
     'menu.validators': 'バリデーター',
@@ -371,11 +392,15 @@ export const translations: Record<Language, TranslationKeys> = {
     'menu.network': 'ネットワーク',
     'menu.consensus': 'コンセンサス',
     'menu.statesync': 'ステート同期',
+    'menu.updateBinary': 'バイナリ更新',
     'menu.parameters': 'パラメータ',
     'menu.tools': 'ツール',
     'menu.rpcChecker': 'エンドポイントチェッカー',
     'menu.ipLookup': 'IP検索',
-    'menu.cascade': 'カスケードストレージ',
+    'menu.guide': 'ガイド',
+    'menu.guide.install': 'インストール',
+    'menu.guide.cheatSheet': 'チートシート',
+    'menu.guide.updateBinary': 'バイナリ更新',
     'common.height': '高さ',
     'common.hash': 'ハッシュ',
     'common.time': '時刻',
@@ -401,7 +426,7 @@ export const translations: Record<Language, TranslationKeys> = {
     'common.entries': 'エントリ',
   },
   hi: {
-    'home.title': 'Veriznode Explorer',
+    'home.title': 'WinScan Explorer',
     'home.subtitle': 'मल्टी-चेन ब्लॉकचेन एक्सप्लोरर',
     'home.live': 'लाइव',
     'home.networks': 'नेटवर्क',
@@ -426,6 +451,7 @@ export const translations: Record<Language, TranslationKeys> = {
     'home.liveStatus': 'लाइव',
     'home.testStatus': 'परीक्षण',
     'menu.overview': 'सिंहावलोकन',
+    'menu.docs': 'दस्तावेज़',
     'menu.blocks': 'ब्लॉक',
     'menu.transactions': 'लेन-देन',
     'menu.validators': 'सत्यापनकर्ता',
@@ -446,11 +472,15 @@ export const translations: Record<Language, TranslationKeys> = {
     'menu.network': 'नेटवर्क',
     'menu.consensus': 'सहमति',
     'menu.statesync': 'स्टेट सिंक',
+    'menu.updateBinary': 'बाइनरी अपडेट',
     'menu.parameters': 'पैरामीटर',
     'menu.tools': 'उपकरण',
     'menu.rpcChecker': 'एंडपॉइंट चेकर',
     'menu.ipLookup': 'आईपी खोज',
-    'menu.cascade': 'कैस्केड स्टोरेज',
+    'menu.guide': 'गाइड',
+    'menu.guide.install': 'इंस्टॉल',
+    'menu.guide.cheatSheet': 'चीट शीट',
+    'menu.guide.updateBinary': 'बाइनरी अपडेट',
     'common.height': 'ऊंचाई',
     'common.hash': 'हैश',
     'common.time': 'समय',
@@ -476,7 +506,7 @@ export const translations: Record<Language, TranslationKeys> = {
     'common.entries': 'प्रविष्टियां',
   },
   ru: {
-    'home.title': 'Veriznode Explorer',
+    'home.title': 'WinScan Explorer',
     'home.subtitle': 'Мультичейн блокчейн-обозреватель',
     'home.live': 'Онлайн',
     'home.networks': 'Сети',
@@ -501,6 +531,7 @@ export const translations: Record<Language, TranslationKeys> = {
     'home.liveStatus': 'Онлайн',
     'home.testStatus': 'Тест',
     'menu.overview': 'Обзор',
+    'menu.docs': 'Документация',
     'menu.blocks': 'Блоки',
     'menu.transactions': 'Транзакции',
     'menu.validators': 'Валидаторы',
@@ -521,11 +552,15 @@ export const translations: Record<Language, TranslationKeys> = {
     'menu.network': 'Сеть',
     'menu.consensus': 'Консенсус',
     'menu.statesync': 'Синхронизация',
+    'menu.updateBinary': 'Обновление бинарника',
     'menu.parameters': 'Параметры',
     'menu.tools': 'Инструменты',
     'menu.rpcChecker': 'Проверка эндпоинтов',
     'menu.ipLookup': 'Поиск IP',
-    'menu.cascade': 'Каскадное хранилище',
+    'menu.guide': 'Руководство',
+    'menu.guide.install': 'Установка',
+    'menu.guide.cheatSheet': 'Шпаргалка',
+    'menu.guide.updateBinary': 'Обновить бинарник',
     'common.height': 'Высота',
     'common.hash': 'Хеш',
     'common.time': 'Время',
@@ -551,7 +586,7 @@ export const translations: Record<Language, TranslationKeys> = {
     'common.entries': 'записей',
   },
   vi: {
-    'home.title': 'Veriznode Explorer',
+    'home.title': 'WinScan Explorer',
     'home.subtitle': 'Trình khám phá blockchain đa chuỗi',
     'home.live': 'Trực tiếp',
     'home.networks': 'Mạng lưới',
@@ -576,6 +611,7 @@ export const translations: Record<Language, TranslationKeys> = {
     'home.liveStatus': 'Trực tiếp',
     'home.testStatus': 'Thử nghiệm',
     'menu.overview': 'Tổng quan',
+    'menu.docs': 'Tài liệu',
     'menu.blocks': 'Khối',
     'menu.transactions': 'Giao dịch',
     'menu.validators': 'Trình xác thực',
@@ -596,11 +632,15 @@ export const translations: Record<Language, TranslationKeys> = {
     'menu.network': 'Mạng',
     'menu.consensus': 'Đồng thuận',
     'menu.statesync': 'Đồng bộ trạng thái',
+    'menu.updateBinary': 'Cập nhật Binary',
     'menu.parameters': 'Tham số',
     'menu.tools': 'Công cụ',
     'menu.rpcChecker': 'Kiểm tra Endpoint',
     'menu.ipLookup': 'Tra cứu IP',
-    'menu.cascade': 'Lưu trữ Cascade',
+    'menu.guide': 'Hướng dẫn',
+    'menu.guide.install': 'Cài đặt',
+    'menu.guide.cheatSheet': 'Bảng tra cứu',
+    'menu.guide.updateBinary': 'Cập nhật Binary',
     'common.height': 'Chiều cao',
     'common.hash': 'Hash',
     'common.time': 'Thời gian',

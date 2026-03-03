@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { Minus, Info, AlertCircle, CheckCircle } from 'lucide-react';
 import { executeWithdrawLiquidity } from '@/lib/keplr';
 import { ChainData } from '@/types/chain';
+import ProgressModal from '@/components/ProgressModal';
+import { PlanTodo } from '@/components/Plan';
 
 interface Token {
   address: string;
@@ -37,6 +39,12 @@ export default function RemoveLiquiditySection({
   const [position, setPosition] = useState<any>(null);
   const [poolData, setPoolData] = useState<any>(null);
   const [loadingData, setLoadingData] = useState(false);
+  
+  // Progress modal state
+  const [showProgressModal, setShowProgressModal] = useState(false);
+  const [progressTodos, setProgressTodos] = useState<PlanTodo[]>([]);
+  const [progressTitle, setProgressTitle] = useState('');
+  const [progressDescription, setProgressDescription] = useState('');
 
   useEffect(() => {
     loadPosition();
@@ -122,8 +130,25 @@ export default function RemoveLiquiditySection({
     }
 
     setLoading(true);
+    
+    // Show progress modal
+    setShowProgressModal(true);
+    setProgressTitle('Remove Liquidity Progress');
+    setProgressDescription(`Removing ${lpAmount} LP tokens`);
+    setProgressTodos([
+      { id: '1', label: 'Preparing Transaction', description: 'Validating LP amount', status: 'in_progress' },
+      { id: '2', label: 'Broadcasting Transaction', description: 'Sending to blockchain', status: 'pending' },
+      { id: '3', label: 'Liquidity Removed', description: 'Successfully removed from pool', status: 'pending' },
+    ]);
 
     try {
+      // Update progress - broadcasting
+      setProgressTodos([
+        { id: '1', label: 'Preparing Transaction', description: 'Validating LP amount', status: 'completed' },
+        { id: '2', label: 'Broadcasting Transaction', description: 'Sending to blockchain', status: 'in_progress' },
+        { id: '3', label: 'Liquidity Removed', description: 'Successfully removed from pool', status: 'pending' },
+      ]);
+      
       // Use the executeWithdrawLiquidity function from keplr.ts
       const result = await executeWithdrawLiquidity(
         chainData,
@@ -131,11 +156,18 @@ export default function RemoveLiquiditySection({
           prc20Address: prc20Token.address,
           lpAmount: lpAmount
         },
-        '500000',
+        '1000000',
         'Remove Liquidity via WinScan'
       );
 
       if (result.success) {
+        // Update progress - complete
+        setProgressTodos([
+          { id: '1', label: 'Preparing Transaction', description: 'Validating LP amount', status: 'completed' },
+          { id: '2', label: 'Broadcasting Transaction', description: 'Transaction confirmed', status: 'completed' },
+          { id: '3', label: 'Liquidity Removed', description: `Removed ${lpAmount} LP tokens`, status: 'completed' },
+        ]);
+        
         onResult?.(result);
         setLpAmount('');
         setPercentage(0);
@@ -357,6 +389,16 @@ export default function RemoveLiquiditySection({
           </button>
         </>
       )}
+      
+      {/* Progress Modal */}
+      <ProgressModal
+        isOpen={showProgressModal}
+        onClose={() => setShowProgressModal(false)}
+        title={progressTitle}
+        description={progressDescription}
+        todos={progressTodos}
+        allowClose={!loading}
+      />
     </div>
   );
 }

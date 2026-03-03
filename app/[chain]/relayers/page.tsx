@@ -11,6 +11,17 @@ import { ChainData } from '@/types/chain';
 import { Network, Globe, CheckCircle, XCircle, ArrowRightLeft, ArrowDownToLine, ArrowUpFromLine } from 'lucide-react';
 import { fetchApi } from '@/lib/api';
 
+interface Relayer {
+  chainId: string;
+  chainName: string;
+  logo: string | null;
+  status: string;
+  totalChannels: string;
+  openChannels: string;
+  sended: string | null;
+  received: string | null;
+}
+
 interface Channel {
   channel_id: string;
   port_id: string;
@@ -26,169 +37,6 @@ interface Channel {
   packets_received: number;
 }
 
-interface RelayerDetail {
-  chainId: string;
-  chainName: string;
-  logo: string | null;
-  channels: Channel[];
-}
-
-// Component to fetch and display Osmosis channels
-function OsmosisChannelsSection({ 
-  chainName, 
-  chainPath, 
-  relayerId,
-  relayerName 
-}: { 
-  chainName: string; 
-  chainPath: string; 
-  relayerId: string;
-  relayerName: string;
-}) {
-  const [relayerDetail, setRelayerDetail] = useState<RelayerDetail | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchRelayerDetail = async () => {
-      setLoading(true);
-      try {
-        const response = await fetchApi(`/api/relayers/detail?chain=${chainName}&relayerId=${relayerId}`);
-        const data = await response.json();
-        setRelayerDetail(data);
-      } catch (error) {
-        console.error('Error fetching Osmosis relayer detail:', error);
-        setRelayerDetail(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchRelayerDetail();
-  }, [chainName, relayerId]);
-
-  if (loading) {
-    return (
-      <div className="bg-[#1a1a1a] border border-gray-800 rounded-xl p-12 text-center">
-        <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-purple-500/20 border-t-purple-500 mb-4"></div>
-        <p className="text-gray-400">Loading channels...</p>
-      </div>
-    );
-  }
-
-  if (!relayerDetail || relayerDetail.channels.length === 0) {
-    return null;
-  }
-
-  return (
-    <>
-      {/* Channels Table */}
-      <div className="bg-[#1a1a1a] rounded-xl border border-gray-800 overflow-hidden">
-        <div className="p-6 border-b border-gray-800">
-          <h2 className="text-lg font-semibold text-white">Channels</h2>
-          <p className="text-gray-400 text-sm mt-1">Active IBC channels with {relayerName}</p>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-[#111111] border-b border-gray-800">
-              <tr>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                  Source Channel
-                </th>
-                <th className="px-6 py-4 text-center text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                  Destination Channel
-                </th>
-                <th className="px-6 py-4 text-center text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                  Receive
-                </th>
-                <th className="px-6 py-4 text-center text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                  Send
-                </th>
-                <th className="px-6 py-4 text-center text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                  Status
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-800">
-              {relayerDetail.channels.map((channel, index) => (
-                <tr 
-                  key={index}
-                  className="hover:bg-[#111111] transition-colors"
-                >
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center">
-                        <span className="text-blue-400 text-xs font-bold">S</span>
-                      </div>
-                      <span className="text-white font-mono text-sm">{channel.channel_id}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <div className="flex items-center justify-center gap-2">
-                      <div className="flex items-center gap-1">
-                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                        <div className="w-8 h-0.5 bg-gradient-to-r from-blue-500 to-purple-500"></div>
-                      </div>
-                      <div className="w-6 h-6 rounded-full bg-purple-500/20 flex items-center justify-center">
-                        <span className="text-purple-400 text-xs font-bold">D</span>
-                      </div>
-                      <span className="text-white font-mono text-sm">{channel.counterparty.channel_id}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <span className="text-white font-medium">{channel.packets_received || 0}</span>
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <span className="text-white font-medium">{channel.packets_sent || 0}</span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center justify-center gap-2">
-                      {channel.state === 'STATE_OPEN' ? (
-                        <>
-                          <CheckCircle className="w-4 h-4 text-green-500" />
-                          <span className="text-green-400 text-sm font-medium">Opened</span>
-                        </>
-                      ) : (
-                        <>
-                          <XCircle className="w-4 h-4 text-red-500" />
-                          <span className="text-red-400 text-sm font-medium">Closed</span>
-                        </>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* IBC Channel Transactions */}
-      {relayerDetail.channels.map((channel, index) => (
-        <IBCChannelTransactions
-          key={index}
-          chainName={chainName}
-          chainPath={chainPath}
-          channelId={channel.channel_id}
-          counterpartyChannelId={channel.counterparty.channel_id}
-          counterpartyChainName={relayerName}
-        />
-      ))}
-    </>
-  );
-}
-
-interface Relayer {
-  chainId: string;
-  chainName: string;
-  logo: string | null;
-  status: string;
-  totalChannels: string;
-  openChannels: string;
-  sended: string | null;
-  received: string | null;
-}
-
 export default function RelayersPage() {
   const params = useParams();
   const router = useRouter();
@@ -198,11 +46,18 @@ export default function RelayersPage() {
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isBridgeModalOpen, setIsBridgeModalOpen] = useState(false);
+  const [selectedRelayer, setSelectedRelayer] = useState<Relayer | null>(null);
+  const [relayerChannels, setRelayerChannels] = useState<Channel[]>([]);
 
   const chainPath = useMemo(() => 
     selectedChain ? selectedChain.chain_name.toLowerCase().replace(/\s+/g, '-') : '',
     [selectedChain]
   );
+
+  const filteredRelayers = useMemo(() => {
+    // Show all relayers for all chains
+    return relayers;
+  }, [relayers]);
 
   useEffect(() => {
     const cachedChains = sessionStorage.getItem('chains');
@@ -253,6 +108,17 @@ export default function RelayersPage() {
         if (!isActive) return;
         
         setRelayers(data.relayers || []);
+        
+        // Auto-select Osmosis if available and no relayer is selected yet
+        if (!selectedRelayer && data.relayers && data.relayers.length > 0) {
+          const osmosisRelayer = data.relayers.find((r: Relayer) => 
+            r.chainId.toLowerCase().includes('osmosis') || 
+            r.chainName?.toLowerCase().includes('osmosis')
+          );
+          if (osmosisRelayer) {
+            setSelectedRelayer(osmosisRelayer);
+          }
+        }
       } catch (error) {
         if (!isActive) return;
         console.error('Error fetching relayers:', error);
@@ -289,6 +155,27 @@ export default function RelayersPage() {
     };
   }, [selectedChain]);
 
+  // Fetch channel details when a relayer is selected
+  useEffect(() => {
+    if (!selectedChain || !selectedRelayer) {
+      setRelayerChannels([]);
+      return;
+    }
+
+    const fetchChannelDetails = async () => {
+      try {
+        const response = await fetchApi(`/api/relayers/detail?chain=${selectedChain.chain_name}&relayerId=${selectedRelayer.chainId}`);
+        const data = await response.json();
+        setRelayerChannels(data.channels || []);
+      } catch (error) {
+        console.error('Error fetching channel details:', error);
+        setRelayerChannels([]);
+      }
+    };
+
+    fetchChannelDetails();
+  }, [selectedChain, selectedRelayer]);
+
   if (loading && !selectedChain) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] flex">
@@ -316,7 +203,7 @@ export default function RelayersPage() {
         <Header chains={chains} selectedChain={selectedChain} onSelectChain={setSelectedChain} />
         <main className="flex-1 mt-32 md:mt-16 p-3 md:p-6 space-y-4 md:space-y-6">
           {/* Swap Section (Osmosis only) */}
-          {selectedChain && relayers.length > 0 && 
+          {selectedChain && filteredRelayers.length > 0 && 
            (selectedChain.chain_name.toLowerCase().includes('osmosis') || 
             selectedChain.chain_id?.toLowerCase().includes('osmosis')) && (
             <IBCSwapInterface chain={selectedChain} />
@@ -336,7 +223,7 @@ export default function RelayersPage() {
               </div>
               
               {/* IBC Transfer Button */}
-              {selectedChain && relayers.length > 0 && (
+              {selectedChain && filteredRelayers.length > 0 && (
                 <button
                   onClick={() => setIsBridgeModalOpen(true)}
                   className="bg-white hover:bg-gray-100 text-black font-semibold py-2 px-4 rounded-lg transition-colors flex items-center gap-2"
@@ -353,7 +240,7 @@ export default function RelayersPage() {
                   <Globe className="w-4 h-4 text-gray-400" />
                   <span className="text-gray-400 text-sm">Connected Chains</span>
                 </div>
-                <p className="text-2xl font-bold text-white">{relayers.length}</p>
+                <p className="text-2xl font-bold text-white">{filteredRelayers.length}</p>
               </div>
               
               <div className="bg-[#111111] rounded-lg p-4 border border-gray-800">
@@ -362,7 +249,7 @@ export default function RelayersPage() {
                   <span className="text-gray-400 text-sm">Total Channels</span>
                 </div>
                 <p className="text-2xl font-bold text-white">
-                  {relayers.reduce((sum, r) => sum + parseInt(r.totalChannels || '0'), 0)}
+                  {filteredRelayers.reduce((sum, r) => sum + parseInt(r.totalChannels || '0'), 0)}
                 </p>
               </div>
               
@@ -372,7 +259,7 @@ export default function RelayersPage() {
                   <span className="text-gray-400 text-sm">Open Channels</span>
                 </div>
                 <p className="text-2xl font-bold text-white">
-                  {relayers.reduce((sum, r) => sum + parseInt(r.openChannels || '0'), 0)}
+                  {filteredRelayers.reduce((sum, r) => sum + parseInt(r.openChannels || '0'), 0)}
                 </p>
               </div>
             </div>
@@ -390,7 +277,7 @@ export default function RelayersPage() {
                 <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-500/20 border-t-blue-500 mb-4"></div>
                 <p className="text-gray-400">Loading relayers...</p>
               </div>
-            ) : relayers.length === 0 ? (
+            ) : filteredRelayers.length === 0 ? (
               <div className="p-12 text-center">
                 <Network className="w-16 h-16 text-gray-600 mx-auto mb-4" />
                 <p className="text-gray-400">No IBC connections found</p>
@@ -413,25 +300,28 @@ export default function RelayersPage() {
                         Open Channels
                       </th>
                       <th className="px-6 py-4 text-center text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                        <div className="flex items-center justify-center gap-1.5">
-                          <ArrowUpFromLine className="w-3.5 h-3.5" />
-                          <span>Transfer Out</span>
-                        </div>
+                        Packets Sent
                       </th>
                       <th className="px-6 py-4 text-center text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                        <div className="flex items-center justify-center gap-1.5">
-                          <ArrowDownToLine className="w-3.5 h-3.5" />
-                          <span>Transfer In</span>
-                        </div>
+                        Packets Received
                       </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-800">
-                    {relayers.map((relayer, index) => (
+                    {filteredRelayers.map((relayer, index) => (
                       <tr 
                         key={index}
-                        className="hover:bg-[#111111] transition-colors cursor-pointer"
-                        onClick={() => router.push(`/${chainPath}/relayers/${relayer.chainId}`)}
+                        className={`hover:bg-[#111111] transition-colors cursor-pointer ${
+                          selectedRelayer?.chainId === relayer.chainId ? 'bg-[#111111]' : ''
+                        }`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (selectedRelayer?.chainId === relayer.chainId) {
+                            setSelectedRelayer(null);
+                          } else {
+                            setSelectedRelayer(relayer);
+                          }
+                        }}
                       >
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
@@ -465,18 +355,41 @@ export default function RelayersPage() {
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                          <div className="flex items-center gap-2">
-                            {relayer.status === 'STATE_OPEN' ? (
-                              <>
-                                <CheckCircle className="w-4 h-4 text-green-500" />
-                                <span className="text-green-400 text-sm font-medium">Opened</span>
-                              </>
+                          <div className="flex items-center gap-3">
+                            {relayer.logo ? (
+                              <img 
+                                src={relayer.logo} 
+                                alt={relayer.chainName || relayer.chainId}
+                                className="w-6 h-6 rounded-full object-cover"
+                                onError={(e) => {
+                                  const parent = e.currentTarget.parentElement;
+                                  if (parent) {
+                                    e.currentTarget.remove();
+                                    const fallback = document.createElement('div');
+                                    fallback.className = 'w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-xs';
+                                    fallback.textContent = (relayer.chainName?.charAt(0) || relayer.chainId.charAt(0)).toUpperCase();
+                                    parent.insertBefore(fallback, parent.firstChild);
+                                  }
+                                }}
+                              />
                             ) : (
-                              <>
-                                <XCircle className="w-4 h-4 text-red-500" />
-                                <span className="text-red-400 text-sm font-medium">Closed</span>
-                              </>
+                              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-xs">
+                                {(relayer.chainName?.charAt(0) || relayer.chainId.charAt(0)).toUpperCase()}
+                              </div>
                             )}
+                            <div className="flex items-center gap-2">
+                              {relayer.status === 'STATE_OPEN' ? (
+                                <>
+                                  <CheckCircle className="w-4 h-4 text-green-500" />
+                                  <span className="text-green-400 text-sm font-medium">Opened</span>
+                                </>
+                              ) : (
+                                <>
+                                  <XCircle className="w-4 h-4 text-red-500" />
+                                  <span className="text-red-400 text-sm font-medium">Closed</span>
+                                </>
+                              )}
+                            </div>
                           </div>
                         </td>
                         <td className="px-6 py-4 text-center">
@@ -486,20 +399,14 @@ export default function RelayersPage() {
                           <span className="text-gray-300">{relayer.openChannels}</span>
                         </td>
                         <td className="px-6 py-4 text-center">
-                          <div className="flex items-center justify-center gap-1.5">
-                            <ArrowUpFromLine className="w-3.5 h-3.5 text-blue-400" />
-                            <span className="text-white font-medium">
-                              {relayer.sended || '0'}
-                            </span>
-                          </div>
+                          <span className="text-gray-400 text-sm">
+                            {relayer.sended || '-'}
+                          </span>
                         </td>
                         <td className="px-6 py-4 text-center">
-                          <div className="flex items-center justify-center gap-1.5">
-                            <ArrowDownToLine className="w-3.5 h-3.5 text-green-400" />
-                            <span className="text-white font-medium">
-                              {relayer.received || '0'}
-                            </span>
-                          </div>
+                          <span className="text-gray-400 text-sm">
+                            {relayer.received || '-'}
+                          </span>
                         </td>
                       </tr>
                     ))}
@@ -508,6 +415,103 @@ export default function RelayersPage() {
               </div>
             )}
           </div>
+
+          {/* Channel Details Section */}
+          {selectedRelayer && (
+            <div className="bg-[#1a1a1a] border border-gray-800 rounded-xl p-6">
+              <h2 className="text-lg font-semibold text-white mb-4">Channel Details - {selectedRelayer.chainName || selectedRelayer.chainId}</h2>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="bg-[#111111] rounded-lg p-4 border border-gray-800">
+                  <div className="text-gray-400 text-sm mb-2">Connection</div>
+                  <div className="flex items-center gap-2">
+                    {selectedChain?.logo ? (
+                      <img 
+                        src={selectedChain.logo} 
+                        alt={selectedChain.chain_name}
+                        className="w-6 h-6 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center">
+                        <span className="text-blue-400 text-xs font-bold">
+                          {selectedChain?.chain_name.charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-1">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                      <div className="w-8 h-0.5 bg-gradient-to-r from-blue-500 to-purple-500"></div>
+                    </div>
+                    {selectedRelayer.logo ? (
+                      <img 
+                        src={selectedRelayer.logo} 
+                        alt={selectedRelayer.chainName || selectedRelayer.chainId}
+                        className="w-6 h-6 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-6 h-6 rounded-full bg-purple-500/20 flex items-center justify-center">
+                        <span className="text-purple-400 text-xs font-bold">
+                          {(selectedRelayer.chainName?.charAt(0) || selectedRelayer.chainId.charAt(0)).toUpperCase()}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="bg-[#111111] rounded-lg p-4 border border-gray-800">
+                  <div className="text-gray-400 text-sm mb-1">Packets Received</div>
+                  <div className="text-2xl font-bold text-white">{selectedRelayer.received || '0'}</div>
+                </div>
+                
+                <div className="bg-[#111111] rounded-lg p-4 border border-gray-800">
+                  <div className="text-gray-400 text-sm mb-1">Packets Sent</div>
+                  <div className="text-2xl font-bold text-white">{selectedRelayer.sended || '0'}</div>
+                </div>
+                
+                <div className="bg-[#111111] rounded-lg p-4 border border-gray-800">
+                  <div className="text-gray-400 text-sm mb-1">Status</div>
+                  <div className="flex items-center gap-2">
+                    {selectedRelayer.status === 'STATE_OPEN' ? (
+                      <>
+                        <CheckCircle className="w-5 h-5 text-green-500" />
+                        <span className="text-green-400 font-medium">Opened</span>
+                      </>
+                    ) : (
+                      <>
+                        <XCircle className="w-5 h-5 text-red-500" />
+                        <span className="text-red-400 font-medium">Closed</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+              
+              <div className="mt-4 flex justify-end">
+                <button
+                  onClick={() => router.push(`/${chainPath}/relayers/${selectedRelayer.chainId}`)}
+                  className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg transition-colors flex items-center gap-2"
+                >
+                  <span>View Full Details</span>
+                  <ArrowRightLeft className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* IBC Channel Transactions */}
+          {selectedRelayer && relayerChannels.length > 0 && (
+            <div className="space-y-6">
+              {relayerChannels.map((channel, index) => (
+                <IBCChannelTransactions
+                  key={index}
+                  chainName={selectedChain?.chain_name || ''}
+                  chainPath={chainPath}
+                  channelId={channel.channel_id}
+                  counterpartyChannelId={channel.counterparty.channel_id}
+                  counterpartyChainName={selectedRelayer.chainName || selectedRelayer.chainId}
+                />
+              ))}
+            </div>
+          )}
 
           {/* Info Box */}
           <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-4">
@@ -522,79 +526,6 @@ export default function RelayersPage() {
               </div>
             </div>
           </div>
-
-          {/* Osmosis Channels & Transactions - Auto-expanded */}
-          {selectedChain && relayers.length > 0 && (() => {
-            const osmosisRelayer = relayers.find(r => 
-              r.chainId.toLowerCase().includes('osmosis') || 
-              r.chainName?.toLowerCase().includes('osmosis')
-            );
-            
-            if (!osmosisRelayer) return null;
-            
-            return (
-              <div className="space-y-6">
-                <div className="bg-[#1a1a1a] border border-gray-800 rounded-xl p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      {osmosisRelayer.logo ? (
-                        <img 
-                          src={osmosisRelayer.logo} 
-                          alt={osmosisRelayer.chainName}
-                          className="w-10 h-10 rounded-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold">
-                          O
-                        </div>
-                      )}
-                      <div>
-                        <h2 className="text-xl font-bold text-white">
-                          {osmosisRelayer.chainName || osmosisRelayer.chainId}
-                        </h2>
-                        <p className="text-gray-400 text-sm">IBC Connection Details</p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => router.push(`/${chainPath}/relayers/${osmosisRelayer.chainId}`)}
-                      className="text-blue-400 hover:text-blue-300 text-sm font-medium flex items-center gap-1"
-                    >
-                      View Full Details
-                      <ArrowRightLeft className="w-4 h-4" />
-                    </button>
-                  </div>
-                  
-                  {/* Quick Stats */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                    <div className="bg-[#111111] rounded-lg p-3 border border-gray-800">
-                      <div className="text-gray-400 text-xs mb-1">Total Channels</div>
-                      <div className="text-white text-xl font-bold">{osmosisRelayer.totalChannels}</div>
-                    </div>
-                    <div className="bg-[#111111] rounded-lg p-3 border border-gray-800">
-                      <div className="text-gray-400 text-xs mb-1">Open Channels</div>
-                      <div className="text-green-400 text-xl font-bold">{osmosisRelayer.openChannels}</div>
-                    </div>
-                    <div className="bg-[#111111] rounded-lg p-3 border border-gray-800">
-                      <div className="text-gray-400 text-xs mb-1">Transfer Out</div>
-                      <div className="text-blue-400 text-xl font-bold">{osmosisRelayer.sended || '0'}</div>
-                    </div>
-                    <div className="bg-[#111111] rounded-lg p-3 border border-gray-800">
-                      <div className="text-gray-400 text-xs mb-1">Transfer In</div>
-                      <div className="text-green-400 text-xl font-bold">{osmosisRelayer.received || '0'}</div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Fetch and display channels/transactions for Osmosis */}
-                <OsmosisChannelsSection 
-                  chainName={selectedChain.chain_name}
-                  chainPath={chainPath}
-                  relayerId={osmosisRelayer.chainId}
-                  relayerName={osmosisRelayer.chainName || osmosisRelayer.chainId}
-                />
-              </div>
-            );
-          })()}
         </main>
 
         {/* IBC Bridge Modal */}

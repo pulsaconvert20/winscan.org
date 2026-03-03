@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { Plus, Info, AlertCircle, CheckCircle } from 'lucide-react';
 import { executeProvideLiquidity } from '@/lib/keplr';
 import { ChainData } from '@/types/chain';
+import ProgressModal from '@/components/ProgressModal';
+import { PlanTodo } from '@/components/Plan';
 
 interface Token {
   address: string;
@@ -34,6 +36,12 @@ export default function AddLiquiditySection({
   const [loading, setLoading] = useState(false);
   const [poolData, setPoolData] = useState<any>(null);
   const [loadingPool, setLoadingPool] = useState(false);
+  
+  // Progress modal state
+  const [showProgressModal, setShowProgressModal] = useState(false);
+  const [progressTodos, setProgressTodos] = useState<PlanTodo[]>([]);
+  const [progressTitle, setProgressTitle] = useState('');
+  const [progressDescription, setProgressDescription] = useState('');
 
   // Load pool data with retry
   useEffect(() => {
@@ -126,11 +134,28 @@ export default function AddLiquiditySection({
     }
 
     setLoading(true);
+    
+    // Show progress modal
+    setShowProgressModal(true);
+    setProgressTitle('Add Liquidity Progress');
+    setProgressDescription(`Adding ${paxiAmount} PAXI + ${prc20Amount} ${prc20Token.symbol}`);
+    setProgressTodos([
+      { id: '1', label: 'Preparing Transaction', description: 'Validating liquidity amounts', status: 'in_progress' },
+      { id: '2', label: 'Broadcasting Transaction', description: 'Sending to blockchain', status: 'pending' },
+      { id: '3', label: 'Liquidity Added', description: 'Successfully added to pool', status: 'pending' },
+    ]);
 
     try {
       // Convert amounts to base units
       const paxiBaseUnits = Math.floor(parseFloat(paxiAmount) * 1e6).toString();
       const prc20BaseUnits = Math.floor(parseFloat(prc20Amount) * Math.pow(10, prc20Token.decimals)).toString();
+
+      // Update progress - broadcasting
+      setProgressTodos([
+        { id: '1', label: 'Preparing Transaction', description: 'Validating liquidity amounts', status: 'completed' },
+        { id: '2', label: 'Broadcasting Transaction', description: 'Sending to blockchain', status: 'in_progress' },
+        { id: '3', label: 'Liquidity Added', description: 'Successfully added to pool', status: 'pending' },
+      ]);
 
       // Use the executeProvideLiquidity function from keplr.ts
       const result = await executeProvideLiquidity(
@@ -140,11 +165,18 @@ export default function AddLiquiditySection({
           prc20Amount: prc20BaseUnits,
           paxiAmount: paxiBaseUnits
         },
-        '800000',
+        '1600000',
         'Add Liquidity via WinScan'
       );
 
       if (result.success) {
+        // Update progress - complete
+        setProgressTodos([
+          { id: '1', label: 'Preparing Transaction', description: 'Validating liquidity amounts', status: 'completed' },
+          { id: '2', label: 'Broadcasting Transaction', description: 'Transaction confirmed', status: 'completed' },
+          { id: '3', label: 'Liquidity Added', description: `Added ${paxiAmount} PAXI + ${prc20Amount} ${prc20Token.symbol}`, status: 'completed' },
+        ]);
+        
         onResult?.(result);
         setPaxiAmount('');
         setPrc20Amount('');
@@ -369,6 +401,16 @@ export default function AddLiquiditySection({
           </>
         )}
       </button>
+      
+      {/* Progress Modal */}
+      <ProgressModal
+        isOpen={showProgressModal}
+        onClose={() => setShowProgressModal(false)}
+        title={progressTitle}
+        description={progressDescription}
+        todos={progressTodos}
+        allowClose={!loading}
+      />
     </div>
   );
 }

@@ -26,7 +26,9 @@
   "codebase": {
     "git_repo": "https://github.com/Safrochain-Org/safrochain-node",
     "recommended_version": "v1.0.0",
-    "compatible_versions": ["v1.0.0"],
+    "compatible_versions": [
+      "v1.0.0"
+    ],
     "cosmos_sdk_version": "0.46.1",
     "tendermint_version": "0.34.0"
   },
@@ -54,5 +56,6 @@
   "theme_color": "#812cd6",
   "logo": "https://pbs.twimg.com/profile_images/1938593981517955072/vTcJ4t5i_400x400.jpg",
   "explorers": [],
-  "updated": "2025-11-17"
+  "updated": "2025-11-17",
+  "github": "https://github.com/Safrochain-Org/safrochain-node"
 }

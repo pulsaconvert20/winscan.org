@@ -37,3 +37,4 @@ data/GeoLite2-City.mmdb
 # Private security notes (do not upload)
 SECURITY-NOTES.md
 Telegram
+scripts\generate-integrity.js

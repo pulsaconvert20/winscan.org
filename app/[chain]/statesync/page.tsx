@@ -21,6 +21,7 @@ export default function StateSyncPage() {
   const [peers, setPeers] = useState<string[]>([]);
   const [seeds, setSeeds] = useState<string[]>([]);
   const [loadingPeers, setLoadingPeers] = useState(false);
+  const [selectedRpc, setSelectedRpc] = useState<string>('');
 
   useEffect(() => {
     const cachedChains = sessionStorage.getItem('chains');
@@ -34,8 +35,12 @@ export default function StateSyncPage() {
         : data.find((c: ChainData) => c.chain_name === 'lumera-mainnet') || data[0];
       if (chain) {
         setSelectedChain(chain);
-        setServiceName(`${chain.chain_name}d`);
-        setHomeDir(`$HOME/.${chain.chain_name}`);
+        // Remove -mainnet or -test suffix for service name
+        const cleanName = chain.chain_name.replace(/-mainnet|-test/g, '');
+        setServiceName(`${cleanName}d`);
+        // Remove -mainnet suffix only for home directory
+        const cleanHomeDir = chain.chain_name.replace(/-mainnet/g, '');
+        setHomeDir(`$HOME/.${cleanHomeDir}`);
       }
     } else {
       fetch('/api/chains')
@@ -49,8 +54,12 @@ export default function StateSyncPage() {
             : data.find((c: ChainData) => c.chain_name === 'lumera-mainnet') || data[0];
           if (chain) {
             setSelectedChain(chain);
-            setServiceName(`${chain.chain_name}d`);
-            setHomeDir(`$HOME/.${chain.chain_name}`);
+            // Remove -mainnet or -test suffix for service name
+            const cleanName = chain.chain_name.replace(/-mainnet|-test/g, '');
+            setServiceName(`${cleanName}d`);
+            // Remove -mainnet suffix only for home directory
+            const cleanHomeDir = chain.chain_name.replace(/-mainnet/g, '');
+            setHomeDir(`$HOME/.${cleanHomeDir}`);
           }
         });
     }
@@ -222,7 +231,8 @@ export default function StateSyncPage() {
   const generateStateSyncConfig = () => {
     if (!syncInfo || !selectedChain) return '';
     
-    const rpcServers = syncInfo.rpcServers.join(',');
+    const rpcServer = selectedRpc || syncInfo.rpcServers[0];
+    const rpcServers = `${rpcServer},${rpcServer}`;
     
     return `#######################################################
 ###           State Sync Configuration            ###
@@ -247,7 +257,7 @@ temp_dir = ""`;
   const generateQuickSyncScript = () => {
     if (!syncInfo || !selectedChain) return '';
     
-    const rpcServer = syncInfo.rpcServers[0];
+    const rpcServer = selectedRpc || syncInfo.rpcServers[0];
     const service = serviceName || `${selectedChain.chain_name}d`;
     const home = homeDir || `$HOME/.${selectedChain.chain_name}`;
     const binary = service; // Assuming binary name same as service
@@ -261,7 +271,7 @@ sudo systemctl stop ${service}
 cp ${home}/data/priv_validator_state.json $HOME/priv_validator_state.json.backup
 
 # Reset database
-${binary} tendermint unsafe-reset-all --home ${home}
+rm -rf ${home}/data/*
 
 # Get trust height and hash
 LATEST_HEIGHT=$(curl -s ${rpcServer}/block | jq -r .result.block.header.height)
@@ -280,7 +290,7 @@ mv $HOME/priv_validator_state.json.backup ${home}/data/priv_validator_state.json
 # Start node
 sudo systemctl start ${service}
 
-echo "State sync configured! Check logs: journalctl -u ${service} -f"`;
+sudo journalctl -u ${service} -f`;
   };
 
   return (
@@ -472,39 +482,70 @@ echo "State sync configured! Check logs: journalctl -u ${service} -f"`;
               <div className="bg-[#1a1a1a] rounded-lg p-6 border border-gray-800">
                 <h2 className="text-xl font-bold text-white mb-4 flex items-center">
                   <Server className="w-5 h-5 mr-2" />
-                  Available RPC Servers (Indexer Enabled)
+                  Select RPC Server for State Sync
                 </h2>
                 {syncInfo.activeRpc && (
-                  <div className="mb-4 p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
-                    <p className="text-sm text-green-400">
-                      ✅ Using RPC with indexer: <code className="font-mono text-green-300">{syncInfo.activeRpc}</code>
+                  <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                    <p className="text-sm text-blue-400">
+                      💡 Select which RPC server to use for state sync configuration
                     </p>
                   </div>
                 )}
                 <div className="space-y-2">
-                  {syncInfo.rpcServers.map((rpc: string, idx: number) => (
-                    <div key={idx} className="flex items-center justify-between bg-[#0f0f0f] rounded-lg p-3">
-                      <div className="flex items-center gap-2 flex-1">
-                        <code className="text-blue-400 font-mono text-sm">{rpc}</code>
-                        {rpc === syncInfo.activeRpc && (
-                          <span className="px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded-full">
-                            Active
-                          </span>
-                        )}
-                      </div>
-                      <button
-                        onClick={() => copyToClipboard(rpc, `rpc-${idx}`)}
-                        className="ml-2 p-2 hover:bg-gray-800 rounded transition-colors"
-                        title="Copy RPC URL"
+                  {syncInfo.rpcServers.map((rpc: string, idx: number) => {
+                    const isSelected = selectedRpc === rpc || (!selectedRpc && rpc === syncInfo.activeRpc);
+                    const isRecommended = rpc === syncInfo.activeRpc;
+                    
+                    return (
+                      <div 
+                        key={idx} 
+                        onClick={() => setSelectedRpc(rpc)}
+                        className={`flex items-center justify-between bg-[#0f0f0f] rounded-lg p-4 cursor-pointer transition-all ${
+                          isSelected 
+                            ? 'ring-2 ring-blue-500 bg-blue-500/5' 
+                            : 'hover:bg-[#1a1a1a] border border-gray-800'
+                        }`}
                       >
-                        {copied === `rpc-${idx}` ? (
-                          <CheckCircle className="w-4 h-4 text-green-500" />
-                        ) : (
-                          <Copy className="w-4 h-4 text-gray-400" />
-                        )}
-                      </button>
-                    </div>
-                  ))}
+                        <div className="flex items-center gap-3 flex-1">
+                          <input
+                            type="radio"
+                            checked={isSelected}
+                            onChange={() => setSelectedRpc(rpc)}
+                            className="w-4 h-4 text-blue-500 focus:ring-blue-500"
+                          />
+                          <div className="flex-1">
+                            <code className="text-blue-400 font-mono text-sm block">{rpc}</code>
+                            <div className="flex items-center gap-2 mt-1">
+                              {isRecommended && (
+                                <span className="px-2 py-0.5 bg-green-500/20 text-green-400 text-xs rounded-full">
+                                  Recommended (Indexer Enabled)
+                                </span>
+                              )}
+                              {isSelected && (
+                                <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 text-xs rounded-full">
+                                  Selected
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            copyToClipboard(rpc, `rpc-${idx}`);
+                          }}
+                          className="ml-2 p-2 hover:bg-gray-800 rounded transition-colors"
+                          title="Copy RPC URL"
+                        >
+                          {copied === `rpc-${idx}` ? (
+                            <CheckCircle className="w-4 h-4 text-green-500" />
+                          ) : (
+                            <Copy className="w-4 h-4 text-gray-400" />
+                          )}
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
                 {syncInfo.rpcServers.length === 0 && (
                   <div className="p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
@@ -607,61 +648,6 @@ echo "State sync configured! Check logs: journalctl -u ${service} -f"`;
                     <li>The script automatically backs up priv_validator_state.json</li>
                     <li>Review and modify the script according to your setup</li>
                   </ul>
-                </div>
-              </div>
-
-              {/* Instructions */}
-              <div className="bg-[#1a1a1a] rounded-lg p-6 border border-gray-800">
-                <h2 className="text-xl font-bold text-white mb-4">Setup Instructions</h2>
-                <div className="space-y-4">
-                  <div className="flex gap-4">
-                    <div className="flex-shrink-0 w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold">1</div>
-                    <div className="flex-1">
-                      <h3 className="text-white font-medium mb-1">Stop Your Node</h3>
-                      <p className="text-gray-400 text-sm">
-                        Stop your running node service before applying state sync configuration
-                      </p>
-                      <code className="block mt-2 bg-[#0f0f0f] p-2 rounded text-sm text-blue-400">
-                        sudo systemctl stop {serviceName || `${selectedChain?.chain_name}d`}
-                      </code>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-4">
-                    <div className="flex-shrink-0 w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold">2</div>
-                    <div className="flex-1">
-                      <h3 className="text-white font-medium mb-1">Backup Important Files</h3>
-                      <p className="text-gray-400 text-sm">
-                        Backup your priv_validator_state.json to prevent double signing
-                      </p>
-                      <code className="block mt-2 bg-[#0f0f0f] p-2 rounded text-sm text-blue-400">
-                        cp {homeDir || `$HOME/.${selectedChain?.chain_name}`}/data/priv_validator_state.json $HOME/backup.json
-                      </code>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-4">
-                    <div className="flex-shrink-0 w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold">3</div>
-                    <div className="flex-1">
-                      <h3 className="text-white font-medium mb-1">Apply Configuration</h3>
-                      <p className="text-gray-400 text-sm">
-                        Either use the automated script above or manually add the config to config.toml
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-4">
-                    <div className="flex-shrink-0 w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold">4</div>
-                    <div className="flex-1">
-                      <h3 className="text-white font-medium mb-1">Start Your Node</h3>
-                      <p className="text-gray-400 text-sm">
-                        Start your node and monitor the logs to ensure state sync is working
-                      </p>
-                      <code className="block mt-2 bg-[#0f0f0f] p-2 rounded text-sm text-blue-400">
-                        sudo systemctl start {serviceName || `${selectedChain?.chain_name}d`} && journalctl -u {serviceName || `${selectedChain?.chain_name}d`} -f
-                      </code>
-                    </div>
-                  </div>
                 </div>
               </div>
             </div>

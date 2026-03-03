@@ -35,6 +35,8 @@ export interface IBCTransferMsg {
     };
     timeoutTimestamp: string;
     memo?: string;
+    encoding?: string; // For Epix chain
+    use_aliasing?: boolean; // For Epix chain
   };
 }
 
@@ -42,6 +44,9 @@ export interface IBCTransferMsg {
  * Build IBC transfer message
  */
 export async function buildIBCTransferMsg(params: IBCTransferParams): Promise<IBCTransferMsg | null> {
+  // Check if this is Epix chain (requires special fields)
+  const isEpixChain = params.sourceChain.toLowerCase().includes('epix');
+  
   // Try to get channel from API first
   try {
     const response = await fetch(`/api/ibc/channels?sourceChain=${params.sourceChain}&destChain=${params.destChain}`);
@@ -51,20 +56,32 @@ export async function buildIBCTransferMsg(params: IBCTransferParams): Promise<IB
         // Timeout: 10 minutes from now
         const timeoutTimestamp = (Date.now() + 10 * 60 * 1000) * 1_000_000; // nanoseconds
 
+        const msgValue: any = {
+          sourcePort: 'transfer',
+          sourceChannel: channelData.channel,
+          token: {
+            denom: params.token.denom,
+            amount: params.token.amount,
+          },
+          sender: params.senderAddress,
+          receiver: params.recipientAddress,
+          timeoutHeight: {
+            revisionNumber: '0',
+            revisionHeight: '0',
+          },
+          timeoutTimestamp: timeoutTimestamp.toString(),
+          memo: params.memo || '',
+        };
+
+        // Add Epix-specific fields
+        if (isEpixChain) {
+          msgValue.encoding = '';
+          msgValue.use_aliasing = false;
+        }
+
         return {
           typeUrl: '/ibc.applications.transfer.v1.MsgTransfer',
-          value: {
-            sourcePort: 'transfer',
-            sourceChannel: channelData.channel,
-            token: {
-              denom: params.token.denom,
-              amount: params.token.amount,
-            },
-            sender: params.senderAddress,
-            receiver: params.recipientAddress,
-            timeoutTimestamp: timeoutTimestamp.toString(),
-            memo: params.memo || '',
-          },
+          value: msgValue,
         };
       }
     }
@@ -83,20 +100,32 @@ export async function buildIBCTransferMsg(params: IBCTransferParams): Promise<IB
   // Timeout: 10 minutes from now
   const timeoutTimestamp = (Date.now() + 10 * 60 * 1000) * 1_000_000; // nanoseconds
 
+  const msgValue: any = {
+    sourcePort: 'transfer',
+    sourceChannel: channel.channelId,
+    token: {
+      denom: params.token.denom,
+      amount: params.token.amount,
+    },
+    sender: params.senderAddress,
+    receiver: params.recipientAddress,
+    timeoutHeight: {
+      revisionNumber: '0',
+      revisionHeight: '0',
+    },
+    timeoutTimestamp: timeoutTimestamp.toString(),
+    memo: params.memo || '',
+  };
+
+  // Add Epix-specific fields
+  if (isEpixChain) {
+    msgValue.encoding = '';
+    msgValue.use_aliasing = false;
+  }
+
   return {
     typeUrl: '/ibc.applications.transfer.v1.MsgTransfer',
-    value: {
-      sourcePort: 'transfer',
-      sourceChannel: channel.channelId,
-      token: {
-        denom: params.token.denom,
-        amount: params.token.amount,
-      },
-      sender: params.senderAddress,
-      receiver: params.recipientAddress,
-      timeoutTimestamp: timeoutTimestamp.toString(),
-      memo: params.memo || '',
-    },
+    value: msgValue,
   };
 }
 
@@ -110,6 +139,11 @@ export function estimateIBCFee(sourceChain: string) {
       denom: 'upaxi',
       amount: '15000',
       gas: '200000',
+    },
+    'epix-mainnet': {
+      denom: 'aepix',
+      amount: '4308720000000000', // From your example
+      gas: '107718', // From your example
     },
     'cosmoshub-mainnet': {
       denom: 'uatom',
@@ -170,6 +204,17 @@ export async function executeIBCTransfer(
       };
     }
 
+    // Check if this is an EVM chain (Epix uses coin_type 60)
+    const isEvmChain = params.sourceChain.toLowerCase().includes('epix') || 
+                       params.sourceChain.includes('_');
+
+    console.log('🔍 IBC Transfer Debug:', {
+      sourceChain: params.sourceChain,
+      isEvmChain,
+      denom: params.token.denom,
+      amount: params.token.amount,
+    });
+
     // Suggest chain if not already added (this will auto-add from registry)
     try {
       await window.keplr.enable(params.sourceChain);
@@ -184,7 +229,13 @@ export async function executeIBCTransfer(
       throw err;
     }
     
-    const offlineSigner = await window.keplr.getOfflineSignerAuto(params.sourceChain);
+    // For EVM chains, use Direct signer (better ethsecp256k1 support)
+    const offlineSigner = isEvmChain 
+      ? await window.keplr.getOfflineSigner(params.sourceChain)
+      : await window.keplr.getOfflineSignerAuto(params.sourceChain);
+    
+    console.log('✅ Signer type:', isEvmChain ? 'Direct (EVM)' : 'Auto');
+    
     const accounts = await offlineSigner.getAccounts();
     
     if (accounts.length === 0) {
@@ -194,6 +245,8 @@ export async function executeIBCTransfer(
       };
     }
 
+    console.log('✅ Account:', accounts[0].address);
+
     // Validate RPC endpoint
     if (!rpcEndpoint || typeof rpcEndpoint !== 'string' || rpcEndpoint.trim() === '') {
       return {
@@ -202,14 +255,82 @@ export async function executeIBCTransfer(
       };
     }
 
-    // Create signing client - Keplr handles EthAccount automatically
+    // Create signing client with EVM support if needed
     let client;
     try {
+      const clientOptions: any = {
+        broadcastTimeoutMs: 30000,
+        broadcastPollIntervalMs: 3000,
+      };
+
+      // Add EVM support for Epix and other EVM chains
+      if (isEvmChain) {
+        console.log('🔧 Detected EVM chain, adding EthAccount support');
+        
+        // Use EVM signing helper from evmSigning.ts
+        const { fetchAccountWithEthSupport } = await import('./evmSigning');
+        
+        // Fetch account info with EVM support
+        const restEndpoint = rpcEndpoint.replace(/:\d+$/, '').replace('rpc', 'api');
+        console.log('📡 Fetching account from REST:', restEndpoint);
+        
+        const accountInfo = await fetchAccountWithEthSupport(
+          restEndpoint,
+          params.senderAddress
+        );
+        
+        console.log('✅ Account info fetched:', accountInfo);
+        
+        // Import EVM signing utilities
+        const { Registry } = await import('@cosmjs/proto-signing');
+        const { defaultRegistryTypes } = await import('@cosmjs/stargate');
+        
+        // Create registry with default types
+        const registry = new Registry([...defaultRegistryTypes] as any);
+        clientOptions.registry = registry;
+        
+        // Add custom account parser for EthAccount
+        clientOptions.accountParser = (input: any) => {
+          if (input.typeUrl === '/ethermint.types.v1.EthAccount') {
+            console.log('🔍 Parsing EthAccount - using fetched account info');
+            
+            // Use fetched account info
+            return {
+              address: accountInfo.address,
+              pubkey: accountInfo.pubkey,
+              accountNumber: accountInfo.accountNumber,
+              sequence: accountInfo.sequence,
+            };
+          }
+          
+          // For other account types, use default parser
+          try {
+            const { accountFromAny } = require('@cosmjs/stargate');
+            return accountFromAny(input);
+          } catch (error) {
+            console.error('Account parser error:', error);
+            // Return fetched account as fallback
+            return {
+              address: accountInfo.address,
+              pubkey: accountInfo.pubkey,
+              accountNumber: accountInfo.accountNumber,
+              sequence: accountInfo.sequence,
+            };
+          }
+        };
+        
+        console.log('✅ EVM registry and account parser configured');
+      }
+
       client = await SigningStargateClient.connectWithSigner(
         rpcEndpoint,
-        offlineSigner
+        offlineSigner,
+        clientOptions
       );
+      
+      console.log('✅ Signing client connected');
     } catch (err: any) {
+      console.error('❌ Failed to connect to RPC:', err);
       return {
         success: false,
         error: `Failed to connect to RPC: ${err.message || 'Connection failed'}`,
@@ -223,13 +344,18 @@ export async function executeIBCTransfer(
       gas: feeConfig.gas,
     };
 
+    console.log('💰 Fee:', fee);
+
     // Sign and broadcast transaction
+    console.log('📝 Signing and broadcasting...');
     const result = await client.signAndBroadcast(
       params.senderAddress,
       [msg],
       fee,
       params.memo || ''
     );
+
+    console.log('📡 Broadcast result:', result);
 
     if (result.code !== 0) {
       return {

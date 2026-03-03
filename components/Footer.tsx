@@ -30,7 +30,7 @@ export default function Footer() {
             <h3 className="text-white font-semibold mb-4 text-sm">Quick Links</h3>
             <ul className="space-y-3">
               <li>
-                <a href="https://github.com/winsnip-official/winscan" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-white transition-all text-sm flex items-center gap-2 group">
+                <a href="https://github.com/winsnip-official/winscan.org" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-white transition-all text-sm flex items-center gap-2 group">
                   <svg className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-all group-hover:translate-x-0 -translate-x-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>
@@ -46,7 +46,7 @@ export default function Footer() {
                 </a>
               </li>
               <li>
-                <a href="https://github.com/winsnip-official/winscan/blob/main/README.md" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-white transition-all text-sm flex items-center gap-2 group">
+                <a href="/docs" className="text-gray-500 hover:text-white transition-all text-sm flex items-center gap-2 group">
                   <svg className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-all group-hover:translate-x-0 -translate-x-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>
@@ -112,11 +112,11 @@ export default function Footer() {
           </div>
           
           <div className="flex items-center gap-4 text-xs text-gray-600">
-            <a href="https://github.com/winsnip-official/winscan/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" className="hover:text-gray-400 transition-colors">
+            <a href="https://github.com/winsnip-official/winscan.org/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" className="hover:text-gray-400 transition-colors">
               MIT License
             </a>
             <span>•</span>
-            <a href="https://github.com/winsnip-official/winscan/issues" target="_blank" rel="noopener noreferrer" className="hover:text-gray-400 transition-colors">
+            <a href="https://github.com/winsnip-official/winscan.org/issues" target="_blank" rel="noopener noreferrer" className="hover:text-gray-400 transition-colors">
               Report Issues
             </a>
             <span>•</span>

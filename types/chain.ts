@@ -15,6 +15,7 @@ export interface ChainEndpoint {
 
 export interface ChainData {
   chain_name: string;
+  pretty_name?: string;
   chain_id?: string; 
   api: ChainEndpoint[];
   rpc: ChainEndpoint[];

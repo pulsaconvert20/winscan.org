@@ -1,4 +1,4 @@
-const DB_NAME = 'VeriznodeCache';
+const DB_NAME = 'WinScanCache';
 const DB_VERSION = 1;
 const STORE_NAME = 'chainData';
 

@@ -104,5 +104,6 @@
     }
   ],
   "updated": "2025-11-19",
-  "delegate": "https://winscan.winsnip.xyz/osmosis-mainnet/validators/osmovaloper1clpqr4nrk4khgkxj78fcwwh6dl3uw4ep4fhel5"
+  "delegate": "https://winscan.winsnip.xyz/osmosis-mainnet/validators/osmovaloper1clpqr4nrk4khgkxj78fcwwh6dl3uw4ep4fhel5",
+  "github": "https://github.com/osmosis-labs/osmosis"
 }

@@ -285,7 +285,7 @@ export async function executeReverseTransferWithPreSwap(
         amount: [{ denom: 'uosmo', amount: '10000' }],
         gas: '500000',
       },
-      'Veriznode Reverse Transfer with Pre-Swap'
+      'WinScan Reverse Transfer with Pre-Swap'
     );
     
     if (transferResult.code !== 0) {

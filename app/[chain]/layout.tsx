@@ -83,8 +83,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     keywords: [
       title,
       `${chain_name} scan`,
-      `Veriznode Explorer`,
-      `Veriznode`,
+      `WinScan Explorer`,
+      `winscan`,
       `explorer ${chain_name}`,
     ],
     openGraph: {

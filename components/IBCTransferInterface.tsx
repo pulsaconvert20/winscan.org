@@ -4,6 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { ArrowRightLeft, ArrowDown, Wallet, AlertCircle, CheckCircle, Loader2, Info } from 'lucide-react';
 import { ChainData } from '@/types/chain';
 import { executeReverseTransferWithPreSwap } from '@/lib/ibcPreSwap';
+import ProgressModal from '@/components/ProgressModal';
+import { PlanTodo } from '@/components/Plan';
 
 interface IBCTransferInterfaceProps {
   sourceChain: ChainData;
@@ -46,6 +48,12 @@ export default function IBCTransferInterface({
     step: 'idle' | 'transferring' | 'waiting' | 'swapping' | 'complete';
     message: string;
   }>({ step: 'idle', message: '' });
+  
+  // Progress modal state
+  const [showProgressModal, setShowProgressModal] = useState(false);
+  const [progressTodos, setProgressTodos] = useState<PlanTodo[]>([]);
+  const [progressTitle, setProgressTitle] = useState('');
+  const [progressDescription, setProgressDescription] = useState('');
   
   // Pre-swap state (for reverse mode)
   const [enablePreSwap, setEnablePreSwap] = useState(false);
@@ -336,10 +344,22 @@ export default function IBCTransferInterface({
     setTxResult(null);
     setSwapProgress({ step: 'idle', message: '' });
     setCurrentStep(0);
+    
+    // Show progress modal
+    setShowProgressModal(true);
 
     try {
       // Check if this is a reverse transfer with pre-swap
       if (isReversed && enablePreSwap && isSourceOsmosis) {
+        // Setup progress for pre-swap + transfer
+        setProgressTitle('Transaction Progress');
+        setProgressDescription('Swap and transfer in progress');
+        setProgressTodos([
+          { id: '1', label: 'Swapping on Osmosis', description: `${selectedSourceToken} → ${preSwapToToken}`, status: 'in_progress' },
+          { id: '2', label: 'IBC Transfer to Lumera', description: 'Estimated time: 1-3 minutes', status: 'pending' },
+          { id: '3', label: 'Transfer Complete', description: `${preSwapToToken} will arrive on Lumera`, status: 'pending' },
+        ]);
+        
         // Determine source token denom
         let sourceTokenDenom: string;
         if (selectedSourceToken === 'OSMO') {
@@ -378,6 +398,27 @@ export default function IBCTransferInterface({
           (step, message) => {
             setCurrentStep(step);
             setTxMessage(message);
+            
+            // Update modal progress
+            if (step === 1) {
+              setProgressTodos([
+                { id: '1', label: 'Swapping on Osmosis', description: `${selectedSourceToken} → ${preSwapToToken}`, status: 'in_progress' },
+                { id: '2', label: 'IBC Transfer to Lumera', description: 'Estimated time: 1-3 minutes', status: 'pending' },
+                { id: '3', label: 'Transfer Complete', description: `${preSwapToToken} will arrive on Lumera`, status: 'pending' },
+              ]);
+            } else if (step === 2) {
+              setProgressTodos([
+                { id: '1', label: 'Swapping on Osmosis', description: `${selectedSourceToken} → ${preSwapToToken}`, status: 'completed' },
+                { id: '2', label: 'IBC Transfer to Lumera', description: 'Estimated time: 1-3 minutes', status: 'in_progress' },
+                { id: '3', label: 'Transfer Complete', description: `${preSwapToToken} will arrive on Lumera`, status: 'pending' },
+              ]);
+            } else if (step === 3) {
+              setProgressTodos([
+                { id: '1', label: 'Swapping on Osmosis', description: `${selectedSourceToken} → ${preSwapToToken}`, status: 'completed' },
+                { id: '2', label: 'IBC Transfer to Lumera', description: 'Estimated time: 1-3 minutes', status: 'completed' },
+                { id: '3', label: 'Transfer Complete', description: `${preSwapToToken} arrived on Lumera`, status: 'completed' },
+              ]);
+            }
           }
         );
         
@@ -394,6 +435,25 @@ export default function IBCTransferInterface({
         setAmount('');
         setIsProcessing(false);
         return;
+      }
+      
+      // Setup progress for normal/auto-swap transfer
+      if (enableAutoSwap && !isReversed && isDestinationOsmosis) {
+        setProgressTitle('Auto-Swap Progress');
+        setProgressDescription('Transfer and swap in progress');
+        setProgressTodos([
+          { id: '1', label: 'IBC Transfer', description: 'Transferring to Osmosis', status: 'in_progress' },
+          { id: '2', label: 'Waiting for Arrival', description: 'Tokens arriving on Osmosis', status: 'pending' },
+          { id: '3', label: `Auto-Swap to ${swapToToken}`, description: 'Swapping on Osmosis', status: 'pending' },
+        ]);
+      } else {
+        setProgressTitle('Transfer Progress');
+        setProgressDescription(`Sending to ${selectedDestChain}`);
+        setProgressTodos([
+          { id: '1', label: 'Broadcasting Transaction', description: `Sending IBC transfer to ${selectedDestChain}`, status: 'in_progress' },
+          { id: '2', label: 'Waiting for Confirmation', description: 'Estimated time: 1-3 minutes', status: 'pending' },
+          { id: '3', label: 'Transfer Complete', description: 'Tokens will arrive on destination chain', status: 'pending' },
+        ]);
       }
       
       // Continue with normal transfer logic...
@@ -450,11 +510,13 @@ export default function IBCTransferInterface({
 
       await (window as any).keplr.enable(actualSourceChainId);
       
-      // For EVM chains (coin_type 60), use Amino signer only to avoid EthAccount issues
+      // For EVM chains (coin_type 60), use Direct signer (getOfflineSigner)
       const isEvmChain = actualSourceChainId.includes('_');
       const offlineSigner = isEvmChain 
-        ? await (window as any).keplr.getOfflineSignerOnlyAmino(actualSourceChainId)
+        ? await (window as any).keplr.getOfflineSigner(actualSourceChainId)
         : await (window as any).keplr.getOfflineSignerAuto(actualSourceChainId);
+      
+      console.log('✅ Signer type:', isEvmChain ? 'Direct (EVM)' : 'Auto');
       
       const accounts = await offlineSigner.getAccounts();
       const senderAddress = accounts[0].address;
@@ -477,14 +539,15 @@ export default function IBCTransferInterface({
       
       if (isEvmChain) {
         // Import account parser helper
-        const { accountFromAny } = await import('@cosmjs/stargate');
-        
-        // Fetch account info from REST API to get sequence number
+        // Fetch account info from REST API BEFORE creating client (for EVM chains)
         let accountInfo: any = null;
         try {
+          // Use fetchAccountWithEthSupport for EVM chains
+          const { fetchAccountWithEthSupport } = await import('@/lib/evmSigning');
+          
           const restEndpoint = typeof actualSourceRpc === 'string'
-            ? actualSourceRpc.replace(/:\d+$/, ':1317') // Try to convert RPC to REST
-            : actualSourceRpc.address.replace(/:\d+$/, ':1317');
+            ? actualSourceRpc.replace(/:\d+$/, '').replace('rpc', 'api')
+            : actualSourceRpc.address.replace(/:\d+$/, '').replace('rpc', 'api');
           
           // Try to fetch from configured API endpoints
           const apiEndpoints = sourceChain.api || [];
@@ -492,58 +555,41 @@ export default function IBCTransferInterface({
             ? (typeof apiEndpoints[0] === 'string' ? apiEndpoints[0] : apiEndpoints[0].address)
             : restEndpoint;
           
-          console.log(`🔍 Fetching account info from: ${restUrl}/cosmos/auth/v1beta1/accounts/${senderAddress}`);
+          console.log(`🔍 Fetching account info from: ${restUrl}`);
           
-          const accountResponse = await fetch(`${restUrl}/cosmos/auth/v1beta1/accounts/${senderAddress}`);
-          if (accountResponse.ok) {
-            const accountData = await accountResponse.json();
-            
-            // Extract base account from EthAccount
-            let baseAccount = accountData.account;
-            if (baseAccount.base_account) {
-              baseAccount = baseAccount.base_account;
-            } else if (baseAccount.BaseAccount) {
-              baseAccount = baseAccount.BaseAccount;
-            }
-            
-            accountInfo = {
-              address: baseAccount.address || senderAddress,
-              pubkey: baseAccount.pub_key || null,
-              accountNumber: parseInt(baseAccount.account_number || '0'),
-              sequence: parseInt(baseAccount.sequence || '0'),
-            };
-            
-            console.log('✅ Account info fetched:', accountInfo);
-          }
+          accountInfo = await fetchAccountWithEthSupport(restUrl, senderAddress);
+          console.log('✅ Account info fetched with EVM support:', accountInfo);
         } catch (fetchError) {
           console.warn('Failed to fetch account info, will use defaults:', fetchError);
         }
         
         // Custom account parser that handles EthAccount
         clientOptions.accountParser = (input: any) => {
-          try {
-            if (input.typeUrl === '/ethermint.types.v1.EthAccount') {
-              console.log('🔍 Parsing EthAccount for IBC transfer');
-              
-              // If we fetched account info, use it
-              if (accountInfo) {
-                return accountInfo;
-              }
-              
-              // Otherwise return minimal structure
-              return {
-                address: senderAddress,
-                pubkey: null,
-                accountNumber: 0,
-                sequence: 0,
-              };
+          if (input.typeUrl === '/ethermint.types.v1.EthAccount') {
+            console.log('🔍 Parsing EthAccount - using pre-fetched account info');
+            
+            // Use pre-fetched account info
+            if (accountInfo) {
+              return accountInfo;
             }
             
+            // Fallback: return minimal structure
+            return {
+              address: senderAddress,
+              pubkey: null,
+              accountNumber: 0,
+              sequence: 0,
+            };
+          }
+          
+          // For non-EthAccount types, use default parser
+          try {
+            const { accountFromAny } = require('@cosmjs/stargate');
             return accountFromAny(input);
           } catch (error) {
-            console.error('Account parser error:', error);
-            // Fallback: use fetched account info or minimal structure
-            return accountInfo || {
+            console.error('Account parser error for non-EthAccount:', error);
+            // Return minimal structure as fallback
+            return {
               address: senderAddress,
               pubkey: null,
               accountNumber: 0,
@@ -601,12 +647,100 @@ export default function IBCTransferInterface({
         transferAmount = Math.floor(amountFloat * Math.pow(10, tokenExponent)).toString();
       }
 
-      const result = await client.sendIbcTokens(
-        senderAddress,
-        receiverAddress,
-        {
-          denom: actualSourceDenom,
-          amount: transferAmount,
+      // Declare result variables at proper scope
+      let evmTransferResult: any = null;
+      let result: any = null;
+
+      // For EVM chains (Epix), use EVM signing method
+      if (isEvmChain) {
+        console.log('🔧 Using EVM signing for IBC transfer');
+        
+        const { signTransactionForEvm, broadcastTransaction } = await import('@/lib/evmSigning');
+        
+        const restEndpoint = typeof actualSourceRpc === 'string'
+          ? actualSourceRpc.replace(/:\d+$/, '').replace('rpc', 'api')
+          : actualSourceRpc.address.replace(/:\d+$/, '').replace('rpc', 'api');
+        
+        // Try to get from configured API endpoints
+        const apiEndpoints = sourceChain.api || [];
+        const finalRestEndpoint = apiEndpoints.length > 0 
+          ? (typeof apiEndpoints[0] === 'string' ? apiEndpoints[0] : apiEndpoints[0].address)
+          : restEndpoint;
+        
+        console.log('📡 Using REST endpoint:', finalRestEndpoint);
+        
+        // Build IBC transfer message
+        const ibcMsg = {
+          typeUrl: '/ibc.applications.transfer.v1.MsgTransfer',
+          value: {
+            sourcePort: 'transfer',
+            sourceChannel: channelData.channel,
+            token: {
+              denom: actualSourceDenom,
+              amount: transferAmount,
+            },
+            sender: senderAddress,
+            receiver: receiverAddress,
+            timeoutHeight: {
+              revisionNumber: '0',
+              revisionHeight: '0',
+            },
+            timeoutTimestamp: (Math.floor(Date.now() / 1000) * 1e9 + 600 * 1e9).toString(),
+            memo: 'WinScan IBC Transfer',
+            encoding: '', // For Epix
+            use_aliasing: false, // For Epix
+          },
+        };
+        
+        const fee = {
+          amount: [{ denom: actualSourceDenom, amount: feeAmount }],
+          gas: '500000',
+        };
+        
+        console.log('📝 Signing with EVM method...');
+        
+        // Sign transaction with EVM support
+        const signedTx = await signTransactionForEvm(
+          offlineSigner,
+          actualSourceChainId,
+          finalRestEndpoint,
+          senderAddress,
+          [ibcMsg],
+          fee,
+          'WinScan IBC Transfer',
+          60, // coin_type for EVM chains
+          false // Disable auto-simulation
+        );
+        
+        console.log('📡 Broadcasting transaction...');
+        
+        // Broadcast transaction
+        const result = await broadcastTransaction(finalRestEndpoint, signedTx, actualSourceChainId);
+        
+        console.log('✅ Broadcast result:', result);
+        
+        if (result.code !== 0) {
+          throw new Error(result.raw_log || 'Transaction failed');
+        }
+        
+        const txHash = result.txhash;
+        
+        // Store EVM transfer result for later use
+        evmTransferResult = {
+          code: 0,
+          transactionHash: txHash,
+          rawLog: ''
+        };
+      }
+      
+      // Standard Cosmos SDK signing for non-EVM chains
+      if (!isEvmChain) {
+        result = await client.sendIbcTokens(
+          senderAddress,
+          receiverAddress,
+          {
+            denom: actualSourceDenom,
+            amount: transferAmount,
         },
         'transfer',
         channelData.channel,
@@ -621,10 +755,22 @@ export default function IBCTransferInterface({
 
       if (result.code !== 0) {
         throw new Error(result.rawLog || 'Transaction failed');
-      }
+      }
+      }
+      
+      // Use the appropriate result object based on chain type
+      const finalResult = isEvmChain ? evmTransferResult : result;
+
       if (enableAutoSwap && !isReversed && isDestinationOsmosis) {
         setCurrentStep(1); // Step 1: Transfer complete, waiting for arrival
         setTxMessage(`Transfer successful! Waiting for tokens to arrive on Osmosis...`);
+        
+        // Update modal progress
+        setProgressTodos([
+          { id: '1', label: 'IBC Transfer', description: 'Transferring to Osmosis', status: 'completed' },
+          { id: '2', label: 'Waiting for Arrival', description: 'Tokens arriving on Osmosis', status: 'in_progress' },
+          { id: '3', label: `Auto-Swap to ${swapToToken}`, description: 'Swapping on Osmosis', status: 'pending' },
+        ]);
         
         // Smart polling: Check balance every 5 seconds instead of waiting fixed time
         const maxWaitTime = 120000; // Max 2 minutes
@@ -724,6 +870,13 @@ export default function IBCTransferInterface({
           setCurrentStep(2); // Step 2: Tokens arrived, executing swap
           setTxMessage(`Tokens arrived! Executing swap to ${swapToToken}...`);
           
+          // Update modal progress
+          setProgressTodos([
+            { id: '1', label: 'IBC Transfer', description: 'Transferring to Osmosis', status: 'completed' },
+            { id: '2', label: 'Waiting for Arrival', description: 'Tokens arrived on Osmosis', status: 'completed' },
+            { id: '3', label: `Auto-Swap to ${swapToToken}`, description: 'Swapping on Osmosis', status: 'in_progress' },
+          ]);
+          
           // Get target token denom
           const targetToken = availableSwapTokens.find(t => t.symbol === swapToToken);
           if (!targetToken) {
@@ -802,10 +955,17 @@ export default function IBCTransferInterface({
           
           setCurrentStep(3); // Step 3: Complete
           
+          // Update modal progress - all complete
+          setProgressTodos([
+            { id: '1', label: 'IBC Transfer', description: 'Transferring to Osmosis', status: 'completed' },
+            { id: '2', label: 'Waiting for Arrival', description: 'Tokens arrived on Osmosis', status: 'completed' },
+            { id: '3', label: `Auto-Swap to ${swapToToken}`, description: 'Swap completed successfully', status: 'completed' },
+          ]);
+          
           // Show success popup
           setTxResult({
             success: true,
-            transferTxHash: result.transactionHash,
+            transferTxHash: finalResult.transactionHash,
             swapTxHash: swapTxHash,
             message: `Transfer and swap completed successfully!`
           });
@@ -834,7 +994,7 @@ export default function IBCTransferInterface({
           
           setTxResult({
             success: false,
-            transferTxHash: result.transactionHash,
+            transferTxHash: finalResult.transactionHash,
             message: `Transfer successful but auto-swap failed: ${swapError.message}. Please swap manually on Osmosis.`
           });
           
@@ -857,9 +1017,17 @@ export default function IBCTransferInterface({
         }
       } else {
         // No auto-swap, just show transfer success
+        
+        // Update modal progress - all complete
+        setProgressTodos([
+          { id: '1', label: 'Broadcasting Transaction', description: `Sent IBC transfer to ${selectedDestChain}`, status: 'completed' },
+          { id: '2', label: 'Waiting for Confirmation', description: 'Transaction confirmed', status: 'completed' },
+          { id: '3', label: 'Transfer Complete', description: 'Tokens will arrive on destination chain', status: 'completed' },
+        ]);
+        
         setTxResult({
           success: true,
-          transferTxHash: result.transactionHash,
+          transferTxHash: finalResult.transactionHash,
           message: 'Transfer completed successfully!'
         });
         
@@ -931,92 +1099,123 @@ export default function IBCTransferInterface({
   const selectedChainInfo = connectedChains.find(c => c.chainId === selectedDestChain);
 
   return (
-    <div className="w-full max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto bg-[#1a1a1a] border border-gray-800 rounded-xl shadow-lg p-4 md:p-6">
-      <div className="text-center mb-4 md:mb-6">
-        <div className="flex justify-center mb-3 md:mb-4">
-          <div className="p-2 md:p-3 bg-blue-500/20 border border-blue-500/30 rounded-xl">
-            <ArrowRightLeft className="w-6 h-6 md:w-8 md:h-8 text-blue-400" />
+    <div className="w-full max-w-2xl mx-auto">
+      {/* Header Card */}
+      <div className="bg-gradient-to-br from-blue-500/10 via-purple-500/10 to-pink-500/10 border border-blue-500/20 rounded-2xl p-6 mb-6 backdrop-blur-sm">
+        <div className="flex items-center gap-3">
+          <div className="p-3 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl shadow-lg shadow-blue-500/50">
+            <ArrowRightLeft className="w-6 h-6 text-white" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold text-white">IBC Transfer</h2>
+            <p className="text-gray-400 text-sm">Cross-chain token transfers</p>
           </div>
         </div>
-        <h2 className="text-xl md:text-2xl font-bold text-white mb-1 md:mb-2">
-          IBC Transfer
-        </h2>
-        <p className="text-gray-400 text-xs md:text-sm">
-          Transfer tokens between Cosmos chains
-        </p>
       </div>
 
-      {walletConnected ? (
-        <>
-          {/* Wallet Info */}
-          <div className="bg-[#111111] border border-gray-800 rounded-lg p-3 md:p-4 mb-3 md:mb-4">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <CheckCircle className="w-3 h-3 md:w-4 md:h-4 text-green-500" />
-                <span className="text-gray-400 text-xs md:text-sm">Connected</span>
+      {/* Main Transfer Card */}
+      <div className="bg-[#1a1a1a] border border-gray-800 rounded-2xl shadow-2xl overflow-hidden">
+        {walletConnected ? (
+          <div className="p-6">
+            {/* Wallet Info Banner */}
+            <div className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/20 rounded-xl p-4 mb-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-green-500/20 rounded-lg">
+                    <CheckCircle className="w-5 h-5 text-green-400" />
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-400">Connected Wallet</div>
+                    <div className="text-white font-mono text-sm">
+                      {walletAddress.slice(0, 12)}...{walletAddress.slice(-8)}
+                    </div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-xs text-gray-400">Balance</div>
+                  <div className="text-white font-bold text-lg">
+                    {parseFloat(balance).toFixed(4)} {isReversed && isSourceOsmosis 
+                      ? selectedSourceToken
+                      : (sourceChain.assets[0]?.symbol || 'TOKEN')}
+                  </div>
+                </div>
               </div>
-              <span className="text-white text-xs md:text-sm font-mono">
-                {walletAddress.slice(0, 8)}...{walletAddress.slice(-6)}
-              </span>
             </div>
-            <div className="flex items-center justify-between pt-2 border-t border-gray-800">
-              <span className="text-gray-500 text-xs md:text-sm">Balance</span>
-              <span className="text-white text-sm md:text-base font-medium">
-                {balance} {isReversed && isSourceOsmosis 
-                  ? selectedSourceToken
-                  : (sourceChain.assets[0]?.symbol || 'TOKEN')}
-              </span>
-            </div>
-          </div>
 
-          {/* From Chain */}
-          <div className="bg-[#111111] border border-gray-800 rounded-lg p-3 md:p-4 mb-2">
-            <label className="text-gray-400 text-xs md:text-sm mb-2 block">From</label>
-            {!isReversed ? (
-              <div className="flex items-center gap-2 md:gap-3">
-                <img 
-                  src={sourceChain.logo} 
-                  alt={sourceChain.chain_name}
-                  className="w-6 h-6 md:w-8 md:h-8 rounded-full"
-                />
-                <div className="text-white font-medium">{sourceChain.chain_name}</div>
-              </div>
-            ) : selectedChainInfo ? (
-              <div className="flex items-center gap-3">
-                {selectedChainInfo.logo ? (
-                  <img 
-                    src={selectedChainInfo.logo} 
-                    alt={selectedChainInfo.chainName}
-                    className="w-8 h-8 rounded-full"
-                  />
-                ) : (
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500" />
+            {/* From Chain Card */}
+            <div className="bg-[#111111] border border-gray-700 rounded-xl p-5 mb-3 hover:border-blue-500/50 transition-all">
+              <div className="flex items-center justify-between mb-3">
+                <label className="text-gray-400 text-sm font-medium">From</label>
+                {!isReversed && (
+                  <div className="text-xs text-gray-500 bg-gray-800 px-2 py-1 rounded">
+                    Source Chain
+                  </div>
                 )}
-                <div className="text-white font-medium">{selectedChainInfo.chainName}</div>
               </div>
-            ) : (
-              <div className="text-gray-500">Select destination first</div>
-            )}
-          </div>
+              {!isReversed ? (
+                <div className="flex items-center gap-3">
+                  <div className="relative">
+                    <img 
+                      src={sourceChain.logo} 
+                      alt={sourceChain.chain_name}
+                      className="w-12 h-12 rounded-full ring-2 ring-blue-500/30"
+                    />
+                    <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-[#111111]"></div>
+                  </div>
+                  <div>
+                    <div className="text-white font-bold text-lg">{sourceChain.pretty_name || sourceChain.chain_name}</div>
+                    <div className="text-gray-500 text-xs">{sourceChain.chain_id}</div>
+                  </div>
+                </div>
+              ) : selectedChainInfo ? (
+                <div className="flex items-center gap-3">
+                  <div className="relative">
+                    {selectedChainInfo.logo ? (
+                      <img 
+                        src={selectedChainInfo.logo} 
+                        alt={selectedChainInfo.chainName}
+                        className="w-12 h-12 rounded-full ring-2 ring-purple-500/30"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 ring-2 ring-purple-500/30" />
+                    )}
+                    <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-[#111111]"></div>
+                  </div>
+                  <div>
+                    <div className="text-white font-bold text-lg">{selectedChainInfo.chainName}</div>
+                    <div className="text-gray-500 text-xs">{selectedChainInfo.chainId}</div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-gray-500 text-center py-4">Select destination first</div>
+              )}
+            </div>
 
-          {/* Swap Direction Button */}
-          <div className="flex justify-center -my-1 relative z-10 mb-2">
-            <button
-              onClick={handleSwapDirection}
-              disabled={!selectedDestChain}
-              className="p-2 bg-[#1a1a1a] border-2 border-gray-800 rounded-full hover:border-blue-500 hover:bg-gray-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Swap direction"
-            >
-              <ArrowDown className={`w-4 h-4 text-gray-400 transition-transform ${isReversed ? 'rotate-180' : ''}`} />
-            </button>
-          </div>
+            {/* Swap Direction Button */}
+            <div className="flex justify-center -my-2 relative z-10">
+              <button
+                onClick={handleSwapDirection}
+                disabled={!selectedDestChain}
+                className="p-3 bg-gradient-to-br from-blue-500 to-purple-600 border-4 border-[#1a1a1a] rounded-full hover:scale-110 hover:shadow-lg hover:shadow-blue-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 group"
+                title="Swap direction"
+              >
+                <ArrowDown className={`w-5 h-5 text-white transition-transform duration-300 ${isReversed ? 'rotate-180' : ''} group-hover:scale-110`} />
+              </button>
+            </div>
 
-          {/* To Chain */}
-          <div className="bg-[#111111] border border-gray-800 rounded-lg p-4 mb-4">
-            <label className="text-gray-400 text-sm mb-2 block">To</label>
-            {!isReversed ? (
-              <select
-                value={selectedDestChain}
+            {/* To Chain Card */}
+            <div className="bg-[#111111] border border-gray-700 rounded-xl p-5 mb-6 hover:border-purple-500/50 transition-all">
+              <div className="flex items-center justify-between mb-3">
+                <label className="text-gray-400 text-sm font-medium">To</label>
+                {!isReversed && (
+                  <div className="text-xs text-gray-500 bg-gray-800 px-2 py-1 rounded">
+                    Destination Chain
+                  </div>
+                )}
+              </div>
+              {!isReversed ? (
+                <select
+                  value={selectedDestChain}
                 onChange={(e) => setSelectedDestChain(e.target.value)}
                 className="w-full bg-[#0a0a0a] border border-gray-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-blue-500"
               >
@@ -1295,129 +1494,7 @@ export default function IBCTransferInterface({
             />
           </div>
 
-          {/* Progress Indicator for Pre-Swap + Transfer */}
-          {isProcessing && enablePreSwap && isReversed && currentStep > 0 && (
-            <div className="bg-[#111111] border border-gray-800 rounded-lg p-4 mb-4">
-              <div className="space-y-3">
-                {/* Step 1: Pre-Swap */}
-                <div className="flex items-center gap-3">
-                  {currentStep >= 2 ? (
-                    <CheckCircle className="w-5 h-5 text-green-500" />
-                  ) : currentStep === 1 ? (
-                    <Loader2 className="w-5 h-5 text-blue-500 animate-spin" />
-                  ) : (
-                    <div className="w-5 h-5 rounded-full border-2 border-gray-600" />
-                  )}
-                  <div>
-                    <div className="text-white font-medium">
-                      Step 1: Swapping on Osmosis
-                    </div>
-                    <div className="text-gray-400 text-sm">
-                      {selectedSourceToken} → {preSwapToToken}
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Step 2: IBC Transfer */}
-                <div className="flex items-center gap-3">
-                  {currentStep >= 3 ? (
-                    <CheckCircle className="w-5 h-5 text-green-500" />
-                  ) : currentStep === 2 ? (
-                    <Loader2 className="w-5 h-5 text-blue-500 animate-spin" />
-                  ) : (
-                    <div className="w-5 h-5 rounded-full border-2 border-gray-600" />
-                  )}
-                  <div>
-                    <div className="text-white font-medium">
-                      Step 2: IBC Transfer to Lumera
-                    </div>
-                    <div className="text-gray-400 text-sm">
-                      Estimated time: 1-3 minutes
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Step 3: Complete */}
-                <div className="flex items-center gap-3">
-                  {currentStep >= 3 ? (
-                    <CheckCircle className="w-5 h-5 text-green-500" />
-                  ) : (
-                    <div className="w-5 h-5 rounded-full border-2 border-gray-600" />
-                  )}
-                  <div>
-                    <div className="text-white font-medium">
-                      Complete
-                    </div>
-                    <div className="text-gray-400 text-sm">
-                      {preSwapToToken} will arrive on Lumera
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Progress Indicator for Auto-Swap (Normal Mode) */}
-          {isProcessing && enableAutoSwap && !isReversed && swapProgress.step !== 'idle' && (
-            <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-4 mb-4">
-              <div className="space-y-3">
-                {/* Step 1: IBC Transfer */}
-                <div className="flex items-center gap-3">
-                  {swapProgress.step !== 'transferring' ? (
-                    <CheckCircle className="w-5 h-5 text-green-500" />
-                  ) : (
-                    <Loader2 className="w-5 h-5 text-purple-400 animate-spin" />
-                  )}
-                  <div>
-                    <div className="text-white font-medium">
-                      Step 1: IBC Transfer
-                    </div>
-                    <div className="text-gray-400 text-sm">
-                      Transferring to Osmosis
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Step 2: Waiting for Arrival */}
-                {(swapProgress.step === 'waiting' || swapProgress.step === 'swapping' || swapProgress.step === 'complete') && (
-                  <div className="flex items-center gap-3">
-                    {swapProgress.step !== 'waiting' ? (
-                      <CheckCircle className="w-5 h-5 text-green-500" />
-                    ) : (
-                      <Loader2 className="w-5 h-5 text-purple-400 animate-spin" />
-                    )}
-                    <div>
-                      <div className="text-white font-medium">
-                        Step 2: Waiting for Arrival
-                      </div>
-                      <div className="text-gray-400 text-sm">
-                        {swapProgress.message}
-                      </div>
-                    </div>
-                  </div>
-                )}
-                
-                {/* Step 3: Auto-Swap */}
-                {(swapProgress.step === 'swapping' || swapProgress.step === 'complete') && (
-                  <div className="flex items-center gap-3">
-                    {swapProgress.step === 'complete' ? (
-                      <CheckCircle className="w-5 h-5 text-green-500" />
-                    ) : (
-                      <Loader2 className="w-5 h-5 text-purple-400 animate-spin" />
-                    )}
-                    <div>
-                      <div className="text-white font-medium">
-                        Step 3: Auto-Swap to {swapToToken}
-                      </div>
-                      <div className="text-gray-400 text-sm">
-                        Swapping on Osmosis
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+          {/* Progress Indicator - Removed, using modal instead */}
 
           {/* Transfer Button */}
           <button
@@ -1483,19 +1560,24 @@ export default function IBCTransferInterface({
               box-shadow: 0 2px 4px rgba(0,0,0,0.2);
             }
           `}</style>
-        </>
-      ) : (
-        <div className="text-center py-6 md:py-8">
-          <Wallet className="w-10 h-10 md:w-12 md:h-12 text-gray-600 mx-auto mb-3 md:mb-4" />
-          <p className="text-gray-400 mb-3 md:mb-4 text-sm md:text-base">Connect your Keplr wallet to continue</p>
-          <button
-            onClick={connectWallet}
-            className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 md:py-3 px-4 md:px-6 rounded-lg transition-colors text-sm md:text-base"
-          >
-            Connect Wallet
-          </button>
-        </div>
-      )}
+          </div>
+        ) : (
+          <div className="p-6">
+            <div className="text-center py-12">
+              <div className="p-4 bg-gray-800/50 rounded-full w-20 h-20 mx-auto mb-4 flex items-center justify-center">
+                <Wallet className="w-10 h-10 text-gray-400" />
+              </div>
+              <p className="text-gray-400 mb-6 text-lg">Connect your wallet to start transferring</p>
+              <button
+                onClick={connectWallet}
+                className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-bold py-3 px-8 rounded-xl transition-all transform hover:scale-105 shadow-lg shadow-blue-500/50"
+              >
+                Connect Wallet
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
       
       {/* Success/Error Popup Modal */}
       {txResult && (
@@ -1627,6 +1709,16 @@ export default function IBCTransferInterface({
           </div>
         </div>
       )}
+      
+      {/* Progress Modal */}
+      <ProgressModal
+        isOpen={showProgressModal}
+        onClose={() => setShowProgressModal(false)}
+        title={progressTitle}
+        description={progressDescription}
+        todos={progressTodos}
+        allowClose={!isProcessing}
+      />
     </div>
   );
 }

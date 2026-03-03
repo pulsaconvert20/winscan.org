@@ -26,7 +26,9 @@
   "codebase": {
     "git_repo": "https://github.com/sunriselayer/sunrise",
     "recommended_version": "v1.0.0",
-    "compatible_versions": ["v1.0.0"],
+    "compatible_versions": [
+      "v1.0.0"
+    ],
     "cosmos_sdk_version": "0.53.2",
     "tendermint_version": "0.38.0"
   },
@@ -78,5 +80,6 @@
   "theme_color": "#812cd6",
   "logo": "https://pbs.twimg.com/profile_images/1950927820290715648/1HjqE_hD_400x400.jpg",
   "explorers": [],
-  "updated": "2025-11-17"
+  "updated": "2025-11-17",
+  "github": "https://github.com/sunriselayer/sunrise"
 }

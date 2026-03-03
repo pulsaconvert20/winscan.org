@@ -1,6 +1,6 @@
 # Homepage & Branding Configuration Guide
 
-This guide explains how to configure the homepage, loading screen, and customize branding (logo, favicon) for verizNode_lab Explorer.
+This guide explains how to configure the homepage, loading screen, and customize branding (logo, favicon) for Winscan_lab Explorer.
 
 ---
 
@@ -110,7 +110,7 @@ Change loading screen text:
 {/* Loading text with gradient */}
 <div className="text-center space-y-3">
   <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-purple-400 to-blue-400 animate-gradient">
-    verizNode_lab Explorer  {/* Change this */}
+    Winscan_lab Explorer  {/* Change this */}
   </h2>
   <p className="text-gray-400 text-sm font-medium">
     Multi-Chain Blockchain Explorer  {/* Change this */}
@@ -167,7 +167,7 @@ To completely disable the loading screen:
 
 ### Logo Files
 
-verizNode_lab uses SVG format for logo and favicon for best quality and scalability.
+Winscan_lab uses SVG format for logo and favicon for best quality and scalability.
 
 #### File Locations
 
@@ -215,8 +215,8 @@ Edit `app/layout.tsx`:
 
 ```typescript
 export const metadata: Metadata = {
-  title: "verizNode_lab",
-  description: "Multi-chain blockchain explorer powered by verizNode_lab",
+  title: "Winscan_lab",
+  description: "Multi-chain blockchain explorer powered by Winscan_lab",
   icons: {
     icon: '/logo.png',      // Change to .png if needed
     apple: '/logo.png',     // Change to .png if needed
@@ -230,12 +230,12 @@ Your logo appears in these locations:
 
 1. **Loading Screen** (`components/LoadingScreen.tsx`)
    ```tsx
-   <Image src="/logo.svg" alt="verizNode_lab Logo" width={96} height={96} />
+   <Image src="/logo.svg" alt="Winscan_lab Logo" width={96} height={96} />
    ```
 
 2. **Homepage Header** (`app/page.tsx`)
    ```tsx
-   <Image src="/logo.svg" alt="verizNode_lab" width={40} height={40} />
+   <Image src="/logo.svg" alt="Winscan_lab" width={40} height={40} />
    ```
 
 3. **Browser Tab** (favicon)
@@ -290,7 +290,7 @@ NEXT_PUBLIC_DEFAULT_CHAIN=paxi-mainnet # Default chain when homepage disabled
 # Domain Whitelist (comma-separated)
 # Only these domains can access the explorer
 # Leave empty to allow all domains
-NEXT_PUBLIC_ALLOWED_DOMAINS=veriznode.lab,localhost
+NEXT_PUBLIC_ALLOWED_DOMAINS=Winscan.lab,localhost
 
 # Polling Intervals (milliseconds)
 NEXT_PUBLIC_POLL_VALIDATOR_DETAIL=30000

@@ -1,0 +1,247 @@
+# Lava Network Binary Update Guide
+
+This guide will help you update your Lava Network node to the latest version.
+
+## Prerequisites
+
+- Existing Lava Network node installation
+- Root or sudo access
+- Basic knowledge of Linux commands
+
+## Update Steps
+
+### 1. Check Current Version
+
+```bash
+lavad version
+```
+
+### 2. Stop the Service
+
+```bash
+sudo systemctl stop lavad
+```
+
+### 3. Backup Important Files
+
+⚠️ **Important**: Always backup your validator key and node configuration before updating!
+
+```bash
+# Backup validator key
+cp $HOME/.lava/config/priv_validator_key.json $HOME/priv_validator_key.json.backup
+
+# Backup node key
+cp $HOME/.lava/config/node_key.json $HOME/node_key.json.backup
+```
+
+### 4. Download and Install New Binary
+
+#### Option A: Download Pre-built Binary (Recommended)
+
+```bash
+cd $HOME
+wget -O lavad.tar.gz "$(curl -s https://api.github.com/repos/lavanet/lava/releases/latest | jq -r '.assets[] | select(.name | contains("linux") and (contains("amd64") or contains("x86_64"))) | .browser_download_url' | head -1)"
+tar -xzf lavad.tar.gz
+rm -f install.sh lavad.tar.gz
+chmod +x lavad
+sudo mv lavad /usr/local/bin/
+[ -f "libwasmvm.x86_64.so" ] && sudo mv libwasmvm.x86_64.so /usr/lib/
+[ -f "libwasmvm.so" ] && sudo mv libwasmvm.so /usr/lib/
+```
+
+#### Option B: Build from Source
+
+```bash
+# Clone repository
+cd $HOME
+git clone https://github.com/lavanet/lava
+cd $(basename https://github.com/lavanet/lava .git)
+
+# Checkout recommended version
+git checkout v3.0.0
+
+# Build binary
+make install
+
+# Verify installation
+$(basename https://github.com/lavanet/lava .git)d version
+```
+
+### 5. Verify New Version
+
+```bash
+lavad version
+```
+
+The output should show the new version number.
+
+### 6. Start the Service
+
+```bash
+sudo systemctl start lavad
+```
+
+### 7. Check Logs
+
+```bash
+sudo journalctl -u lavad -f -o cat
+```
+
+### 8. Verify Node is Running
+
+```bash
+lavad status 2>&1 | jq .SyncInfo
+```
+
+## Rollback (If Needed)
+
+If you encounter issues with the new version, you can rollback to the previous version:
+
+### 1. Stop the Service
+
+```bash
+sudo systemctl stop lavad
+```
+
+### 2. Restore Previous Binary
+
+If you kept a backup of the old binary:
+
+```bash
+sudo cp /usr/local/bin/lavad.backup /usr/local/bin/lavad
+```
+
+Or reinstall the previous version:
+
+```bash
+cd $HOME/lava
+git checkout v1.0.0
+make install
+```
+
+### 3. Start the Service
+
+```bash
+sudo systemctl start lavad
+```
+
+## Upgrade with Cosmovisor (Automated)
+
+If you're using Cosmovisor for automated upgrades:
+
+### 1. Create Upgrade Directory
+
+```bash
+mkdir -p $HOME/.lava/cosmovisor/upgrades/upgrade-3.0.0/bin
+```
+
+### 2. Download New Binary
+
+```bash
+cd $HOME
+wget -O lavad.tar.gz "$(curl -s https://api.github.com/repos/lavanet/lava/releases/latest | jq -r '.assets[] | select(.name | contains("linux") and (contains("amd64") or contains("x86_64"))) | .browser_download_url' | head -1)"
+tar -xzf lavad.tar.gz
+chmod +x lavad
+mv lavad $HOME/.lava/cosmovisor/upgrades/upgrade-3.0.0/bin/
+```
+
+### 3. Verify Binary
+
+```bash
+$HOME/.lava/cosmovisor/upgrades/upgrade-3.0.0/bin/lavad version
+```
+
+Cosmovisor will automatically switch to the new binary at the specified upgrade height.
+
+## Common Issues
+
+### Issue: Binary not found after update
+
+**Solution**: Make sure the binary is in your PATH:
+
+```bash
+which lavad
+```
+
+If not found, check if it's in `/usr/local/bin/` or `$HOME/go/bin/`
+
+### Issue: Version mismatch
+
+**Solution**: Clear the old binary and reinstall:
+
+```bash
+sudo rm $(which lavad)
+# Then reinstall using one of the methods above
+```
+
+### Issue: Node won't start after update
+
+**Solution**: Check the logs for errors:
+
+```bash
+sudo journalctl -u lavad -n 100 --no-pager
+```
+
+Common fixes:
+- Reset the node data (if not a validator): `lavad tendermint unsafe-reset-all --home $HOME/.lava`
+- Check if the genesis file is correct
+- Verify peer connections
+
+### Issue: Sync issues after update
+
+**Solution**: Try state sync or snapshot:
+
+```bash
+# Stop service
+sudo systemctl stop lavad
+
+# Reset data
+lavad tendermint unsafe-reset-all --home $HOME/.lava --keep-addr-book
+
+# Use state sync (see State Sync guide)
+# Or download snapshot (see Snapshot guide)
+
+# Start service
+sudo systemctl start lavad
+```
+
+## Important Notes
+
+- ⚠️ **Always backup your validator key** before any update
+- 📢 Check official announcements for breaking changes
+- 🔄 Test updates on testnet first if possible
+- ⏰ Plan updates during low-traffic periods
+- 👥 Coordinate with other validators for network upgrades
+
+## Useful Commands
+
+### Check if binary is running
+```bash
+ps aux | grep lavad
+```
+
+### Check binary location
+```bash
+which lavad
+```
+
+### Check binary version
+```bash
+lavad version --long
+```
+
+### Check service status
+```bash
+sudo systemctl status lavad
+```
+
+## Support
+
+For support and questions, please visit:
+- [WinScan Explorer](https://winsnip.xyz)
+- [WinScan Telegram](https://t.me/winsnip)
+- [Official Lava Network Documentation](https://github.com/lavanet/lava)
+
+---
+
+*Generated by WinScan - Multi-chain Blockchain Explorer*

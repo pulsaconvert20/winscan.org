@@ -178,7 +178,7 @@ const ValidatorRow = memo(({
             </div>
             <div className="flex items-center gap-2 text-xs text-gray-500">
               <div className="font-mono truncate max-w-[200px]">
-                {validator.address?.slice(0, 8)}...
+                {validator.address?.slice(0, 12)}...{validator.address?.slice(-8)}
               </div>
               <button
                 onClick={(e) => {
@@ -392,29 +392,23 @@ const ValidatorRow = memo(({
         )}
       </td>
       <td className="hidden xl:table-cell px-6 py-4">
+        <div className={`font-medium ${
+          (validator.uptime || 100) >= 99 ? 'text-green-400' :
+          (validator.uptime || 100) >= 95 ? 'text-yellow-400' :
+          'text-red-400'
+        }`}>
+          {(validator.uptime || 100).toFixed(2)}%
+        </div>
+      </td>
+      <td className="hidden xl:table-cell px-6 py-4">
         {validator.jailed ? (
-          <div className="flex flex-col gap-1">
-            <span className="px-2 py-1 text-xs font-bold bg-red-500/20 text-red-400 border border-red-500/30 rounded">JAILED</span>
-            <span className="text-xs text-gray-500">Inactive</span>
-          </div>
+          <span className="px-2 py-1 text-xs font-bold bg-red-500/20 text-red-400 border border-red-500/30 rounded">JAILED</span>
         ) : validator.status === 'BOND_STATUS_UNBONDING' ? (
-          <div className="flex flex-col gap-1">
-            <span className="px-2 py-1 text-xs font-bold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 rounded">UNBONDING</span>
-            <span className="text-xs text-gray-500">In Progress</span>
-          </div>
+          <span className="px-2 py-1 text-xs font-bold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 rounded">UNBONDING</span>
         ) : validator.status === 'BOND_STATUS_UNBONDED' ? (
-          <div className="flex flex-col gap-1">
-            <span className="px-2 py-1 text-xs font-bold bg-gray-500/20 text-gray-400 border border-gray-500/30 rounded">UNBONDED</span>
-            <span className="text-xs text-gray-500">Inactive</span>
-          </div>
+          <span className="px-2 py-1 text-xs font-bold bg-gray-500/20 text-gray-400 border border-gray-500/30 rounded">UNBONDED</span>
         ) : (
-          <div className={`font-medium ${
-            (validator.uptime || 100) >= 99 ? 'text-green-400' :
-            (validator.uptime || 100) >= 95 ? 'text-yellow-400' :
-            'text-red-400'
-          }`}>
-            {(validator.uptime || 100).toFixed(2)}%
-          </div>
+          <span className="px-2 py-1 text-xs font-bold bg-green-500/20 text-green-400 border border-green-500/30 rounded">ACTIVE</span>
         )}
       </td>
       <td className="hidden xl:table-cell px-6 py-4 text-center">
@@ -1247,6 +1241,9 @@ export default function ValidatorsTable({ validators, chainName, asset, chain }:
                   </svg>
                 </div>
               </th>
+              <th className="hidden xl:table-cell px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase">
+                Status
+              </th>
               <th className="hidden xl:table-cell px-6 py-3 text-center text-xs font-semibold text-gray-400 uppercase">
                 Blocks Signed
               </th>
@@ -1335,12 +1332,12 @@ export default function ValidatorsTable({ validators, chainName, asset, chain }:
               </div>
             </div>
 
-            <div className="flex gap-2 mb-6 bg-[#111111] p-1 rounded-lg overflow-x-auto">
+            <div className="flex gap-1 sm:gap-2 mb-6 bg-[#111111] p-1 rounded-lg">
               {(['delegate', 'undelegate', 'redelegate', 'withdraw'] as const).map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setStakeTab(tab as any)}
-                  className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all capitalize whitespace-nowrap ${
+                  className={`flex-1 px-2 sm:px-4 py-2 rounded-lg text-[10px] sm:text-sm font-medium transition-all capitalize ${
                     stakeTab === tab 
                       ? 'bg-white text-black'
                       : 'text-gray-400 hover:text-white'

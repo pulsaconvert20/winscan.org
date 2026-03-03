@@ -4,6 +4,7 @@
  */
 
 import { ChainData } from '@/types/chain';
+import { isPaxiHubInstalled, signAndBroadcastPaxiHub, getCurrentWalletType } from './paxihub';
 
 interface MarketingInfo {
   project?: string;
@@ -151,8 +152,8 @@ export async function burnPRC20Tokens(
 
     // Execute burn with sufficient gas
     const fee = {
-      amount: [{ denom: 'upaxi', amount: '7500' }],
-      gas: '300000' // Increased from 200k (actual usage ~219k)
+      amount: [{ denom: 'upaxi', amount: '30000' }],
+      gas: '600000' // Increased to 2x (from 300k)
     };
 
     const result = await client.execute(
@@ -243,7 +244,7 @@ export async function mintPRC20Tokens(
 
     // Execute mint with sufficient gas
     const fee = {
-      amount: [{ denom: 'upaxi', amount: '7500' }],
+      amount: [{ denom: 'upaxi', amount: '30000' }],
       gas: '300000' // Increased for safety
     };
 
@@ -327,7 +328,7 @@ export async function updateMarketingInfo(
     });
 
     const fee = {
-      amount: [{ denom: 'upaxi', amount: '7500' }],
+      amount: [{ denom: 'upaxi', amount: '30000' }],
       gas: '300000' // Increased for safety
     };
 
@@ -365,6 +366,128 @@ export async function transferPRC20Tokens(
   memo: string = 'Transfer tokens'
 ): Promise<{ success: boolean; txHash?: string; error?: string }> {
   try {
+    console.log('🔍 [transferPRC20] ==================== START ====================');
+    console.log('🔍 [transferPRC20] Chain:', chain);
+    console.log('🔍 [transferPRC20] typeof window:', typeof window);
+    console.log('🔍 [transferPRC20] typeof window.paxihub:', typeof window !== 'undefined' ? typeof window.paxihub : 'undefined');
+    console.log('🔍 [transferPRC20] window.paxihub exists:', typeof window !== 'undefined' && typeof window.paxihub !== 'undefined');
+    
+    // Import PaxiHub utilities
+    const { isPaxiChain, ensurePaxiHubForPaxiChain } = await import('./paxihub');
+    
+    // CRITICAL: For Paxi chain, ONLY use PaxiHub (no Keplr fallback)
+    if (isPaxiChain(chain)) {
+      console.log('🔍 [transferPRC20] Paxi chain detected - enforcing PaxiHub usage');
+      ensurePaxiHubForPaxiChain(chain); // This will throw if PaxiHub not available
+    }
+    
+    // FIRST: Direct check for window.paxihub (most reliable for PaxiHub browser)
+    if (typeof window !== 'undefined' && window.paxihub) {
+      console.log('✅ [transferPRC20] window.paxihub exists - using PaxiHub for PRC20 transfer');
+      
+      const chainData: ChainData = {
+        chain_name: chain,
+        chain_id: chain,
+        api: [],
+        rpc: [],
+        sdk_version: '',
+        coin_type: '118',
+        min_tx_fee: '0',
+        assets: [{ base: 'upaxi', symbol: 'PAXI', exponent: 6, logo: '' }],
+        addr_prefix: 'paxi',
+        theme_color: '',
+        logo: '',
+      };
+      
+      const hub = window.paxihub;
+      const paxi = hub.paxi || hub;
+      const signerAddress = await paxi.getAddress(chain);
+      
+      const executeMsg = {
+        typeUrl: '/cosmwasm.wasm.v1.MsgExecuteContract',
+        value: {
+          sender: signerAddress,
+          contract: contractAddress,
+          msg: Buffer.from(JSON.stringify({
+            transfer: {
+              recipient: recipient,
+              amount: amount
+            }
+          })).toString('base64'),
+          funds: [],
+        },
+      };
+      
+      const fee = {
+        amount: [{ denom: 'upaxi', amount: '30000' }],
+        gas: '300000'
+      };
+      
+      try {
+        const result = await signAndBroadcastPaxiHub(chainData, [executeMsg], fee, memo);
+        return result.code === 0 ? { success: true, txHash: result.transactionHash } : { success: false, error: result.rawLog || 'Transfer failed' };
+      } catch (err: any) {
+        console.error('❌ PaxiHub PRC20 transfer error:', err);
+        return { success: false, error: err.message || 'PaxiHub transfer failed' };
+      }
+    }
+    
+    // Check if PaxiHub is being used
+    const walletType = getCurrentWalletType();
+    if (walletType === 'paxihub' && isPaxiHubInstalled()) {
+      console.log('Using PaxiHub for PRC20 transfer');
+      
+      // Get chain data (we need to fetch it or pass it as parameter)
+      // For now, create minimal chain data
+      const chainData: ChainData = {
+        chain_name: chain,
+        chain_id: chain,
+        api: [],
+        rpc: [],
+        sdk_version: '',
+        coin_type: '118',
+        min_tx_fee: '0',
+        assets: [{ base: 'upaxi', symbol: 'PAXI', exponent: 6, logo: '' }],
+        addr_prefix: 'paxi',
+        theme_color: '',
+        logo: '',
+      };
+      
+      const hub = window.paxihub;
+      const paxi = hub.paxi || hub;
+      const signerAddress = await paxi.getAddress(chain);
+      
+      // CosmWasm execute message
+      const executeMsg = {
+        typeUrl: '/cosmwasm.wasm.v1.MsgExecuteContract',
+        value: {
+          sender: signerAddress,
+          contract: contractAddress,
+          msg: Buffer.from(JSON.stringify({
+            transfer: {
+              recipient: recipient,
+              amount: amount
+            }
+          })).toString('base64'),
+          funds: [],
+        },
+      };
+      
+      const fee = {
+        amount: [{ denom: 'upaxi', amount: '30000' }],
+        gas: '300000'
+      };
+      
+      const result = await signAndBroadcastPaxiHub(chainData, [executeMsg], fee, memo);
+      
+      if (result.code === 0) {
+        return { success: true, txHash: result.transactionHash };
+      } else {
+        return { success: false, error: result.rawLog || 'Transfer failed' };
+      }
+    }
+    
+    // Original Keplr logic (allow for all chains including Paxi on desktop)
     if (!window.keplr) {
       throw new Error('Keplr wallet not installed');
     }
@@ -404,7 +527,7 @@ export async function transferPRC20Tokens(
 
     // Execute transfer with sufficient gas
     const fee = {
-      amount: [{ denom: 'upaxi', amount: '7500' }],
+      amount: [{ denom: 'upaxi', amount: '30000' }],
       gas: '300000'
     };
 

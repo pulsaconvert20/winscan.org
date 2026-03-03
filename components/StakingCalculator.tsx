@@ -28,24 +28,33 @@ export default function StakingCalculator({ selectedChain }: StakingCalculatorPr
       try {
         const chainPath = selectedChain.chain_name.toLowerCase().replace(/\s+/g, '-');
         
-        // Fetch inflation and network data
-        const [mintResponse, networkResponse] = await Promise.all([
+        // Fetch inflation, params, and network data
+        const [mintResponse, networkResponse, paramsResponse] = await Promise.all([
           fetch(`/api/mint?chain=${chainPath}`),
-          fetch(`/api/network?chain=${chainPath}`)
+          fetch(`/api/network?chain=${chainPath}`),
+          fetch(`/api/parameters?chain=${chainPath}`)
         ]);
         
         if (mintResponse.ok && networkResponse.ok) {
           const mintData = await mintResponse.json();
           const networkData = await networkResponse.json();
+          const paramsData = paramsResponse.ok ? await paramsResponse.json() : null;
+          
+          console.log('[APR Debug] Mint data:', mintData);
+          console.log('[APR Debug] Network data:', networkData);
+          console.log('[APR Debug] Params data:', paramsData);
           
           // Get inflation rate
           let inflationRate = 0;
           if (mintData.inflation && mintData.inflation !== '0') {
             const rawInflation = parseFloat(mintData.inflation);
             
+            console.log('[APR Debug] Raw inflation:', rawInflation);
+            
             // Cosmos SDK inflation format detection:
-            // - Decimal < 1: e.g., 0.1954 = 19.54%
-            // - Percentage >= 1: e.g., 19.54 = 19.54% or 150 = 150%
+            // - Very small decimal (< 0.01): might be in decimal format like 0.0019 = 0.19%
+            // - Small decimal (0.01 - 1): e.g., 0.1954 = 19.54%
+            // - Large number (>= 1): e.g., 19.54 = 19.54% or 150 = 150%
             
             if (rawInflation > 0 && rawInflation < 1) {
               // Decimal format (e.g., 0.1954 = 19.54%)
@@ -54,6 +63,8 @@ export default function StakingCalculator({ selectedChain }: StakingCalculatorPr
               // Already in percentage format (e.g., 19.54 = 19.54% or 150 = 150%)
               inflationRate = rawInflation;
             }
+            
+            console.log('[APR Debug] Calculated inflation rate:', inflationRate);
           }
           
           // Get bonded ratio
@@ -74,31 +85,38 @@ export default function StakingCalculator({ selectedChain }: StakingCalculatorPr
             }
           }
           
+          console.log('[APR Debug] Bonded ratio:', bondedRatio);
+          
           if (inflationRate > 0 && bondedRatio > 0) {
-            // Standard Cosmos APR Formula (from Cosmostation):
-            // Nominal APR = [Inflation × (1 - Community Tax)] / Bonded Tokens Ratio
-            // Final APR = Nominal APR × (1 - Validator Commission)
+            // Standard Cosmos APR Formula (matching Keplr/Mintscan):
+            // APR = [Inflation × (1 - Community Tax)] / Bonded Tokens Ratio
             //
             // Example:
-            // - Inflation: 20%
+            // - Inflation: 150%
             // - Community Tax: 2% (0.02)
             // - Bonded Ratio: 67% (0.67)
-            // - Validator Commission: 5% (0.05)
             //
-            // Nominal APR = [20 × (1 - 0.02)] / 0.67 = 19.6 / 0.67 = 29.25%
-            // Final APR = 29.25 × (1 - 0.05) = 27.79%
+            // APR = [150 × (1 - 0.02)] / 0.67 = 147 / 0.67 = 219.4%
+            //
+            // Note: We don't deduct validator commission here because:
+            // 1. Commission varies by validator (0% to 10%+)
+            // 2. Users should see the maximum possible APR
+            // 3. This matches how Keplr and other explorers display APR
             
-            // Get community tax (usually 2%, but can vary)
-            const communityTax = 0.02; // Default 2% community tax
+            // Get community tax from params if available
+            let communityTax = 0.02; // Default 2% community tax
+            if (paramsData?.distribution?.params?.community_tax) {
+              const rawTax = parseFloat(paramsData.distribution.params.community_tax);
+              communityTax = rawTax < 1 ? rawTax : rawTax / 100;
+            }
             
-            // Calculate nominal APR
-            const nominalApr = (inflationRate * (1 - communityTax)) / bondedRatio;
+            // Calculate APR (without validator commission)
+            const calculatedApr = (inflationRate * (1 - communityTax)) / bondedRatio;
             
-            // Apply validator commission (use 5% as average)
-            const avgCommission = 0.05;
-            const finalApr = nominalApr * (1 - avgCommission);
+            console.log('[APR Debug] Community tax:', communityTax);
+            console.log('[APR Debug] Final APR:', calculatedApr);
             
-            setApr(finalApr.toFixed(2));
+            setApr(calculatedApr.toFixed(2));
             setAprAutoDetected(true);
             return;
           }

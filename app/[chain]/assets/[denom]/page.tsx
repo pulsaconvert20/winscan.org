@@ -50,6 +50,9 @@ interface AssetDetail {
   volume_7d_usd?: number;
   volume_24h_paxi?: number;
   volume_24h_usd?: number;
+  buys?: number;
+  sells?: number;
+  txs_count?: number;
 }
 
 export default function AssetDetailPage() {
@@ -65,6 +68,8 @@ export default function AssetDetailPage() {
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const [tokenLogo, setTokenLogo] = useState<string>('');
+  const [topHolders, setTopHolders] = useState<any[]>([]);
+  const [loadingHolders, setLoadingHolders] = useState(false);
 
   useEffect(() => {
     async function loadChainData() {
@@ -84,25 +89,12 @@ export default function AssetDetailPage() {
     async function fetchAssetDetail() {
       if (!chainName || !denom) return;
       
-      // Check cache first for faster loading
+      // Check cache first for faster loading (SKIP CACHE FOR PRC20 - always fetch fresh)
       const isPRC20 = denom.startsWith('paxi1') && denom.length > 40;
       if (isPRC20 && typeof window !== 'undefined') {
+        // Clear old cache to force fresh data
         const cacheKey = `prc20_detail_${denom}`;
-        const cached = sessionStorage.getItem(cacheKey);
-        if (cached) {
-          try {
-            const cachedData = JSON.parse(cached);
-            const age = Date.now() - cachedData.timestamp;
-            if (age < 60000) { // 60 seconds cache
-              setAsset(cachedData.asset);
-              setTokenLogo(cachedData.logo);
-              setLoading(false);
-              return;
-            }
-          } catch (e) {
-            sessionStorage.removeItem(cacheKey);
-          }
-        }
+        sessionStorage.removeItem(cacheKey);
       }
       
       setLoading(true);
@@ -117,16 +109,27 @@ export default function AssetDetailPage() {
           
           const bundle = await bundleRes.json();
           
+          console.log('🔍 Raw Bundle Response:', bundle);
+          
           // Extract ALL data from bundle (backend SSL sudah lengkap!)
-          const tokenInfo = bundle.token_info;
-          const marketingInfo = bundle.marketing_info;
-          const numHolders = bundle.holders || 0;
-          const liquidity = bundle.liquidity;
-          const isVerified = bundle.verified || false;
-          const priceChange24h = bundle.price_change_24h || 0;
-          const reservePaxi = bundle.reserve_paxi || 0;
-          const reservePrc20 = bundle.reserve_prc20 || 0;
-          const pricePaxi = bundle.price_paxi || 0;
+          const tokenInfo = bundle.token?.name ? bundle.token : bundle.token_info;
+          const marketingInfo = bundle.token?.logo ? { 
+            logo: { url: bundle.token.logo },
+            description: bundle.token.description,
+            project: bundle.token.project
+          } : bundle.marketing_info;
+          const numHolders = bundle.market?.num_holders || bundle.holders || 0;
+          const liquidity = bundle.market?.reserve_paxi || bundle.liquidity || 0;
+          const isVerified = bundle.token?.verified || bundle.verified || false;
+          const priceChange24h = bundle.market?.price_change_24h || bundle.price_change_24h || 0;
+          const reservePaxi = bundle.market?.reserve_paxi || bundle.reserve_paxi || 0;
+          const reservePrc20 = bundle.market?.reserve_prc20 || bundle.reserve_prc20 || 0;
+          const pricePaxi = bundle.market?.price_paxi || bundle.price_paxi || 0;
+          const buys = bundle.buys || 0;
+          const sells = bundle.sells || 0;
+          const txsCount = bundle.txs_count || 0;
+          
+          console.log('🔍 Extracted Data:', { buys, sells, txsCount });
           
           // Volume data
           let volume_7d_paxi = 0;
@@ -144,9 +147,13 @@ export default function AssetDetailPage() {
             symbol: tokenInfo?.symbol,
             holders: numHolders,
             volume_24h: volume_24h_paxi,
+            volume_7d: volume_7d_paxi,
             price_change: priceChange24h,
             price_paxi: pricePaxi,
-            verified: isVerified
+            verified: isVerified,
+            buys,
+            sells,
+            txs_count: txsCount
           });
           
           // Set logo URL
@@ -192,7 +199,10 @@ export default function AssetDetailPage() {
               volume_7d_paxi,
               volume_7d_usd,
               volume_24h_paxi,
-              volume_24h_usd
+              volume_24h_usd,
+              buys,
+              sells,
+              txs_count: txsCount
             });
             
             // Cache the result
@@ -232,7 +242,10 @@ export default function AssetDetailPage() {
                   volume_7d_paxi,
                   volume_7d_usd,
                   volume_24h_paxi,
-                  volume_24h_usd
+                  volume_24h_usd,
+                  buys,
+                  sells,
+                  txs_count: txsCount
                 },
                 logo: logoUrl
               };
@@ -244,12 +257,71 @@ export default function AssetDetailPage() {
             }
           }
         } else {
-          // Regular asset
+          // Regular asset (including native PAXI)
           const response = await fetch(`/api/asset-detail?chain=${chainName}&denom=${encodeURIComponent(denom)}`);
           const data: AssetDetail = await response.json();
           
           if (data) {
+            // For native PAXI, fetch holders count from Paxi API (quick estimate)
+            if (denom === 'upaxi') {
+              try {
+                // Quick estimate: fetch first 3 pages to check if there are more than 300 holders
+                const page0 = await fetch(`https://mainnet-api.paxinet.io/account/holders?page=0`);
+                if (page0.ok) {
+                  const data0 = await page0.json();
+                  const holders0 = data0.holders || [];
+                  
+                  if (holders0.length === 100) {
+                    // There are more than 100 holders, estimate based on sampling
+                    // Fetch a few more pages to get better estimate
+                    const [page1Res, page2Res] = await Promise.all([
+                      fetch(`https://mainnet-api.paxinet.io/account/holders?page=1`),
+                      fetch(`https://mainnet-api.paxinet.io/account/holders?page=2`)
+                    ]);
+                    
+                    let totalCount = holders0.length;
+                    
+                    if (page1Res.ok) {
+                      const data1 = await page1Res.json();
+                      totalCount += (data1.holders || []).length;
+                    }
+                    
+                    if (page2Res.ok) {
+                      const data2 = await page2Res.json();
+                      totalCount += (data2.holders || []).length;
+                    }
+                    
+                    // If all 3 pages have 100 holders, estimate there are many more
+                    if (totalCount === 300) {
+                      // Conservative estimate: at least 1000+ holders
+                      data.holders = 1000;
+                      data.holders_type = 'estimated';
+                    } else {
+                      data.holders = totalCount;
+                      data.holders_type = 'partial';
+                    }
+                  } else {
+                    // Less than 100 holders total
+                    data.holders = holders0.length;
+                    data.holders_type = 'exact';
+                  }
+                  
+                  console.log(`📊 Native PAXI holders: ${data.holders} (${data.holders_type})`);
+                }
+              } catch (error) {
+                console.warn('Failed to fetch native PAXI holders:', error);
+                // Fallback: use a reasonable estimate
+                data.holders = 1000;
+                data.holders_type = 'estimated';
+              }
+            }
+            
             setAsset(data);
+            
+            // Set logo for native PAXI
+            if (denom === 'upaxi') {
+              setTokenLogo('https://file.winsnip.xyz/file/uploads/paxi.jpg');
+            }
           }
         }
       } catch (error) {
@@ -261,6 +333,75 @@ export default function AssetDetailPage() {
 
     fetchAssetDetail();
   }, [chainName, denom]);
+
+  // Fetch top 50 holders
+  useEffect(() => {
+    async function fetchTopHolders() {
+      if (!asset || !chainName || !denom) return;
+      
+      setLoadingHolders(true);
+      try {
+        const isPRC20 = denom.startsWith('paxi1') && denom.length > 40;
+        const isNativePaxi = denom === 'upaxi';
+        
+        if (isNativePaxi) {
+          // Fetch from Paxi API for native PAXI token
+          const response = await fetch(`https://mainnet-api.paxinet.io/account/holders?page=0`);
+          if (response.ok) {
+            const data = await response.json();
+            const holders = data.holders || [];
+            
+            console.log('🔍 Native PAXI Top Holders - First 3:', holders.slice(0, 3).map((h: any) => ({ 
+              address: h.address.slice(0, 12), 
+              type: h.type 
+            })));
+            
+            // Transform to match our format and take top 50
+            const formattedHolders = holders.slice(0, 50).map((holder: any, index: number) => ({
+              address: holder.address,
+              balance: (holder.balance * 1e6).toString(), // Convert to base unit
+              percentage: 0, // Will calculate below
+              rank: index + 1,
+              type: holder.type || 'user'
+            }));
+            
+            // Calculate total supply for percentage
+            const totalBalance = holders.reduce((sum: number, h: any) => sum + h.balance, 0);
+            formattedHolders.forEach((holder: any) => {
+              holder.percentage = (parseFloat(holder.balance) / (totalBalance * 1e6)) * 100;
+            });
+            
+            console.log('✅ Formatted Top Holders - First 3:', formattedHolders.slice(0, 3).map((h: any) => ({ 
+              address: h.address.slice(0, 12), 
+              type: h.type 
+            })));
+            
+            setTopHolders(formattedHolders);
+          }
+        } else if (isPRC20) {
+          // Fetch from backend API for PRC20
+          const response = await fetch(`https://ssl.winsnip.xyz/api/prc20-holders?contract=${encodeURIComponent(denom)}&limit=50`);
+          if (response.ok) {
+            const data = await response.json();
+            setTopHolders(data.holders || []);
+          }
+        } else {
+          // Fetch from holders API for regular assets
+          const response = await fetch(`/api/holders?chain=${chainName}&denom=${encodeURIComponent(denom)}&limit=50`);
+          if (response.ok) {
+            const data = await response.json();
+            setTopHolders(data.holders || []);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching top holders:', error);
+      } finally {
+        setLoadingHolders(false);
+      }
+    }
+
+    fetchTopHolders();
+  }, [asset, chainName, denom]);
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -311,7 +452,7 @@ export default function AssetDetailPage() {
             selectedChain={selectedChain} 
             onSelectChain={setSelectedChain}
           />
-          <main className="p-6">
+          <main className="p-6 pt-20">
             <div className="flex justify-center items-center py-12">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
             </div>
@@ -331,7 +472,7 @@ export default function AssetDetailPage() {
             selectedChain={selectedChain} 
             onSelectChain={setSelectedChain}
           />
-          <main className="p-6">
+          <main className="p-6 pt-20">
             <div className="text-center py-12">
               <Coins className="w-16 h-16 text-gray-600 mx-auto mb-4" />
               <p className="text-gray-400">{t('assetDetail.notFound')}</p>
@@ -358,7 +499,7 @@ export default function AssetDetailPage() {
           onSelectChain={setSelectedChain}
         />
         
-        <main className="p-4 md:p-6 pt-32 md:pt-24">
+        <main className="p-4 md:p-6 pt-20 md:pt-20 lg:pt-24">{/* Adjusted padding-top for Header */}
           {/* Back Button */}
           <Link 
             href={`/${chainName}/assets`}
@@ -368,40 +509,54 @@ export default function AssetDetailPage() {
             <span>{t('assetDetail.backToAssets')}</span>
           </Link>
 
-          {/* Header */}
-          <div className="mb-4 md:mb-6">
-            <div className="flex items-start justify-between mb-3 md:mb-4">
-              <div className="flex items-start gap-3 md:gap-4 flex-1">
-                {/* Token Logo */}
-                {tokenLogo && (
-                  <div className="relative w-16 h-16 md:w-20 md:h-20 rounded-full bg-gradient-to-br from-orange-500/10 to-red-500/10 border-2 border-orange-500/30 flex-shrink-0 overflow-hidden">
-                    <Image
-                      src={tokenLogo}
-                      alt={asset.metadata?.symbol || 'token'}
-                      width={80}
-                      height={80}
-                      className="object-cover w-full h-full"
-                      unoptimized={tokenLogo.includes('ipfs') || tokenLogo.includes('pinata')}
-                      loading="lazy"
-                      onError={(e) => {
-                        const target = e.currentTarget;
-                        target.style.display = 'none';
-                        const parent = target.parentElement;
-                        if (parent) {
-                          parent.innerHTML = '<div class="w-full h-full flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-orange-500"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div>';
-                        }
-                      }}
-                    />
+          {/* Premium Asset Header Banner - Similar to Overview Page */}
+          <div className="mb-6">
+            <div className="relative overflow-hidden bg-[#1a1a1a] border border-gray-800 rounded-xl shadow-lg">
+              <div className="relative p-6">
+                {/* Top Section: Logo, Name & Badges - Centered */}
+                <div className="flex flex-col items-center gap-4 mb-4">
+                  {/* Logo and Name - Centered */}
+                  <div className="flex flex-col items-center text-center gap-3">
+                    {tokenLogo ? (
+                      <div className="relative group">
+                        <div className="absolute inset-0 bg-gradient-to-br from-orange-500/20 to-red-500/20 rounded-full blur-xl group-hover:blur-2xl transition-all"></div>
+                        <div className="relative w-24 h-24 md:w-28 md:h-28 rounded-full border-2 border-gray-800 shadow-lg overflow-hidden bg-[#0f0f0f]">
+                          <Image
+                            src={tokenLogo}
+                            alt={asset.metadata?.symbol || 'token'}
+                            width={112}
+                            height={112}
+                            className="object-cover w-full h-full"
+                            unoptimized={tokenLogo.includes('ipfs') || tokenLogo.includes('pinata')}
+                            loading="lazy"
+                            onError={(e) => {
+                              const target = e.currentTarget;
+                              target.style.display = 'none';
+                              const parent = target.parentElement;
+                              if (parent) {
+                                parent.innerHTML = '<div class="w-full h-full flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-orange-500"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div>';
+                              }
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="relative w-24 h-24 md:w-28 md:h-28 rounded-full bg-gradient-to-br from-orange-500/10 to-red-500/10 border-2 border-orange-500/30 flex items-center justify-center">
+                        <Coins className="w-12 h-12 md:w-14 md:h-14 text-orange-500" />
+                      </div>
+                    )}
+                    <div>
+                      <h1 className="text-2xl md:text-3xl font-bold text-white mb-1">
+                        {asset.metadata?.name || asset.metadata?.symbol || t('assetDetail.title')}
+                      </h1>
+                      <p className="text-gray-400 text-sm">{asset.metadata?.symbol || 'Token'}</p>
+                    </div>
                   </div>
-                )}
-                
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 md:gap-3 mb-2 flex-wrap">
-                    <h1 className="text-xl md:text-3xl font-bold text-white truncate">
-                      {asset.metadata?.name || asset.metadata?.symbol || t('assetDetail.title')}
-                    </h1>
+                  
+                  {/* Badges - Centered */}
+                  <div className="flex flex-wrap items-center justify-center gap-2">
                     <span
-                      className={`px-2 md:px-3 py-0.5 md:py-1 rounded-full text-[10px] md:text-xs font-semibold flex-shrink-0 ${
+                      className={`px-3 py-1 rounded-full text-xs font-semibold flex-shrink-0 ${
                         isPRC20
                           ? 'bg-gradient-to-r from-orange-500/10 to-red-500/10 text-orange-400 border border-orange-500/20'
                           : isNative
@@ -412,20 +567,22 @@ export default function AssetDetailPage() {
                       {isPRC20 ? 'PRC20' : isNative ? t('assetDetail.native') : t('assetDetail.token')}
                     </span>
                     {asset.verified && (
-                      <span className="px-2 md:px-3 py-0.5 md:py-1 rounded-full text-[10px] md:text-xs font-semibold flex-shrink-0 bg-gradient-to-r from-yellow-500/10 to-amber-500/10 text-yellow-400 border border-yellow-500/30 flex items-center gap-1">
+                      <span className="px-3 py-1 rounded-full text-xs font-semibold flex-shrink-0 bg-gradient-to-r from-yellow-500/10 to-amber-500/10 text-yellow-400 border border-yellow-500/30 flex items-center gap-1">
                         <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                         </svg>
-                        <span className="text-[10px] md:text-xs font-semibold">Verified</span>
+                        <span className="text-xs font-semibold">Verified</span>
                       </span>
                     )}
                   </div>
-                  {asset.metadata?.description && (
-                    <p className="text-sm md:text-base text-gray-400 max-w-3xl line-clamp-3 md:line-clamp-none">
-                      {asset.metadata.description}
-                    </p>
-                  )}
                 </div>
+
+                {/* Description - Centered */}
+                {asset.metadata?.description && (
+                  <div className="p-3 bg-[#0f0f0f] rounded-lg border border-gray-800 text-center">
+                    <p className="text-gray-300 text-sm leading-relaxed">{asset.metadata.description}</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -507,7 +664,7 @@ export default function AssetDetailPage() {
           )}
 
           {/* Trading Statistics (PRC20 only) */}
-          {isPRC20 && (asset.volume_24h_paxi || asset.volume_7d_paxi) && (
+          {isPRC20 && (asset.volume_24h_paxi || asset.volume_7d_paxi || asset.buys || asset.sells) && (
             <div className="bg-gradient-to-br from-[#1a1a1a] via-[#1a1a1a] to-purple-950/20 border border-gray-800 rounded-xl p-5 md:p-6 mb-4 md:mb-6">
               <div className="flex items-center gap-2 mb-4">
                 <div className="bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-lg p-2">
@@ -515,7 +672,7 @@ export default function AssetDetailPage() {
                 </div>
                 <h3 className="text-lg font-bold text-white">Trading Statistics</h3>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {/* Volume 24H */}
                 <div className="bg-[#0f0f0f]/50 border border-gray-800/50 rounded-lg p-4">
                   <div className="flex items-center justify-between mb-2">
@@ -561,7 +718,61 @@ export default function AssetDetailPage() {
                     </div>
                   )}
                 </div>
+
+                {/* Buys */}
+                <div className="bg-[#0f0f0f]/50 border border-green-500/20 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs text-gray-400 uppercase tracking-wider">Total Buys</span>
+                    <div className="flex items-center gap-1 text-green-400">
+                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L9 9.414V13a1 1 0 102 0V9.414l1.293 1.293a1 1 0 001.414-1.414z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                  </div>
+                  <div className="text-2xl font-bold text-green-400 mb-1">
+                    {asset.buys && asset.buys > 0
+                      ? asset.buys.toLocaleString('en-US')
+                      : '0'
+                    }
+                  </div>
+                  <div className="text-sm text-gray-500">
+                    Buy Transactions
+                  </div>
+                </div>
+
+                {/* Sells */}
+                <div className="bg-[#0f0f0f]/50 border border-red-500/20 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs text-gray-400 uppercase tracking-wider">Total Sells</span>
+                    <div className="flex items-center gap-1 text-red-400">
+                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v3.586L7.707 9.293a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 10.586V7z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                  </div>
+                  <div className="text-2xl font-bold text-red-400 mb-1">
+                    {asset.sells && asset.sells > 0
+                      ? asset.sells.toLocaleString('en-US')
+                      : '0'
+                    }
+                  </div>
+                  <div className="text-sm text-gray-500">
+                    Sell Transactions
+                  </div>
+                </div>
               </div>
+
+              {/* Total Transactions */}
+              {asset.txs_count && asset.txs_count > 0 && (
+                <div className="mt-4 pt-4 border-t border-gray-800">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-400">Total Transactions</span>
+                    <span className="text-lg font-bold text-white">
+                      {asset.txs_count.toLocaleString('en-US')}
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -576,11 +787,11 @@ export default function AssetDetailPage() {
           )}
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 md:gap-4 mb-4 md:mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 mb-4 md:mb-6">
             {/* Total Supply */}
-            <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-3 md:p-6">
-              <div className="text-xs md:text-sm text-gray-400 mb-1">{t('assetDetail.totalSupply')}</div>
-              <div className="text-lg md:text-2xl font-bold text-white truncate">
+            <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-4 md:p-6">
+              <div className="text-xs md:text-sm text-gray-400 mb-2">{t('assetDetail.totalSupply')}</div>
+              <div className="text-xl md:text-2xl font-bold text-white">
                 {asset.supply_formatted || formatSupply(asset.supply || '0', exponent)}
               </div>
               {asset.metadata?.symbol && (
@@ -588,70 +799,23 @@ export default function AssetDetailPage() {
               )}
             </div>
 
-            {/* Holders */}
-            <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-3 md:p-6">
-              <div className="text-xs md:text-sm text-gray-400 mb-1">{t('assetDetail.holders')}</div>
-              <div className="text-lg md:text-2xl font-bold text-blue-400">
-                {asset.holders && asset.holders > 0 
-                  ? asset.holders.toLocaleString()
-                  : '-'
-                }
-              </div>
-              {asset.holders_type && asset.holders_type !== 'unavailable' && (
-                <div className="text-[10px] md:text-xs text-gray-500 mt-1">
-                  {asset.holders_type === 'estimated' ? 'Estimated' : asset.holders_type === 'total_accounts' ? t('assetDetail.totalAccounts') : t('assetDetail.estimated')}
-                </div>
-              )}
-            </div>
-
             {/* Symbol */}
-            <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-3 md:p-6">
-              <div className="text-xs md:text-sm text-gray-400 mb-1">{t('assetDetail.symbol')}</div>
-              <div className="text-lg md:text-2xl font-bold text-white truncate">
+            <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-4 md:p-6">
+              <div className="text-xs md:text-sm text-gray-400 mb-2">{t('assetDetail.symbol')}</div>
+              <div className="text-xl md:text-2xl font-bold text-white truncate">
                 {asset.metadata?.symbol || '-'}
               </div>
             </div>
 
-            {/* Liquidity (PRC20) or Exponent (others) */}
-            <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-3 md:p-6">
-              <div className="text-xs md:text-sm text-gray-400 mb-1">
-                {isPRC20 ? 'Liquidity' : t('assetDetail.decimals')}
+            {/* Decimals */}
+            <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-4 md:p-6">
+              <div className="text-xs md:text-sm text-gray-400 mb-2">
+                {t('assetDetail.decimals')}
               </div>
-              <div className="text-lg md:text-2xl font-bold text-white">
-                {isPRC20 
-                  ? (asset.liquidity ? `${Number(asset.liquidity).toLocaleString()} PAXI` : '-')
-                  : exponent
-                }
+              <div className="text-xl md:text-2xl font-bold text-white">
+                {exponent}
               </div>
-              {isPRC20 && asset.liquidity && (
-                <div className="text-[10px] md:text-xs text-gray-500 mt-1">
-                  Pool Reserve
-                </div>
-              )}
             </div>
-
-            {/* Volume 7D (PRC20 only) */}
-            {isPRC20 && (
-              <div className="bg-gradient-to-br from-[#1a1a1a] to-[#141414] border border-purple-500/20 rounded-lg p-3 md:p-6 hover:border-purple-500/40 transition-all">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="text-xs md:text-sm text-gray-400">Volume 7D</div>
-                  <div className="bg-purple-500/10 rounded-lg p-1.5">
-                    <TrendingUp className="w-3 h-3 md:w-4 md:h-4 text-purple-400" />
-                  </div>
-                </div>
-                <div className="text-lg md:text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-                  {asset.volume_7d_paxi && asset.volume_7d_paxi > 0
-                    ? `${asset.volume_7d_paxi.toLocaleString('en-US', { maximumFractionDigits: 2 })} PAXI`
-                    : '-'
-                  }
-                </div>
-                {asset.volume_7d_usd && asset.volume_7d_usd > 0 && (
-                  <div className="text-[10px] md:text-xs text-gray-500 mt-1">
-                    ≈ ${asset.volume_7d_usd.toLocaleString('en-US', { maximumFractionDigits: 2 })}
-                  </div>
-                )}
-              </div>
-            )}
           </div>
 
           {/* Asset Information */}
@@ -732,25 +896,141 @@ export default function AssetDetailPage() {
           {/* Top Holders Section */}
           <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg overflow-hidden mt-4 md:mt-6">
             <div className="px-4 md:px-6 py-3 md:py-4 border-b border-gray-800 flex items-center justify-between">
-              <h2 className="text-lg md:text-xl font-bold text-white">Top Holders</h2>
+              <div className="flex items-center gap-3">
+                {/* Token Logo */}
+                {(tokenLogo || denom === 'upaxi') && (
+                  <div className="relative w-8 h-8 md:w-10 md:h-10 rounded-full bg-gradient-to-br from-orange-500/10 to-red-500/10 border border-gray-700 flex-shrink-0 overflow-hidden flex items-center justify-center">
+                    {tokenLogo ? (
+                      <Image
+                        src={tokenLogo}
+                        alt={asset.metadata?.symbol || 'token'}
+                        width={40}
+                        height={40}
+                        className="object-cover"
+                        unoptimized={tokenLogo.includes('ipfs') || tokenLogo.includes('pinata')}
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
+                    ) : denom === 'upaxi' ? (
+                      <Coins className="w-5 h-5 text-orange-500" />
+                    ) : null}
+                  </div>
+                )}
+                <h2 className="text-lg md:text-xl font-bold text-white">Top 50 Holders</h2>
+              </div>
               <Link
                 href={`/${chainName}/assets/${encodeURIComponent(denom)}/holders`}
-                className="text-xs md:text-sm text-blue-400 hover:text-blue-300 transition-colors"
+                className="inline-flex items-center gap-2 px-3 md:px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors text-xs md:text-sm"
               >
-                View All →
+                <TrendingUp className="w-3 h-3 md:w-4 md:h-4" />
+                <span>View All Holders</span>
               </Link>
             </div>
-            <div className="p-4 md:p-6">
-              <div className="text-center py-6 md:py-8 text-gray-400">
-                <p className="mb-3 md:mb-4 text-sm md:text-base">View detailed holder information</p>
-                <Link
-                  href={`/${chainName}/assets/${encodeURIComponent(denom)}/holders`}
-                  className="inline-flex items-center gap-2 px-3 md:px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors text-sm md:text-base"
-                >
-                  <TrendingUp className="w-3 h-3 md:w-4 md:h-4" />
-                  <span>View Holders</span>
-                </Link>
-              </div>
+            <div className="overflow-x-auto">
+              {loadingHolders ? (
+                <div className="p-6 md:p-8 text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+                  <p className="text-gray-400 mt-3 text-sm">Loading holders...</p>
+                </div>
+              ) : topHolders.length > 0 ? (
+                <table className="w-full">
+                  <thead className="bg-[#0f0f0f] border-b border-gray-800">
+                    <tr>
+                      <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                        Rank
+                      </th>
+                      <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                        Address
+                      </th>
+                      <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                        Type
+                      </th>
+                      <th className="px-4 md:px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase tracking-wider">
+                        Balance
+                      </th>
+                      <th className="px-4 md:px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase tracking-wider">
+                        Percentage
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-800">
+                    {topHolders.map((holder, index) => (
+                      <tr key={holder.address} className="hover:bg-[#0f0f0f] transition-colors">
+                        <td className="px-4 md:px-6 py-3 whitespace-nowrap text-sm text-gray-400">
+                          #{index + 1}
+                        </td>
+                        <td className="px-4 md:px-6 py-3 whitespace-nowrap">
+                          <div className="flex items-center gap-2">
+                            <Link
+                              href={`/${chainName}/accounts/${holder.address}`}
+                              className="text-sm text-blue-400 hover:text-blue-300 font-mono"
+                            >
+                              {holder.address.substring(0, 12)}...{holder.address.substring(holder.address.length - 8)}
+                            </Link>
+                            <button
+                              onClick={() => copyToClipboard(holder.address)}
+                              className="p-1 text-gray-400 hover:text-white transition-colors"
+                              title="Copy address"
+                            >
+                              {copied ? (
+                                <Check className="w-4 h-4 text-green-500" />
+                              ) : (
+                                <Copy className="w-4 h-4" />
+                              )}
+                            </button>
+                          </div>
+                        </td>
+                        <td className="px-4 md:px-6 py-3 whitespace-nowrap">
+                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                            holder.type === 'staking pool' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' :
+                            holder.type === 'DAO' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' :
+                            holder.type === 'mexc' || holder.type === 'bitmart' ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20' :
+                            holder.type === 'prc20 pool' ? 'bg-green-500/10 text-green-400 border border-green-500/20' :
+                            holder.type === 'developer' ? 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20' :
+                            'bg-gray-500/10 text-gray-400 border border-gray-500/20'
+                          }`}>
+                            {holder.type || 'user'}
+                          </span>
+                        </td>
+                        <td className="px-4 md:px-6 py-3 whitespace-nowrap text-right text-sm text-white font-medium">
+                          {holder.balance 
+                            ? (Number(holder.balance) / Math.pow(10, exponent)).toLocaleString('en-US', { 
+                                minimumFractionDigits: 2, 
+                                maximumFractionDigits: 6 
+                              })
+                            : '0'
+                          }
+                        </td>
+                        <td className="px-4 md:px-6 py-3 whitespace-nowrap text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <div className="w-16 md:w-24 bg-gray-800 rounded-full h-2 overflow-hidden">
+                              <div 
+                                className="bg-gradient-to-r from-blue-500 to-purple-500 h-full rounded-full"
+                                style={{ width: `${Math.min(holder.percentage || 0, 100)}%` }}
+                              />
+                            </div>
+                            <span className="text-sm text-gray-400 w-12 text-right">
+                              {holder.percentage ? holder.percentage.toFixed(2) : '0.00'}%
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div className="p-6 md:p-8 text-center text-gray-400">
+                  <p className="mb-3 md:mb-4 text-sm md:text-base">No holder data available</p>
+                  <Link
+                    href={`/${chainName}/assets/${encodeURIComponent(denom)}/holders`}
+                    className="inline-flex items-center gap-2 px-3 md:px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors text-sm md:text-base"
+                  >
+                    <TrendingUp className="w-3 h-3 md:w-4 md:h-4" />
+                    <span>View Holders Page</span>
+                  </Link>
+                </div>
+              )}
             </div>
           </div>
         </main>

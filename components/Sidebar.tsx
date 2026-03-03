@@ -23,9 +23,10 @@ import {
   ChevronUp,
   Zap,
   Send,
-  Cloud,
   ArrowRightLeft,
-  Calculator
+  Calculator,
+  Download,
+  Terminal
 } from 'lucide-react';
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { ChainData } from '@/types/chain';
@@ -109,32 +110,28 @@ export default function Sidebar({ selectedChain }: SidebarProps) {
           { name: 'Assets', translationKey: 'menu.assets', path: `${chainPath}/assets`, icon: <Coins className="w-4 h-4" /> },
           { name: 'IBC Transfer', translationKey: 'menu.ibcTransfer', path: `${chainPath}/ibc-transfer`, icon: <ArrowRightLeft className="w-4 h-4" /> },
           { name: 'Relayers', translationKey: 'menu.relayers', path: `${chainPath}/relayers`, icon: <Network className="w-4 h-4" /> },
-          ...(selectedChain?.chain_name?.toLowerCase() === 'paxi-mainnet' ? [
-            { name: 'PRC20 Swap', translationKey: 'menu.prc20Swap', path: `${chainPath}/prc20/swap`, icon: <RefreshCw className="w-4 h-4" /> }
-          ] : [])
+          // PRC20 Swap is hidden
+          // ...(selectedChain?.chain_name?.toLowerCase() === 'paxi-mainnet' ? [
+          //   { name: 'PRC20 Swap', translationKey: 'menu.prc20Swap', path: `${chainPath}/prc20/swap`, icon: <RefreshCw className="w-4 h-4" /> }
+          // ] : [])
         ]
       },
       { name: 'Accounts', translationKey: 'menu.accounts', path: `${chainPath}/accounts`, icon: <Wallet className="w-5 h-5" /> },
     ];
 
-    // Add EVM menu if chain has EVM support
-    if (hasEvmSupport) {
-      items.push({
-        name: 'EVM',
-        translationKey: 'menu.evm',
-        path: `${chainPath}/evm`,
-        icon: <Zap className="w-5 h-5" />,
-        subItems: [
-          { name: 'EVM Blocks', translationKey: 'menu.evm.blocks', path: `${chainPath}/evm/blocks`, icon: <Box className="w-4 h-4" /> },
-          { name: 'EVM Transactions', translationKey: 'menu.evm.transactions', path: `${chainPath}/evm/transactions`, icon: <FileText className="w-4 h-4" /> },
-          // Disabled temporarily - data fetching not ready
-          // { name: 'EVM NFTs', translationKey: 'menu.evm.nfts', path: `${chainPath}/evm/nfts`, icon: <Activity className="w-4 h-4" /> },
-          // { name: 'EVM Tokens', translationKey: 'menu.evm.tokens', path: `${chainPath}/evm/tokens`, icon: <Coins className="w-4 h-4" /> },
-          // { name: 'EVM Events', translationKey: 'menu.evm.events', path: `${chainPath}/evm/events`, icon: <Zap className="w-4 h-4" /> },
-          // { name: 'EVM Pending', translationKey: 'menu.evm.pending', path: `${chainPath}/evm/pending`, icon: <Send className="w-4 h-4" /> },
-        ]
-      });
-    }
+    // EVM menu is hidden
+    // if (hasEvmSupport) {
+    //   items.push({
+    //     name: 'EVM',
+    //     translationKey: 'menu.evm',
+    //     path: `${chainPath}/evm`,
+    //     icon: <Zap className="w-5 h-5" />,
+    //     subItems: [
+    //       { name: 'EVM Blocks', translationKey: 'menu.evm.blocks', path: `${chainPath}/evm/blocks`, icon: <Box className="w-4 h-4" /> },
+    //       { name: 'EVM Transactions', translationKey: 'menu.evm.transactions', path: `${chainPath}/evm/transactions`, icon: <FileText className="w-4 h-4" /> },
+    //     ]
+    //   });
+    // }
 
     items.push(
       { 
@@ -145,7 +142,7 @@ export default function Sidebar({ selectedChain }: SidebarProps) {
         subItems: [
           { name: 'Network', translationKey: 'menu.network', path: `${chainPath}/network`, icon: <Globe className="w-4 h-4" /> },
           { name: 'Consensus', translationKey: 'menu.consensus', path: `${chainPath}/consensus`, icon: <Shield className="w-4 h-4" /> },
-          { name: 'State Sync', translationKey: 'menu.statesync', path: `${chainPath}/statesync`, icon: <RefreshCw className="w-4 h-4" /> },
+          { name: 'Parameters', translationKey: 'menu.parameters', path: `${chainPath}/parameters`, icon: <Settings className="w-4 h-4" /> }
         ]
       },
       { 
@@ -155,14 +152,34 @@ export default function Sidebar({ selectedChain }: SidebarProps) {
         icon: <Settings className="w-5 h-5" />,
         subItems: [
           { name: 'Endpoint Checker', translationKey: 'menu.rpcChecker', path: `${chainPath}/endpoint-checker`, icon: <Activity className="w-4 h-4" /> },
-          { name: 'IP Lookup', translationKey: 'menu.ipLookup', path: `${chainPath}/ip-lookup`, icon: <Globe className="w-4 h-4" /> },
-          { name: 'Parameters', translationKey: 'menu.parameters', path: `${chainPath}/parameters`, icon: <Settings className="w-4 h-4" /> },
-          ...(selectedChain?.chain_name?.includes('lumera') ? [
-            { name: 'Cascade Storage', translationKey: 'menu.cascade', path: `${chainPath}/cascade`, icon: <Cloud className="w-4 h-4" /> }
-          ] : [])
+          { name: 'IP Lookup', translationKey: 'menu.ipLookup', path: `${chainPath}/ip-lookup`, icon: <Globe className="w-4 h-4" /> }
         ]
       }
     );
+
+    // Add Guide menu section
+    if (selectedChain) {
+      const guideSubItems = [
+        { name: 'Install', translationKey: 'menu.guide.install', path: `${chainPath}/install`, icon: <Terminal className="w-4 h-4" /> },
+        { name: 'Cheat Sheet', translationKey: 'menu.guide.cheatSheet', path: `${chainPath}/cheat-sheet`, icon: <FileText className="w-4 h-4" /> },
+        { name: 'State Sync', translationKey: 'menu.statesync', path: `${chainPath}/statesync`, icon: <RefreshCw className="w-4 h-4" /> }
+      ];
+      
+      // Add Update Binary if chain has GitHub
+      if (selectedChain.github) {
+        guideSubItems.push(
+          { name: 'Update Binary', translationKey: 'menu.guide.updateBinary', path: `${chainPath}/update-binary`, icon: <Download className="w-4 h-4" /> }
+        );
+      }
+      
+      items.push({
+        name: 'Guide',
+        translationKey: 'menu.guide',
+        path: `${chainPath}/install`,
+        icon: <Terminal className="w-5 h-5" />,
+        subItems: guideSubItems
+      });
+    }
 
     return items;
   }, [chainPath, selectedChain]);
@@ -327,6 +344,7 @@ export default function Sidebar({ selectedChain }: SidebarProps) {
                         {item.subItems.map((subItem) => {
                           const isSubActive = pathname === subItem.path || pathname.startsWith(subItem.path + '/');
                           const subDisplayName = t(subItem.translationKey);
+                          
                           return (
                             <PrefetchLink
                               key={subItem.path}

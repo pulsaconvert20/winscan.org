@@ -31,7 +31,9 @@
   "codebase": {
     "git_repo": "https://github.com/RepublicAI/networks",
     "recommended_version": "v0.1.0",
-    "compatible_versions": ["v0.1.0"],
+    "compatible_versions": [
+      "v0.1.0"
+    ],
     "cosmos_sdk_version": "0.47.0",
     "consensus": {
       "type": "cometbft",
@@ -98,7 +100,6 @@
   "logo": "https://pbs.twimg.com/profile_images/1973508413666574337/lfLtj2x-_400x400.jpg",
   "startBlock": 1,
   "explorer": "https://rest.republicai.io/swagger/",
-  "github": "https://github.com/RepublicAI/networks",
   "discord": "https://discord.com/invite/therepublic",
   "updated": "2026-01-31"
 }

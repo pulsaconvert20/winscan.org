@@ -337,14 +337,71 @@ export default function RelayerDetailPage() {
           {relayerDetail && relayerDetail.channels.length > 0 && (
             <div className="space-y-6">
               {relayerDetail.channels.map((channel, index) => (
-                <IBCChannelTransactions
-                  key={index}
-                  chainName={selectedChain?.chain_name || ''}
-                  chainPath={chainPath}
-                  channelId={channel.channel_id}
-                  counterpartyChannelId={channel.counterparty.channel_id}
-                  counterpartyChainName={relayerDetail.chainName || relayerDetail.chainId}
-                />
+                <div key={index} className="space-y-4">
+                  {/* Channel Information Card */}
+                  <div className="bg-[#1a1a1a] border border-gray-800 rounded-xl p-6">
+                    <h3 className="text-lg font-semibold text-white mb-4">Channel Information</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <div className="bg-[#111111] rounded-lg p-4 border border-gray-800">
+                        <div className="text-gray-400 text-sm mb-1">Channel</div>
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center">
+                            <span className="text-blue-400 text-xs font-bold">
+                              {selectedChain?.chain_name.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                          <span className="text-white font-mono text-sm">{channel.channel_id}</span>
+                          <div className="flex items-center gap-1 mx-2">
+                            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                            <div className="w-8 h-0.5 bg-gradient-to-r from-blue-500 to-purple-500"></div>
+                          </div>
+                          <div className="w-6 h-6 rounded-full bg-purple-500/20 flex items-center justify-center">
+                            <span className="text-purple-400 text-xs font-bold">
+                              {relayerDetail.chainName?.charAt(0).toUpperCase() || relayerDetail.chainId.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                          <span className="text-white font-mono text-sm">{channel.counterparty.channel_id}</span>
+                        </div>
+                      </div>
+                      
+                      <div className="bg-[#111111] rounded-lg p-4 border border-gray-800">
+                        <div className="text-gray-400 text-sm mb-1">Receive</div>
+                        <div className="text-2xl font-bold text-white">{channel.packets_received || 0}</div>
+                      </div>
+                      
+                      <div className="bg-[#111111] rounded-lg p-4 border border-gray-800">
+                        <div className="text-gray-400 text-sm mb-1">Send</div>
+                        <div className="text-2xl font-bold text-white">{channel.packets_sent || 0}</div>
+                      </div>
+                      
+                      <div className="bg-[#111111] rounded-lg p-4 border border-gray-800">
+                        <div className="text-gray-400 text-sm mb-1">Status</div>
+                        <div className="flex items-center gap-2">
+                          {channel.state === 'STATE_OPEN' ? (
+                            <>
+                              <CheckCircle className="w-5 h-5 text-green-500" />
+                              <span className="text-green-400 font-medium">Opened</span>
+                            </>
+                          ) : (
+                            <>
+                              <XCircle className="w-5 h-5 text-red-500" />
+                              <span className="text-red-400 font-medium">Closed</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Transactions Component */}
+                  <IBCChannelTransactions
+                    chainName={selectedChain?.chain_name || ''}
+                    chainPath={chainPath}
+                    channelId={channel.channel_id}
+                    counterpartyChannelId={channel.counterparty.channel_id}
+                    counterpartyChainName={relayerDetail.chainName || relayerDetail.chainId}
+                  />
+                </div>
               ))}
             </div>
           )}

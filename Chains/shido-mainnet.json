@@ -106,5 +106,6 @@
       "kind": "WinScan",
       "url": "https://winscan.winsnip.xyz/shido-mainnet"
     }
-  ]
+  ],
+  "github": "https://github.com/ShidoGlobal/shido-upgrade-v3.3.1"
 }

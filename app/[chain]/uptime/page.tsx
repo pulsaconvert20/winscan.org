@@ -7,12 +7,13 @@ import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import ValidatorAvatar from '@/components/ValidatorAvatar';
 import { ChainData } from '@/types/chain';
-import { Activity, CheckCircle, XCircle, AlertTriangle, TrendingUp } from 'lucide-react';
+import { Activity, CheckCircle, XCircle, AlertTriangle, TrendingUp, Wifi, WifiOff } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslation } from '@/lib/i18n';
+import { TendermintWebSocket } from '@/lib/websocket';
 
 interface ValidatorUptime {
-  rank?: number; // Nomor urut
+  rank?: number;
   moniker: string;
   operator_address: string;
   consensus_address: string;
@@ -42,13 +43,20 @@ export default function UptimePage() {
   const [uptimeData, setUptimeData] = useState<ValidatorUptime[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [blocksToCheck, setBlocksToCheck] = useState(100); // Start with 100 blocks
+  const [blocksToCheck, setBlocksToCheck] = useState(100);
   const [signingWindow, setSigningWindow] = useState<number>(100);
   const [isLive, setIsLive] = useState(true);
-  const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [currentBlock, setCurrentBlock] = useState<number>(0);
+  const [wsConnected, setWsConnected] = useState(false);
+  const wsRef = useRef<TendermintWebSocket | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const blockCheckRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Initialize lastUpdate on client side only
+  useEffect(() => {
+    setLastUpdate(new Date());
+  }, []);
 
   useEffect(() => {
     const cachedChains = sessionStorage.getItem('chains');
@@ -118,6 +126,149 @@ export default function UptimePage() {
     
     fetchSigningWindow();
   }, [selectedChain?.chain_name]);
+
+  // WebSocket connection for real-time block updates
+  useEffect(() => {
+    if (!selectedChain || !isLive) return;
+
+    // Get RPC endpoint for WebSocket
+    const rpcEndpoints = selectedChain.rpc || [];
+    if (rpcEndpoints.length === 0) {
+      console.log('[Uptime] No RPC available for WebSocket');
+      return;
+    }
+
+    const rpcUrl = typeof rpcEndpoints[0] === 'string' 
+      ? rpcEndpoints[0] 
+      : rpcEndpoints[0].address;
+
+    console.log('[Uptime] Connecting WebSocket to:', rpcUrl);
+
+    // Create WebSocket connection
+    const ws = new TendermintWebSocket(rpcUrl);
+    wsRef.current = ws;
+
+    // Handle new blocks
+    ws.onBlock((block) => {
+      const newHeight = parseInt(block.height);
+      console.log(`[Uptime] 🆕 New block: ${newHeight}`);
+      
+      setCurrentBlock(newHeight);
+      setLastUpdate(new Date());
+      
+      // Fetch updated uptime data for this block
+      fetchUptimeForBlock(newHeight);
+    });
+
+    // Handle errors
+    ws.onError((error) => {
+      // Silently handle - many chains don't support WebSocket
+      console.log('[Uptime] WebSocket not available, using polling mode');
+      setWsConnected(false);
+    });
+
+    // Connect
+    ws.connect();
+    
+    // Check connection status
+    const checkConnection = setInterval(() => {
+      setWsConnected(ws.isConnected());
+    }, 1000);
+
+    return () => {
+      clearInterval(checkConnection);
+      ws.disconnect();
+      wsRef.current = null;
+    };
+  }, [selectedChain?.chain_name, isLive]);
+
+  // Fetch uptime data for a specific block (real-time update)
+  const fetchUptimeForBlock = useCallback(async (blockHeight: number) => {
+    if (!selectedChain) return;
+
+    try {
+      // Fetch signing info for current block
+      const apiUrl = `/api/uptime?chain=${selectedChain.chain_id || selectedChain.chain_name}&blocks=${blocksToCheck}&height=${blockHeight}`;
+      
+      const res = await fetch(apiUrl, { 
+        cache: 'no-store',
+        signal: AbortSignal.timeout(5000)
+      });
+      
+      if (!res.ok) return;
+      
+      const data = await res.json();
+      
+      if (Array.isArray(data) && data.length > 0) {
+        // Update block signatures with animation
+        setUptimeData(prevData => {
+          return data.map((newValidator: ValidatorUptime) => {
+            const oldValidator = prevData.find(v => v.operator_address === newValidator.operator_address);
+            
+            if (oldValidator && oldValidator.blockSignatures) {
+              // Shift old signatures and add new one
+              const newSignatures = [...oldValidator.blockSignatures];
+              newSignatures.shift(); // Remove oldest
+              newSignatures.push(newValidator.blockSignatures[newValidator.blockSignatures.length - 1]); // Add newest
+              
+              return {
+                ...newValidator,
+                blockSignatures: newSignatures
+              };
+            }
+            
+            return newValidator;
+          });
+        });
+      }
+    } catch (error) {
+      console.error('[Uptime] Error fetching block data:', error);
+    }
+  }, [selectedChain, blocksToCheck]);
+
+  // Polling fallback when WebSocket is not available
+  useEffect(() => {
+    if (!selectedChain || !isLive) return;
+
+    // If WebSocket is not connected after 5 seconds, start polling
+    const fallbackTimer = setTimeout(() => {
+      if (!wsConnected) {
+        console.log('[Uptime] Starting polling fallback (WebSocket unavailable)');
+        
+        // Poll every 10 seconds for new blocks
+        const pollInterval = setInterval(async () => {
+          try {
+            const res = await fetch(`/api/network?chain=${selectedChain.chain_id || selectedChain.chain_name}`, {
+              cache: 'no-store'
+            });
+            if (res.ok) {
+              const data = await res.json();
+              const latestHeight = parseInt(data.block_height || '0');
+              
+              if (latestHeight > 0 && latestHeight !== currentBlock) {
+                console.log(`[Uptime] 🔄 Polling: New block ${latestHeight}`);
+                setCurrentBlock(latestHeight);
+                setLastUpdate(new Date());
+                fetchUptimeForBlock(latestHeight);
+              }
+            }
+          } catch (error) {
+            console.error('[Uptime] Polling error:', error);
+          }
+        }, 10000); // Poll every 10 seconds
+
+        intervalRef.current = pollInterval;
+      }
+    }, 5000);
+
+    return () => {
+      clearTimeout(fallbackTimer);
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [selectedChain, wsConnected, isLive, currentBlock, fetchUptimeForBlock]);
 
   // Memoized fetch function dengan debounce
   const fetchUptime = useCallback(async (force = false) => {
@@ -218,6 +369,23 @@ export default function UptimePage() {
           return data;
         });
         setLastUpdate(new Date());
+        
+        // 🚀 Batch preload keybase avatars for all validators with identity
+        const identities = data
+          .map((v: any) => v.identity)
+          .filter((id: string) => id && id.length >= 16);
+        
+        if (identities.length > 0) {
+          import('@/lib/keybaseUtils').then(({ getValidatorAvatarsBatch }) => {
+            getValidatorAvatarsBatch(identities)
+              .then(() => {
+                console.log(`[Uptime] ✅ Preloaded ${identities.length} keybase avatars`);
+              })
+              .catch(err => {
+                console.warn('[Uptime] Keybase batch preload failed:', err);
+              });
+          });
+        }
         
         try {
           sessionStorage.setItem(cacheKey, JSON.stringify({ 
@@ -513,7 +681,7 @@ export default function UptimePage() {
               
               {/* Last Update Time */}
               <div className="hidden md:flex items-center gap-2 text-xs text-gray-500">
-                <span>Updated: {lastUpdate.toLocaleTimeString()}</span>
+                <span>Updated: {lastUpdate ? lastUpdate.toLocaleTimeString() : '--:--:--'}</span>
               </div>
             </div>
             <p className="text-sm md:text-base text-gray-400">
@@ -545,8 +713,19 @@ export default function UptimePage() {
                 <span className="text-xs text-purple-400 font-mono font-bold">{signingWindow.toLocaleString()} blocks</span>
               </div>
               <div className="hidden lg:flex items-center gap-1.5 px-3 py-1 rounded-full bg-gray-500/10 border border-gray-500/20">
-                <span className="text-xs text-gray-400">Updates:</span>
-                <span className="text-xs text-gray-300 font-medium">Every ~1 min</span>
+                {wsConnected ? (
+                  <>
+                    <Wifi className="w-3 h-3 text-green-400" />
+                    <span className="text-xs text-gray-400">Mode:</span>
+                    <span className="text-xs text-green-400 font-medium">Real-time</span>
+                  </>
+                ) : (
+                  <>
+                    <WifiOff className="w-3 h-3 text-orange-400" />
+                    <span className="text-xs text-gray-400">Mode:</span>
+                    <span className="text-xs text-orange-400 font-medium">Polling</span>
+                  </>
+                )}
               </div>
               {searchQuery && (
                 <div className="text-xs md:text-sm">

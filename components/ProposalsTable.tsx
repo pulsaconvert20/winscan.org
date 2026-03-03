@@ -33,7 +33,7 @@ export default function ProposalsTable({ proposals, chainName, chain, t }: Propo
   const [voteOption, setVoteOption] = useState<number>(1); // 1=Yes, 2=Abstain, 3=No, 4=Veto
   const [isProcessing, setIsProcessing] = useState(false);
   const [txResult, setTxResult] = useState<{ success: boolean; txHash?: string; error?: string } | null>(null);
-  const [gasLimit, setGasLimit] = useState('200000');
+  const [gasLimit, setGasLimit] = useState('400000');
   const [memo, setMemo] = useState('Vote via WinScan');
   
   const chainPath = chainName.toLowerCase().replace(/\s+/g, '-');

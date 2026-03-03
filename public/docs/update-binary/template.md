@@ -1,0 +1,240 @@
+# {CHAIN_NAME} Binary Update Guide
+
+This guide will help you update your {CHAIN_NAME} node to the latest version.
+
+## Prerequisites
+
+- Existing {CHAIN_NAME} node installation
+- Root or sudo access
+- Basic knowledge of Linux commands
+
+## Update Steps
+
+### 1. Check Current Version
+
+```bash
+{BINARY}d version
+```
+
+### 2. Stop the Service
+
+```bash
+sudo systemctl stop {BINARY}d
+```
+
+### 3. Backup Important Files
+
+⚠️ **Important**: Always backup your validator key and node configuration before updating!
+
+```bash
+# Backup validator key
+cp $HOME/.{CHAIN_DIR}/config/priv_validator_key.json $HOME/priv_validator_key.json.backup
+
+# Backup node key
+cp $HOME/.{CHAIN_DIR}/config/node_key.json $HOME/node_key.json.backup
+```
+
+### 4. Download and Install New Binary
+
+#### Option A: Download Pre-built Binary (Recommended)
+
+```bash
+cd $HOME
+wget -O {BINARY}d.tar.gz "$(curl -s https://api.github.com/repos/{GITHUB_REPO}/releases/latest | jq -r '.assets[] | select(.name | contains("linux") and (contains("amd64") or contains("x86_64"))) | .browser_download_url' | head -1)"
+tar -xzf {BINARY}d.tar.gz
+rm -f install.sh {BINARY}d.tar.gz
+chmod +x {BINARY}d
+sudo mv {BINARY}d /usr/local/bin/
+[ -f "libwasmvm.x86_64.so" ] && sudo mv libwasmvm.x86_64.so /usr/lib/
+[ -f "libwasmvm.so" ] && sudo mv libwasmvm.so /usr/lib/
+```
+
+#### Option B: Build from Source
+
+```bash
+cd $HOME
+rm -rf {REPO_NAME}
+git clone {GITHUB_URL}
+cd {REPO_NAME}
+git checkout {VERSION}
+make install
+```
+
+### 5. Verify New Version
+
+```bash
+{BINARY}d version
+```
+
+The output should show the new version number.
+
+### 6. Start the Service
+
+```bash
+sudo systemctl start {BINARY}d
+```
+
+### 7. Check Logs
+
+```bash
+sudo journalctl -u {BINARY}d -f -o cat
+```
+
+### 8. Verify Node is Running
+
+```bash
+{BINARY}d status 2>&1 | jq .SyncInfo
+```
+
+## Rollback (If Needed)
+
+If you encounter issues with the new version, you can rollback to the previous version:
+
+### 1. Stop the Service
+
+```bash
+sudo systemctl stop {BINARY}d
+```
+
+### 2. Restore Previous Binary
+
+If you kept a backup of the old binary:
+
+```bash
+sudo cp /usr/local/bin/{BINARY}d.backup /usr/local/bin/{BINARY}d
+```
+
+Or reinstall the previous version:
+
+```bash
+cd $HOME/{REPO_NAME}
+git checkout {PREVIOUS_VERSION}
+make install
+```
+
+### 3. Start the Service
+
+```bash
+sudo systemctl start {BINARY}d
+```
+
+## Upgrade with Cosmovisor (Automated)
+
+If you're using Cosmovisor for automated upgrades:
+
+### 1. Create Upgrade Directory
+
+```bash
+mkdir -p $HOME/.{CHAIN_DIR}/cosmovisor/upgrades/{UPGRADE_NAME}/bin
+```
+
+### 2. Download New Binary
+
+```bash
+cd $HOME
+wget -O {BINARY}d.tar.gz "$(curl -s https://api.github.com/repos/{GITHUB_REPO}/releases/latest | jq -r '.assets[] | select(.name | contains("linux") and (contains("amd64") or contains("x86_64"))) | .browser_download_url' | head -1)"
+tar -xzf {BINARY}d.tar.gz
+chmod +x {BINARY}d
+mv {BINARY}d $HOME/.{CHAIN_DIR}/cosmovisor/upgrades/{UPGRADE_NAME}/bin/
+```
+
+### 3. Verify Binary
+
+```bash
+$HOME/.{CHAIN_DIR}/cosmovisor/upgrades/{UPGRADE_NAME}/bin/{BINARY}d version
+```
+
+Cosmovisor will automatically switch to the new binary at the specified upgrade height.
+
+## Common Issues
+
+### Issue: Binary not found after update
+
+**Solution**: Make sure the binary is in your PATH:
+
+```bash
+which {BINARY}d
+```
+
+If not found, check if it's in `/usr/local/bin/` or `$HOME/go/bin/`
+
+### Issue: Version mismatch
+
+**Solution**: Clear the old binary and reinstall:
+
+```bash
+sudo rm $(which {BINARY}d)
+# Then reinstall using one of the methods above
+```
+
+### Issue: Node won't start after update
+
+**Solution**: Check the logs for errors:
+
+```bash
+sudo journalctl -u {BINARY}d -n 100 --no-pager
+```
+
+Common fixes:
+- Reset the node data (if not a validator): `{BINARY}d tendermint unsafe-reset-all --home $HOME/.{CHAIN_DIR}`
+- Check if the genesis file is correct
+- Verify peer connections
+
+### Issue: Sync issues after update
+
+**Solution**: Try state sync or snapshot:
+
+```bash
+# Stop service
+sudo systemctl stop {BINARY}d
+
+# Reset data
+{BINARY}d tendermint unsafe-reset-all --home $HOME/.{CHAIN_DIR} --keep-addr-book
+
+# Use state sync (see State Sync guide)
+# Or download snapshot (see Snapshot guide)
+
+# Start service
+sudo systemctl start {BINARY}d
+```
+
+## Important Notes
+
+- ⚠️ **Always backup your validator key** before any update
+- 📢 Check official announcements for breaking changes
+- 🔄 Test updates on testnet first if possible
+- ⏰ Plan updates during low-traffic periods
+- 👥 Coordinate with other validators for network upgrades
+
+## Useful Commands
+
+### Check if binary is running
+```bash
+ps aux | grep {BINARY}d
+```
+
+### Check binary location
+```bash
+which {BINARY}d
+```
+
+### Check binary version
+```bash
+{BINARY}d version --long
+```
+
+### Check service status
+```bash
+sudo systemctl status {BINARY}d
+```
+
+## Support
+
+For support and questions, please visit:
+- [WinScan Explorer](https://winsnip.xyz)
+- [WinScan Telegram](https://t.me/winsnip)
+- [Official {CHAIN_NAME} Documentation]({GITHUB_URL})
+
+---
+
+*Generated by WinScan - Multi-chain Blockchain Explorer*

@@ -66,6 +66,7 @@
     "backend-api",
     "DATA-VPS-Baked",
     "prc20-dapp",
-    "ibc-relayer"
+    "ibc-relayer",
+    "node-guide"
   ]
 }

@@ -101,15 +101,17 @@ export default function StakingCalculatorPage() {
               </p>
               <p>
                 <strong className="text-gray-300">APR (Annual Percentage Rate)</strong> represents the 
-                yearly return on your staked tokens without compounding.
+                maximum yearly return on your staked tokens before validator commission. Actual rewards 
+                will be lower based on your chosen validator's commission rate (typically 0-10%).
               </p>
               <p>
                 <strong className="text-gray-300">Compound Interest</strong> means reinvesting your rewards 
                 to earn additional returns over time.
               </p>
               <p>
-                <strong className="text-gray-300">Validator Commission</strong> is typically deducted from 
-                your rewards. Check individual validator rates before staking.
+                <strong className="text-gray-300">Validator Commission</strong> is deducted from 
+                your rewards by the validator you choose. Commission rates vary by validator (0-10%+), 
+                so compare rates before staking. The APR shown above is before commission.
               </p>
             </div>
           </div>

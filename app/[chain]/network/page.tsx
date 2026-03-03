@@ -7,7 +7,7 @@ import Header from '@/components/Header';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { ChainData } from '@/types/chain';
-import { Activity, Globe, Server, Zap, Database, Clock, TrendingUp, CheckCircle, AlertCircle, Map } from 'lucide-react';
+import { Activity, Globe, Server, Zap, Database, Clock, TrendingUp, CheckCircle, AlertCircle, Map, RefreshCw } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslation } from '@/lib/i18n';
 
@@ -44,21 +44,23 @@ interface ValidatorLocation {
 }
 
 interface ValidatorData {
-  moniker: string;
-  operator_address: string;
-  consensus_address: string;
-  jailed: boolean;
-  status: string;
-  tokens: string;
-  delegator_shares: string;
-  commission: {
-    commission_rates: {
-      rate: string;
-      max_rate: string;
-      max_change_rate: string;
+  moniker?: string;
+  operator_address?: string;
+  consensus_address?: string;
+  jailed?: boolean;
+  status?: string;
+  tokens?: string;
+  delegator_shares?: string;
+  commission?: {
+    commission_rates?: {
+      rate?: string;
+      max_rate?: string;
+      max_change_rate?: string;
     };
   };
-  voting_power: number;
+  voting_power?: number;
+  votingPower?: number | string;
+  consensus_power?: number | string;
 }
 
 interface NetworkInfo {
@@ -122,6 +124,11 @@ export default function NetworkPage() {
 
   useEffect(() => {
     if (!selectedChain) return;
+    
+    // Reset loading states when chain changes
+    setLoadingLocations(true);
+    setLoadingValidators(true);
+    setLoading(true);
     
     // Use chain_name for API calls (backend expects chain_name, not chain_id)
     const chainIdentifier = selectedChain.chain_name.trim();
@@ -199,24 +206,26 @@ export default function NetworkPage() {
     setLoadingValidators(true);
     
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 seconds for GeoIP lookups
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
     
     Promise.all([
-
+      // 1. Network info
       fetch(`/api/network?chain=${chainIdentifier}`, { signal: controller.signal })
         .then(res => res.json())
         .catch(err => {
           console.error('[Network] Network API error:', err);
           return null;
         }),
-
-      fetch(`/api/network/peers?chain=${chainIdentifier}`, { signal: controller.signal })
+      
+      // 2. Validator locations
+      fetch(`/api/network/validators?chain=${chainIdentifier}`, { signal: controller.signal })
         .then(res => res.json())
         .catch(err => {
-          console.error('[Network] Peers API error:', err);
+          console.error('[Network] Locations API error:', err);
           return null;
         }),
-
+      
+      // 3. Validators list (only if not cached)
       validators.length === 0
         ? fetch(`/api/validators?chain=${chainIdentifier}`, { signal: controller.signal })
             .then(res => res.json())
@@ -277,8 +286,10 @@ export default function NetworkPage() {
         const validatorsArray = validatorsData.validators || validatorsData;
         
         if (Array.isArray(validatorsArray) && validatorsArray.length > 0) {
+          // Debug: log first validator to see structure
+          console.log('[Network] Sample validator data:', validatorsArray[0]);
+          
           setValidators(validatorsArray);
-          setLoadingValidators(false);
           
           // Cache validators (10 minutes)
           try {
@@ -290,9 +301,10 @@ export default function NetworkPage() {
           
           console.log('[Network] Validators loaded:', validatorsArray.length);
         }
-      } else {
-        setLoadingValidators(false);
       }
+      
+      // Always set loading to false at the end
+      setLoadingValidators(false);
     })
     .catch(err => {
       console.error('[Network] Parallel fetch error:', err);
@@ -404,14 +416,32 @@ export default function NetworkPage() {
 
         <main className="flex-1 mt-32 md:mt-16 p-3 md:p-6 overflow-auto bg-black">
           {/* Header - Simple like THORChain */}
-          <div className="mb-6">
-            <h1 className="text-xl font-bold text-white uppercase tracking-wider flex items-center gap-2">
-              <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse"></div>
-              {selectedChain?.chain_name.toUpperCase()} nodes
-            </h1>
+          <div className="mb-6 flex items-center justify-between">
+            <div>
+              <h1 className="text-xl font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse"></div>
+                {selectedChain?.chain_name.toUpperCase()} nodes
+              </h1>
+            </div>
+            <button
+              onClick={() => {
+                // Clear all cache for this chain
+                if (selectedChain) {
+                  sessionStorage.removeItem(`network_v2_${selectedChain.chain_name}`);
+                  sessionStorage.removeItem(`network_locations_v2_${selectedChain.chain_name}`);
+                  localStorage.removeItem(`validators_${selectedChain.chain_name.trim()}`);
+                  // Reload page
+                  window.location.reload();
+                }
+              }}
+              className="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg transition-colors text-white text-sm flex items-center gap-2"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Refresh Data
+            </button>
           </div>
 
-          {loadingLocations || loadingValidators ? (
+          {loadingLocations ? (
             <div className="space-y-4">
               {/* Loading skeleton */}
               <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-6 h-[500px] flex items-center justify-center">
@@ -636,8 +666,7 @@ export default function NetworkPage() {
                 chartColors={CHART_COLORS}
               />
             </>
-          ) : validators.length > 0 ? (
-            // Show validator list without map if we have validators but no location data
+          ) : !loadingLocations && validatorLocations.length === 0 && validators.length > 0 ? (
             <div className="space-y-4">
               <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-6">
                 <div className="flex items-center gap-3 mb-4">
@@ -652,7 +681,7 @@ export default function NetworkPage() {
               </div>
               
               {/* Basic Stats */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
                 <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-4 text-center">
                   <p className="text-gray-400 text-sm mb-2">Active Validators</p>
                   <p className="text-cyan-400 text-4xl font-bold">{validators.filter(v => v.status === 'BOND_STATUS_BONDED').length}</p>
@@ -660,6 +689,14 @@ export default function NetworkPage() {
                 <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-4 text-center">
                   <p className="text-gray-400 text-sm mb-2">Total Validators</p>
                   <p className="text-cyan-400 text-4xl font-bold">{validators.length}</p>
+                </div>
+                <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-4 text-center">
+                  <p className="text-gray-400 text-sm mb-2">Jailed</p>
+                  <p className="text-red-400 text-4xl font-bold">{validators.filter(v => v.jailed).length}</p>
+                </div>
+                <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-4 text-center">
+                  <p className="text-gray-400 text-sm mb-2">Inactive</p>
+                  <p className="text-gray-400 text-4xl font-bold">{validators.filter(v => v.status !== 'BOND_STATUS_BONDED').length}</p>
                 </div>
               </div>
             </div>

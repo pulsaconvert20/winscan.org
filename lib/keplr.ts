@@ -4,6 +4,11 @@ import {
   broadcastTransaction,
   fetchAccountWithEthSupport 
 } from './evmSigning';
+import { 
+  isPaxiHubInstalled, 
+  signAndBroadcastPaxiHub, 
+  getCurrentWalletType 
+} from './paxihub';
 
 // Helper to get gov module type URL based on chain
 function getGovMsgVoteTypeUrl(chainId: string): string {
@@ -90,6 +95,28 @@ async function tryVoteWithFallback(
   return { success: false, error: combinedError };
 }
 
+// Helper function to route transactions to the correct wallet
+async function signAndBroadcastWithWallet(
+  chain: ChainData,
+  messages: any[],
+  fee: any,
+  memo: string = ''
+): Promise<{ code: number; transactionHash: string; rawLog?: string }> {
+  const walletType = getCurrentWalletType();
+  
+  console.log('Current wallet type:', walletType);
+  
+  // If PaxiHub is connected, use PaxiHub
+  if (walletType === 'paxihub' && isPaxiHubInstalled()) {
+    console.log('Using PaxiHub for transaction');
+    return await signAndBroadcastPaxiHub(chain, messages, fee, memo);
+  }
+  
+  // Otherwise use Keplr/Leap/Cosmostation (existing logic)
+  console.log('Using Keplr/Leap/Cosmostation for transaction');
+  throw new Error('Keplr signing not implemented in this helper - use existing flow');
+}
+
 export function calculateFee(chain: ChainData, gasLimit: string): { amount: Array<{ denom: string; amount: string }>; gas: string } {
   const denom = chain.assets?.[0]?.base || 'uatom';
   const exponent = parseInt(String(chain.assets?.[0]?.exponent || '6'));
@@ -138,6 +165,17 @@ export function calculateFee(chain: ChainData, gasLimit: string): { amount: Arra
   } else {
     const minFee = parseFloat(chain.min_tx_fee || '0.025');
     feeAmount = Math.ceil(parseFloat(gasLimit) * minFee).toString();
+  }
+  
+  // CRITICAL: PaxiHub mobile requires higher fees (2x minimum)
+  // Check if PaxiHub is being used
+  if (typeof window !== 'undefined' && (window as any).paxihub) {
+    const currentFee = parseFloat(feeAmount);
+    const minPaxiHubFee = 30000; // Minimum 30000 for PaxiHub
+    
+    // Use the higher of: current fee * 2 or minimum PaxiHub fee
+    feeAmount = Math.max(currentFee * 2, minPaxiHubFee).toString();
+    console.log(`🔧 PaxiHub detected - Fee increased to ${feeAmount} ${denom}`);
   }
   
   return {
@@ -217,7 +255,7 @@ async function createCustomGovRegistry(chainId: string) {
     }
     
     // Create registry with default types (includes gov v1beta1)
-    const registry = new Registry(defaultRegistryTypes);
+    const registry = new Registry([...defaultRegistryTypes] as any);
     
     console.log('✅ Created registry with default types (includes gov v1beta1)');
     
@@ -230,7 +268,7 @@ async function createCustomGovRegistry(chainId: string) {
         const { MsgVote } = await import('cosmjs-types/cosmos/gov/v1beta1/tx');
         
         // Register AtomOne gov types using same structure as Cosmos
-        registry.register('/atomone.gov.v1beta1.MsgVote', MsgVote);
+        registry.register('/atomone.gov.v1beta1.MsgVote', MsgVote as any);
         console.log('✅ Registered /atomone.gov.v1beta1.MsgVote');
       } catch (err) {
         console.warn('Could not register AtomOne types:', err);
@@ -393,33 +431,11 @@ export function isKeplrInstalled(): boolean {
   return typeof window !== 'undefined' && !!window.keplr;
 }
 
-export function isLeapInstalled(): boolean {
-  return typeof window !== 'undefined' && !!(window as any).leap;
-}
-
-export function isCosmostationInstalled(): boolean {
-  return typeof window !== 'undefined' && !!(window as any).cosmostation;
-}
-
 export function getKeplr() {
   if (!isKeplrInstalled()) {
     throw new Error('Keplr extension is not installed. Please install it from https://www.keplr.app/');
   }
   return window.keplr!;
-}
-
-export function getLeap() {
-  if (!isLeapInstalled()) {
-    throw new Error('Leap extension is not installed. Please install it from https://www.leapwallet.io/');
-  }
-  return (window as any).leap;
-}
-
-export function getCosmostation() {
-  if (!isCosmostationInstalled()) {
-    throw new Error('Cosmostation extension is not installed. Please install it from https://cosmostation.io/');
-  }
-  return (window as any).cosmostation;
 }
 export async function suggestChain(chainInfo: KeplrChainInfo): Promise<void> {
   const keplr = getKeplr();
@@ -444,14 +460,14 @@ export async function connectKeplr(
   chain: ChainData, 
   coinType?: 118 | 60
 ): Promise<KeplrAccount> {
-  return connectWalletWithType(chain, coinType, 'keplr');
+  const wallet = getKeplr();
+  return _connectWalletCore(wallet, chain, coinType);
 }
 
 async function _connectWalletCore(
   wallet: any,
   chain: ChainData,
-  coinType?: 118 | 60,
-  walletType: 'keplr' | 'leap' | 'cosmostation' = 'keplr'
+  coinType?: 118 | 60
 ): Promise<KeplrAccount> {
   const chainInfo = convertChainToKeplr(chain, coinType);
   let chainId = chainInfo.chainId;
@@ -459,13 +475,12 @@ async function _connectWalletCore(
   // Auto-detect coinType from chain config if not provided
   const finalCoinType = coinType ?? (chain.coin_type ? parseInt(chain.coin_type) as (118 | 60) : 118);
 
-  console.log(`🔍 connect${walletType.charAt(0).toUpperCase() + walletType.slice(1)} Debug:`, {
+  console.log('🔍 connectKeplr Debug:', {
     chain_name: chain.chain_name,
     chain_id: chain.chain_id,
     computed_chainId: chainId,
     configCoinType: chain.coin_type,
-    finalCoinType,
-    walletType
+    finalCoinType
   });
 
   const rpcEndpoint = chain.rpc?.[0]?.address;
@@ -570,16 +585,9 @@ async function _connectWalletCore(
         }
       }
       
-      // Use wallet-specific method for suggesting chain
-      if (walletType === 'cosmostation') {
-        await wallet.cosmos.request({
-          method: 'cos_addChain',
-          params: chainInfo,
-        });
-      } else {
-        await wallet.experimentalSuggestChain(chainInfo);
-      }
-      console.log(`✅ Chain suggested successfully to ${walletType}`);
+      // Use Keplr's experimentalSuggestChain
+      await wallet.experimentalSuggestChain(chainInfo);
+      console.log('✅ Chain suggested successfully to Keplr');
       
       await wallet.enable(chainId);
       console.log('✅ Chain enabled after suggestion:', chainId);
@@ -587,21 +595,8 @@ async function _connectWalletCore(
     
     let key;
     try {
-      if (walletType === 'cosmostation') {
-        const account = await wallet.cosmos.request({
-          method: 'cos_account',
-          params: { chainName: chainId },
-        });
-        key = {
-          bech32Address: account.address,
-          algo: 'secp256k1',
-          pubKey: new Uint8Array(Buffer.from(account.publicKey, 'hex')),
-          isNanoLedger: false,
-        };
-      } else {
-        key = await wallet.getKey(chainId);
-      }
-      console.log(`✅ ${walletType} key retrieved for address:`, key.bech32Address);
+      key = await wallet.getKey(chainId);
+      console.log('✅ Keplr key retrieved for address:', key.bech32Address);
     } catch (keyError: any) {
       if (keyError.message?.includes('EthAccount') || keyError.message?.includes('Unsupported type')) {
         console.log('🔄 EthAccount type detected, reconnecting with EVM support...');
@@ -611,32 +606,12 @@ async function _connectWalletCore(
           features: ['eth-address-gen', 'eth-key-sign', 'ibc-transfer'],
         };
         
-        if (walletType === 'cosmostation') {
-          await wallet.cosmos.request({
-            method: 'cos_addChain',
-            params: evmChainInfo,
-          });
-        } else {
-          await wallet.experimentalSuggestChain(evmChainInfo);
-        }
+        await wallet.experimentalSuggestChain(evmChainInfo);
         await new Promise(resolve => setTimeout(resolve, 500));
         await wallet.enable(chainId);
         
-        if (walletType === 'cosmostation') {
-          const account = await wallet.cosmos.request({
-            method: 'cos_account',
-            params: { chainName: chainId },
-          });
-          key = {
-            bech32Address: account.address,
-            algo: 'secp256k1',
-            pubKey: new Uint8Array(Buffer.from(account.publicKey, 'hex')),
-            isNanoLedger: false,
-          };
-        } else {
-          key = await wallet.getKey(chainId);
-        }
-        console.log(`✅ ${walletType} key retrieved after EVM re-config:`, key.bech32Address);
+        key = await wallet.getKey(chainId);
+        console.log('✅ Keplr key retrieved after EVM re-config:', key.bech32Address);
       } else {
         throw keyError;
       }
@@ -649,46 +624,18 @@ async function _connectWalletCore(
       isNanoLedger: key.isNanoLedger || false,
     };
   } catch (error: any) {
-    console.error(`Failed to connect to ${walletType}:`, error);
+    console.error('Failed to connect to Keplr:', error);
     
     if (error.message?.includes('EthAccount') || error.message?.includes('Unsupported type')) {
-      throw new Error(`EVM chain not fully supported in this wallet version. Please: 1) Update ${walletType} to latest version, 2) Clear browser cache, 3) Reconnect wallet. Error: ${error.message}`);
+      throw new Error(`EVM chain not fully supported in this wallet version. Please: 1) Update Keplr to latest version, 2) Clear browser cache, 3) Reconnect wallet. Error: ${error.message}`);
     }
     
     if (error.message?.includes('chain id') || error.message?.includes('signer')) {
-      throw new Error(`Chain ID mismatch. Please try: 1) Disconnect ${walletType} wallet, 2) Clear browser cache, 3) Reconnect. Chain ID: ${chainId}`);
+      throw new Error(`Chain ID mismatch. Please try: 1) Disconnect Keplr wallet, 2) Clear browser cache, 3) Reconnect. Chain ID: ${chainId}`);
     }
     
     throw error;
   }
-}
-
-// Main wallet connection function with wallet type selection
-export async function connectWalletWithType(
-  chain: ChainData, 
-  coinType?: 118 | 60,
-  walletType: 'keplr' | 'leap' | 'cosmostation' = 'keplr'
-): Promise<KeplrAccount> {
-  let wallet: any;
-  
-  if (walletType === 'leap') {
-    if (!isLeapInstalled()) {
-      throw new Error('Leap extension is not installed');
-    }
-    wallet = getLeap();
-  } else if (walletType === 'cosmostation') {
-    if (!isCosmostationInstalled()) {
-      throw new Error('Cosmostation extension is not installed');
-    }
-    wallet = getCosmostation();
-  } else {
-    if (!isKeplrInstalled()) {
-      throw new Error('Keplr extension is not installed');
-    }
-    wallet = getKeplr();
-  }
-  
-  return _connectWalletCore(wallet, chain, coinType, walletType);
 }
 export function disconnectKeplr(): void {
   if (typeof window !== 'undefined') {
@@ -859,8 +806,210 @@ export async function executeStaking(
   memo: string = ''
 ): Promise<{ success: boolean; txHash?: string; error?: string }> {
   try {
+    console.log('🔍 [executeStaking] ==================== START ====================');
+    console.log('🔍 [executeStaking] Chain:', chain.chain_name, chain.chain_id);
+    console.log('🔍 [executeStaking] typeof window:', typeof window);
+    console.log('🔍 [executeStaking] typeof window.paxihub:', typeof window !== 'undefined' ? typeof window.paxihub : 'undefined');
+    console.log('🔍 [executeStaking] window.paxihub exists:', typeof window !== 'undefined' && typeof window.paxihub !== 'undefined');
+    
+    // Import PaxiHub utilities
+    const { isPaxiChain: checkIsPaxiChain, ensurePaxiHubForPaxiChain } = await import('./paxihub');
+    const chainIdForCheck = chain.chain_id || chain.chain_name;
+    
+    // CRITICAL: For Paxi chain, ONLY use PaxiHub (no Keplr fallback)
+    if (checkIsPaxiChain(chainIdForCheck)) {
+      console.log('🔍 [executeStaking] Paxi chain detected - enforcing PaxiHub usage');
+      ensurePaxiHubForPaxiChain(chainIdForCheck); // This will throw if PaxiHub not available
+    }
+    
+    // FIRST: Direct check for window.paxihub (most reliable for PaxiHub browser)
+    if (typeof window !== 'undefined' && window.paxihub) {
+      console.log('✅ [executeStaking] window.paxihub exists - using PaxiHub');
+      
+      const denom = chain.assets?.[0]?.base || 'uatom';
+      const fee = calculateFee(chain, gasLimit);
+      
+      let message: any;
+      if (type === 'delegate') {
+        message = { typeUrl: '/cosmos.staking.v1beta1.MsgDelegate', value: { delegatorAddress: params.delegatorAddress, validatorAddress: params.validatorAddress, amount: { denom, amount: params.amount || '0' } } };
+      } else if (type === 'undelegate') {
+        message = { typeUrl: '/cosmos.staking.v1beta1.MsgUndelegate', value: { delegatorAddress: params.delegatorAddress, validatorAddress: params.validatorAddress, amount: { denom, amount: params.amount || '0' } } };
+      } else if (type === 'redelegate') {
+        message = { typeUrl: '/cosmos.staking.v1beta1.MsgBeginRedelegate', value: { delegatorAddress: params.delegatorAddress, validatorSrcAddress: params.validatorAddress, validatorDstAddress: params.validatorDstAddress, amount: { denom, amount: params.amount || '0' } } };
+      } else if (type === 'withdraw_rewards' || type === 'withdraw') {
+        message = { typeUrl: '/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward', value: { delegatorAddress: params.delegatorAddress, validatorAddress: params.validatorAddress } };
+      } else if (type === 'withdraw_commission') {
+        message = { typeUrl: '/cosmos.distribution.v1beta1.MsgWithdrawValidatorCommission', value: { validatorAddress: params.validatorAddress } };
+      } else {
+        throw new Error(`Unsupported staking type: ${type}`);
+      }
+      
+      try {
+        const result = await signAndBroadcastPaxiHub(chain, [message], fee, memo);
+        return result.code === 0 ? { success: true, txHash: result.transactionHash } : { success: false, error: result.rawLog || 'Transaction failed' };
+      } catch (err: any) {
+        console.error('❌ PaxiHub error:', err);
+        return { success: false, error: err.message || 'PaxiHub transaction failed' };
+      }
+    }
+    
+    // Check if PaxiHub is being used
+    const walletType = getCurrentWalletType();
+    const paxiInstalled = isPaxiHubInstalled();
+    
+    console.log('🔍 Wallet Detection:', {
+      walletType,
+      paxiInstalled,
+      localStorage_paxihub: localStorage.getItem('paxihub_account'),
+      localStorage_active: localStorage.getItem('active_wallet'),
+      window_paxihub: typeof window.paxihub,
+    });
+    
+    if (walletType === 'paxihub' && paxiInstalled) {
+      console.log('✅ Using PaxiHub for staking transaction');
+      
+      const denom = chain.assets?.[0]?.base || 'uatom';
+      const fee = calculateFee(chain, gasLimit);
+      
+      // Build message based on type
+      let message: any;
+      
+      if (type === 'delegate') {
+        message = {
+          typeUrl: '/cosmos.staking.v1beta1.MsgDelegate',
+          value: {
+            delegatorAddress: params.delegatorAddress,
+            validatorAddress: params.validatorAddress,
+            amount: {
+              denom,
+              amount: params.amount || '0',
+            },
+          },
+        };
+      } else if (type === 'undelegate') {
+        message = {
+          typeUrl: '/cosmos.staking.v1beta1.MsgUndelegate',
+          value: {
+            delegatorAddress: params.delegatorAddress,
+            validatorAddress: params.validatorAddress,
+            amount: {
+              denom,
+              amount: params.amount || '0',
+            },
+          },
+        };
+      } else if (type === 'redelegate') {
+        message = {
+          typeUrl: '/cosmos.staking.v1beta1.MsgBeginRedelegate',
+          value: {
+            delegatorAddress: params.delegatorAddress,
+            validatorSrcAddress: params.validatorAddress,
+            validatorDstAddress: params.validatorDstAddress,
+            amount: {
+              denom,
+              amount: params.amount || '0',
+            },
+          },
+        };
+      } else if (type === 'withdraw_rewards' || type === 'withdraw') {
+        message = {
+          typeUrl: '/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward',
+          value: {
+            delegatorAddress: params.delegatorAddress,
+            validatorAddress: params.validatorAddress,
+          },
+        };
+      } else if (type === 'withdraw_commission') {
+        message = {
+          typeUrl: '/cosmos.distribution.v1beta1.MsgWithdrawValidatorCommission',
+          value: {
+            validatorAddress: params.validatorAddress,
+          },
+        };
+      } else {
+        throw new Error(`Unsupported staking type: ${type}`);
+      }
+      
+      const result = await signAndBroadcastPaxiHub(chain, [message], fee, memo);
+      
+      if (result.code === 0) {
+        return { success: true, txHash: result.transactionHash };
+      } else {
+        return { success: false, error: result.rawLog || 'Transaction failed' };
+      }
+    }
+    
+    // If PaxiHub is installed but not the active wallet type, still try PaxiHub
+    if (paxiInstalled && !walletType) {
+      console.log('⚠️ PaxiHub detected but no wallet type set, trying PaxiHub anyway');
+      
+      const denom = chain.assets?.[0]?.base || 'uatom';
+      const fee = calculateFee(chain, gasLimit);
+      
+      let message: any;
+      
+      if (type === 'delegate') {
+        message = {
+          typeUrl: '/cosmos.staking.v1beta1.MsgDelegate',
+          value: {
+            delegatorAddress: params.delegatorAddress,
+            validatorAddress: params.validatorAddress,
+            amount: { denom, amount: params.amount || '0' },
+          },
+        };
+      } else if (type === 'undelegate') {
+        message = {
+          typeUrl: '/cosmos.staking.v1beta1.MsgUndelegate',
+          value: {
+            delegatorAddress: params.delegatorAddress,
+            validatorAddress: params.validatorAddress,
+            amount: { denom, amount: params.amount || '0' },
+          },
+        };
+      } else if (type === 'redelegate') {
+        message = {
+          typeUrl: '/cosmos.staking.v1beta1.MsgBeginRedelegate',
+          value: {
+            delegatorAddress: params.delegatorAddress,
+            validatorSrcAddress: params.validatorAddress,
+            validatorDstAddress: params.validatorDstAddress,
+            amount: { denom, amount: params.amount || '0' },
+          },
+        };
+      } else if (type === 'withdraw_rewards' || type === 'withdraw') {
+        message = {
+          typeUrl: '/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward',
+          value: {
+            delegatorAddress: params.delegatorAddress,
+            validatorAddress: params.validatorAddress,
+          },
+        };
+      } else if (type === 'withdraw_commission') {
+        message = {
+          typeUrl: '/cosmos.distribution.v1beta1.MsgWithdrawValidatorCommission',
+          value: { validatorAddress: params.validatorAddress },
+        };
+      } else {
+        throw new Error(`Unsupported staking type: ${type}`);
+      }
+      
+      try {
+        const result = await signAndBroadcastPaxiHub(chain, [message], fee, memo);
+        if (result.code === 0) {
+          return { success: true, txHash: result.transactionHash };
+        } else {
+          return { success: false, error: result.rawLog || 'Transaction failed' };
+        }
+      } catch (paxiError: any) {
+        console.error('PaxiHub transaction failed:', paxiError);
+        // Don't fall through to Keplr, just return error
+        return { success: false, error: paxiError.message || 'PaxiHub transaction failed' };
+      }
+    }
+    
+    // Original Keplr logic - only if PaxiHub is NOT installed
     if (!isKeplrInstalled()) {
-      throw new Error('Keplr extension is not installed');
+      throw new Error('No wallet found. Please install Keplr extension or use PaxiHub app.');
     }
 
     const keplr = window.keplr!;
@@ -1530,11 +1679,97 @@ export async function executeSend(
     denom: string;
   },
   gasLimit: string = '200000',
-  memo: string = 'Integrate Veriznode'
+  memo: string = 'Integrate WinScan'
 ): Promise<{ success: boolean; txHash?: string; error?: string }> {
   try {
+    console.log('🔍 [executeSend] ==================== START ====================');
+    console.log('🔍 [executeSend] typeof window:', typeof window);
+    console.log('🔍 [executeSend] typeof window.paxihub:', typeof window !== 'undefined' ? typeof window.paxihub : 'undefined');
+    console.log('🔍 [executeSend] window.paxihub exists:', typeof window !== 'undefined' && typeof window.paxihub !== 'undefined');
+    
+    // Import PaxiHub utilities
+    const { isPaxiChain: checkIsPaxiChainSend } = await import('./paxihub');
+    const chainIdForCheckSend = chain.chain_id || chain.chain_name;
+    
+    // FIRST: Direct check for window.paxihub
+    if (typeof window !== 'undefined' && window.paxihub) {
+      console.log('✅ [executeSend] window.paxihub exists - using PaxiHub for send');
+      const fee = calculateFee(chain, gasLimit);
+      const sendMsg = { typeUrl: '/cosmos.bank.v1beta1.MsgSend', value: { fromAddress: params.fromAddress, toAddress: params.toAddress, amount: [{ denom: params.denom, amount: params.amount }] } };
+      try {
+        const result = await signAndBroadcastPaxiHub(chain, [sendMsg], fee, memo);
+        return result.code === 0 ? { success: true, txHash: result.transactionHash } : { success: false, error: result.rawLog || 'Send failed' };
+      } catch (err: any) {
+        return { success: false, error: err.message || 'PaxiHub send failed' };
+      }
+    }
+    
+    // Check if PaxiHub is being used
+    const walletType = getCurrentWalletType();
+    const paxiInstalled = isPaxiHubInstalled();
+    
+    console.log('💸 Send - Wallet Detection:', { walletType, paxiInstalled });
+    
+    if (walletType === 'paxihub' && paxiInstalled) {
+      console.log('✅ Using PaxiHub for send transaction');
+      
+      const fee = calculateFee(chain, gasLimit);
+      
+      const sendMsg = {
+        typeUrl: '/cosmos.bank.v1beta1.MsgSend',
+        value: {
+          fromAddress: params.fromAddress,
+          toAddress: params.toAddress,
+          amount: [{
+            denom: params.denom,
+            amount: params.amount,
+          }],
+        },
+      };
+      
+      const result = await signAndBroadcastPaxiHub(chain, [sendMsg], fee, memo);
+      
+      if (result.code === 0) {
+        return { success: true, txHash: result.transactionHash };
+      } else {
+        return { success: false, error: result.rawLog || 'Send failed' };
+      }
+    }
+    
+    // If PaxiHub is installed, try it even without wallet type
+    if (paxiInstalled && !walletType) {
+      console.log('⚠️ PaxiHub detected, trying PaxiHub for send');
+      
+      const fee = calculateFee(chain, gasLimit);
+      
+      const sendMsg = {
+        typeUrl: '/cosmos.bank.v1beta1.MsgSend',
+        value: {
+          fromAddress: params.fromAddress,
+          toAddress: params.toAddress,
+          amount: [{
+            denom: params.denom,
+            amount: params.amount,
+          }],
+        },
+      };
+      
+      try {
+        const result = await signAndBroadcastPaxiHub(chain, [sendMsg], fee, memo);
+        if (result.code === 0) {
+          return { success: true, txHash: result.transactionHash };
+        } else {
+          return { success: false, error: result.rawLog || 'Send failed' };
+        }
+      } catch (paxiError: any) {
+        console.error('PaxiHub send failed:', paxiError);
+        return { success: false, error: paxiError.message || 'PaxiHub send failed' };
+      }
+    }
+    
+    // Original Keplr logic - only if PaxiHub is NOT installed
     if (!isKeplrInstalled()) {
-      throw new Error('Keplr extension is not installed');
+      throw new Error('No wallet found. Please install Keplr extension or use PaxiHub app.');
     }
 
     const keplr = window.keplr!;
@@ -1778,12 +2013,121 @@ export async function executeVote(
     proposalId: string;
     option: number; // 1=Yes, 2=Abstain, 3=No, 4=NoWithVeto
   },
-  gasLimit: string = '200000',
-  memo: string = 'Vote via Veriznode'
+  gasLimit: string = '400000',
+  memo: string = 'Vote via WinScan'
 ): Promise<{ success: boolean; txHash?: string; error?: string }> {
   try {
+    console.log('🔍 [executeVote] ==================== START ====================');
+    console.log('🔍 [executeVote] typeof window:', typeof window);
+    console.log('🔍 [executeVote] typeof window.paxihub:', typeof window !== 'undefined' ? typeof window.paxihub : 'undefined');
+    console.log('🔍 [executeVote] window.paxihub exists:', typeof window !== 'undefined' && typeof window.paxihub !== 'undefined');
+    
+    // Import PaxiHub utilities
+    const { isPaxiChain: checkIsPaxiChainVote } = await import('./paxihub');
+    const chainIdForCheckVote = chain.chain_id || chain.chain_name;
+    
+    // FIRST: Direct check for window.paxihub (most reliable for PaxiHub browser)
+    if (typeof window !== 'undefined' && window.paxihub) {
+      console.log('✅ [executeVote] window.paxihub exists - using PaxiHub for vote');
+      
+      const fee = calculateFee(chain, gasLimit);
+      const chainId = chain.chain_id || chain.chain_name;
+      
+      let typeUrl = '/cosmos.gov.v1beta1.MsgVote';
+      if (chainId.includes('atomone')) {
+        typeUrl = '/atomone.gov.v1beta1.MsgVote';
+      }
+      
+      const voteMsg = {
+        typeUrl,
+        value: {
+          proposalId: params.proposalId,
+          voter: params.voterAddress,
+          option: params.option,
+        },
+      };
+      
+      try {
+        const result = await signAndBroadcastPaxiHub(chain, [voteMsg], fee, memo);
+        return result.code === 0 ? { success: true, txHash: result.transactionHash } : { success: false, error: result.rawLog || 'Vote failed' };
+      } catch (err: any) {
+        console.error('❌ PaxiHub vote error:', err);
+        return { success: false, error: err.message || 'PaxiHub vote failed' };
+      }
+    }
+    
+    // Check if PaxiHub is being used
+    const walletType = getCurrentWalletType();
+    const paxiInstalled = isPaxiHubInstalled();
+    
+    console.log('🗳️ Vote - Wallet Detection:', { walletType, paxiInstalled });
+    
+    if (walletType === 'paxihub' && paxiInstalled) {
+      console.log('✅ Using PaxiHub for vote transaction');
+      
+      const fee = calculateFee(chain, gasLimit);
+      const chainId = chain.chain_id || chain.chain_name;
+      
+      let typeUrl = '/cosmos.gov.v1beta1.MsgVote';
+      if (chainId.includes('atomone')) {
+        typeUrl = '/atomone.gov.v1beta1.MsgVote';
+      }
+      
+      const voteMsg = {
+        typeUrl,
+        value: {
+          proposalId: params.proposalId,
+          voter: params.voterAddress,
+          option: params.option,
+        },
+      };
+      
+      const result = await signAndBroadcastPaxiHub(chain, [voteMsg], fee, memo);
+      
+      if (result.code === 0) {
+        return { success: true, txHash: result.transactionHash };
+      } else {
+        return { success: false, error: result.rawLog || 'Vote failed' };
+      }
+    }
+    
+    // If PaxiHub is installed, try it even without wallet type
+    if (paxiInstalled && !walletType) {
+      console.log('⚠️ PaxiHub detected, trying PaxiHub for vote');
+      
+      const fee = calculateFee(chain, gasLimit);
+      const chainId = chain.chain_id || chain.chain_name;
+      
+      let typeUrl = '/cosmos.gov.v1beta1.MsgVote';
+      if (chainId.includes('atomone')) {
+        typeUrl = '/atomone.gov.v1beta1.MsgVote';
+      }
+      
+      const voteMsg = {
+        typeUrl,
+        value: {
+          proposalId: params.proposalId,
+          voter: params.voterAddress,
+          option: params.option,
+        },
+      };
+      
+      try {
+        const result = await signAndBroadcastPaxiHub(chain, [voteMsg], fee, memo);
+        if (result.code === 0) {
+          return { success: true, txHash: result.transactionHash };
+        } else {
+          return { success: false, error: result.rawLog || 'Vote failed' };
+        }
+      } catch (paxiError: any) {
+        console.error('PaxiHub vote failed:', paxiError);
+        return { success: false, error: paxiError.message || 'PaxiHub vote failed' };
+      }
+    }
+    
+    // Original Keplr logic - only if PaxiHub is NOT installed
     if (!isKeplrInstalled()) {
-      throw new Error('Keplr extension is not installed');
+      throw new Error('No wallet found. Please install Keplr extension or use PaxiHub app.');
     }
 
     const keplr = window.keplr!;
@@ -2149,7 +2493,7 @@ export async function executeUnjail(
     const fee = calculateFee(chain, gasLimit);
 
     console.log('💰 Fee:', fee);
-    console.log('📄 Memo:', memo || 'Unjail via Veriznode');
+    console.log('📄 Memo:', memo || 'Unjail via WinScan');
 
     const coinType = parseInt(chain.coin_type || '118');
     if (isEvmChain) {
@@ -2168,7 +2512,7 @@ export async function executeUnjail(
           signerAddress,
           [unjailMsg],
           fee,
-          memo || 'Unjail via Veriznode',
+          memo || 'Unjail via WinScan',
           coinType,
           true,
           registry
@@ -2190,7 +2534,7 @@ export async function executeUnjail(
       signerAddress,
       [unjailMsg],
       fee,
-      memo || 'Unjail via Veriznode'
+      memo || 'Unjail via WinScan'
     );
 
     console.log('✅ Unjail result:', result);
@@ -2354,7 +2698,7 @@ export async function executeEditValidatorCommission(
     const fee = calculateFee(chain, gasLimit);
 
     console.log('💰 Fee:', fee);
-    console.log('📄 Memo:', memo || 'Edit Commission via Veriznode');
+    console.log('📄 Memo:', memo || 'Edit Commission via WinScan');
 
     const coinType = parseInt(chain.coin_type || '118');
     if (isEvmChain) {
@@ -2373,7 +2717,7 @@ export async function executeEditValidatorCommission(
           signerAddress,
           [editValidatorMsg],
           fee,
-          memo || 'Edit Commission via Veriznode',
+          memo || 'Edit Commission via WinScan',
           coinType,
           true,
           registry
@@ -2395,7 +2739,7 @@ export async function executeEditValidatorCommission(
       signerAddress,
       [editValidatorMsg],
       fee,
-      memo || 'Edit Commission via Veriznode'
+      memo || 'Edit Commission via WinScan'
     );
 
     console.log('✅ Edit commission result:', result);
@@ -2560,7 +2904,7 @@ export async function executeSwap(
     offerAmount: string;
     minReceive: string;
   },
-  gasLimit: string = '300000',
+  gasLimit: string = '600000',
   memo: string = ''
 ): Promise<{ success: boolean; txHash?: string; error?: string }> {
   try {
@@ -2865,7 +3209,7 @@ export async function executeSwap(
     console.log('📝 Swap message:', swapMsg);
 
     // Use higher gas for PRC20 → PAXI swaps (needs more gas for transfer_from + swap)
-    const finalGasLimit = params.offerDenom !== 'upaxi' ? '500000' : gasLimit;
+    const finalGasLimit = params.offerDenom !== 'upaxi' ? '1000000' : gasLimit;
     const fee = calculateFee(chain, finalGasLimit);
 
     console.log('💰 Fee:', {
@@ -2877,7 +3221,7 @@ export async function executeSwap(
       signerAddress,
       [swapMsg],
       fee,
-      memo || 'Swap via Veriznode'
+      memo || 'Swap via WinScan'
     );
 
     console.log('✅ Swap result:', result);
@@ -3098,7 +3442,7 @@ export async function enableAutoCompound(
             amount: fee.amount,
             gas: fee.gas,
           },
-          'Enable Auto-Compound via Veriznode',
+          'Enable Auto-Compound via WinScan',
           coinType,
           false, // Don't auto-simulate for grants
           clientOptions.registry
@@ -3123,7 +3467,7 @@ export async function enableAutoCompound(
         delegatorAddress,
         grantMsgs,
         fee,
-        'Enable Auto-Compound via Veriznode'
+        'Enable Auto-Compound via WinScan'
       );
     }
 
@@ -3359,7 +3703,7 @@ export async function disableAutoCompound(
           delegatorAddress,
           [revokeMsg],
           fee,
-          'Disable Auto-Compound via Veriznode',
+          'Disable Auto-Compound via WinScan',
           coinType,
           false
         );
@@ -3393,7 +3737,7 @@ export async function disableAutoCompound(
       delegatorAddress,
       [revokeMsg],
       fee,
-      'Disable Auto-Compound via Veriznode'
+      'Disable Auto-Compound via WinScan'
     );
 
     if (result.code === 0) {
@@ -3426,7 +3770,7 @@ export async function executeProvideLiquidity(
     paxiAmount: string;
     prc20Amount: string;
   },
-  gasLimit: string = '600000',
+  gasLimit: string = '1200000',
   memo: string = ''
 ): Promise<{ success: boolean; txHash?: string; error?: string }> {
   try {
@@ -3651,7 +3995,7 @@ export async function executeWithdrawLiquidity(
     prc20Address: string;
     lpAmount: string;
   },
-  gasLimit: string = '300000',
+  gasLimit: string = '600000',
   memo: string = ''
 ): Promise<{ success: boolean; txHash?: string; error?: string }> {
   try {

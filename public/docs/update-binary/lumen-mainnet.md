@@ -1,0 +1,247 @@
+# Lumen Binary Update Guide
+
+This guide will help you update your Lumen node to the latest version.
+
+## Prerequisites
+
+- Existing Lumen node installation
+- Root or sudo access
+- Basic knowledge of Linux commands
+
+## Update Steps
+
+### 1. Check Current Version
+
+```bash
+lumend version
+```
+
+### 2. Stop the Service
+
+```bash
+sudo systemctl stop lumend
+```
+
+### 3. Backup Important Files
+
+⚠️ **Important**: Always backup your validator key and node configuration before updating!
+
+```bash
+# Backup validator key
+cp $HOME/.lumen/config/priv_validator_key.json $HOME/priv_validator_key.json.backup
+
+# Backup node key
+cp $HOME/.lumen/config/node_key.json $HOME/node_key.json.backup
+```
+
+### 4. Download and Install New Binary
+
+#### Option A: Download Pre-built Binary (Recommended)
+
+```bash
+cd $HOME
+wget -O lumend.tar.gz "$(curl -s https://api.github.com/repos//releases/latest | jq -r '.assets[] | select(.name | contains("linux") and (contains("amd64") or contains("x86_64"))) | .browser_download_url' | head -1)"
+tar -xzf lumend.tar.gz
+rm -f install.sh lumend.tar.gz
+chmod +x lumend
+sudo mv lumend /usr/local/bin/
+[ -f "libwasmvm.x86_64.so" ] && sudo mv libwasmvm.x86_64.so /usr/lib/
+[ -f "libwasmvm.so" ] && sudo mv libwasmvm.so /usr/lib/
+```
+
+#### Option B: Build from Source
+
+```bash
+# Clone repository
+cd $HOME
+git clone https://github.com/network-lumen/blockchain
+cd $(basename https://github.com/network-lumen/blockchain .git)
+
+# Checkout recommended version
+git checkout latest
+
+# Build binary
+make install
+
+# Verify installation
+$(basename https://github.com/network-lumen/blockchain .git)d version
+```
+
+### 5. Verify New Version
+
+```bash
+lumend version
+```
+
+The output should show the new version number.
+
+### 6. Start the Service
+
+```bash
+sudo systemctl start lumend
+```
+
+### 7. Check Logs
+
+```bash
+sudo journalctl -u lumend -f -o cat
+```
+
+### 8. Verify Node is Running
+
+```bash
+lumend status 2>&1 | jq .SyncInfo
+```
+
+## Rollback (If Needed)
+
+If you encounter issues with the new version, you can rollback to the previous version:
+
+### 1. Stop the Service
+
+```bash
+sudo systemctl stop lumend
+```
+
+### 2. Restore Previous Binary
+
+If you kept a backup of the old binary:
+
+```bash
+sudo cp /usr/local/bin/lumend.backup /usr/local/bin/lumend
+```
+
+Or reinstall the previous version:
+
+```bash
+cd $HOME/lumen-mainnet
+git checkout v1.0.0
+make install
+```
+
+### 3. Start the Service
+
+```bash
+sudo systemctl start lumend
+```
+
+## Upgrade with Cosmovisor (Automated)
+
+If you're using Cosmovisor for automated upgrades:
+
+### 1. Create Upgrade Directory
+
+```bash
+mkdir -p $HOME/.lumen/cosmovisor/upgrades/upgrade-latest/bin
+```
+
+### 2. Download New Binary
+
+```bash
+cd $HOME
+wget -O lumend.tar.gz "$(curl -s https://api.github.com/repos//releases/latest | jq -r '.assets[] | select(.name | contains("linux") and (contains("amd64") or contains("x86_64"))) | .browser_download_url' | head -1)"
+tar -xzf lumend.tar.gz
+chmod +x lumend
+mv lumend $HOME/.lumen/cosmovisor/upgrades/upgrade-latest/bin/
+```
+
+### 3. Verify Binary
+
+```bash
+$HOME/.lumen/cosmovisor/upgrades/upgrade-latest/bin/lumend version
+```
+
+Cosmovisor will automatically switch to the new binary at the specified upgrade height.
+
+## Common Issues
+
+### Issue: Binary not found after update
+
+**Solution**: Make sure the binary is in your PATH:
+
+```bash
+which lumend
+```
+
+If not found, check if it's in `/usr/local/bin/` or `$HOME/go/bin/`
+
+### Issue: Version mismatch
+
+**Solution**: Clear the old binary and reinstall:
+
+```bash
+sudo rm $(which lumend)
+# Then reinstall using one of the methods above
+```
+
+### Issue: Node won't start after update
+
+**Solution**: Check the logs for errors:
+
+```bash
+sudo journalctl -u lumend -n 100 --no-pager
+```
+
+Common fixes:
+- Reset the node data (if not a validator): `lumend tendermint unsafe-reset-all --home $HOME/.lumen`
+- Check if the genesis file is correct
+- Verify peer connections
+
+### Issue: Sync issues after update
+
+**Solution**: Try state sync or snapshot:
+
+```bash
+# Stop service
+sudo systemctl stop lumend
+
+# Reset data
+lumend tendermint unsafe-reset-all --home $HOME/.lumen --keep-addr-book
+
+# Use state sync (see State Sync guide)
+# Or download snapshot (see Snapshot guide)
+
+# Start service
+sudo systemctl start lumend
+```
+
+## Important Notes
+
+- ⚠️ **Always backup your validator key** before any update
+- 📢 Check official announcements for breaking changes
+- 🔄 Test updates on testnet first if possible
+- ⏰ Plan updates during low-traffic periods
+- 👥 Coordinate with other validators for network upgrades
+
+## Useful Commands
+
+### Check if binary is running
+```bash
+ps aux | grep lumend
+```
+
+### Check binary location
+```bash
+which lumend
+```
+
+### Check binary version
+```bash
+lumend version --long
+```
+
+### Check service status
+```bash
+sudo systemctl status lumend
+```
+
+## Support
+
+For support and questions, please visit:
+- [WinScan Explorer](https://winsnip.xyz)
+- [WinScan Telegram](https://t.me/winsnip)
+- [Official Lumen Documentation]()
+
+---
+
+*Generated by WinScan - Multi-chain Blockchain Explorer*

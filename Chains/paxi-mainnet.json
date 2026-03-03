@@ -26,7 +26,9 @@
   "codebase": {
     "git_repo": "https://github.com/paxi-web3/paxi",
     "recommended_version": "v1.0.0",
-    "compatible_versions": ["v1.0.0"],
+    "compatible_versions": [
+      "v1.0.0"
+    ],
     "cosmos_sdk_version": "0.47.0",
     "tendermint_version": "0.37.0"
   },
@@ -70,11 +72,11 @@
   "theme_color": "#812cd6",
   "logo": "https://file.winsnip.xyz/file/uploads/paxi.jpg",
   "website": "https://paxinet.io",
-  "github": "https://github.com/paxi-web3/paxi",
   "description": "PAXI is a layer 1 | general-purpose blockchain | Powering DeFi | DAOs | cross-chain | dApps with true validator freedom",
   "twitter": "https://x.com/paxiweb3",
   "telegram": "https://t.me/paxi_network",
   "ios_app": "https://dl.paxi.pro/appstore",
   "android_app": "https://dl.paxi.pro/googleplay",
-  "updated": "2025-11-23"
+  "updated": "2025-11-23",
+  "github": "https://github.com/paxi-web3/paxi"
 }

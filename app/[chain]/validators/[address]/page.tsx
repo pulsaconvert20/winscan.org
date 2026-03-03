@@ -2204,12 +2204,12 @@ export default function ValidatorDetailPage() {
               </div>
             </div>
 
-            <div className="flex gap-2 mb-6 bg-[#111111] p-1 rounded-lg overflow-x-auto">
+            <div className="flex gap-1 sm:gap-2 mb-6 bg-[#111111] p-1 rounded-lg">
               {(['delegate', 'undelegate', 'redelegate', 'withdraw'] as const).map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setStakeTab(tab as any)}
-                  className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all capitalize whitespace-nowrap ${
+                  className={`flex-1 px-2 sm:px-4 py-2 rounded-lg text-[10px] sm:text-sm font-medium transition-all capitalize ${
                     stakeTab === tab 
                       ? 'bg-white text-black'
                       : 'text-gray-400 hover:text-white'

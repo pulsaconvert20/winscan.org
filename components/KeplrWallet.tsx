@@ -5,10 +5,7 @@ import { ChainData } from '@/types/chain';
 import { useWallet } from '@/contexts/WalletContext';
 import {
   isKeplrInstalled,
-  isLeapInstalled,
-  isCosmostationInstalled,
   connectKeplr,
-  connectWalletWithType,
   disconnectKeplr,
   saveKeplrAccount,
 } from '@/lib/keplr';
@@ -19,6 +16,14 @@ import {
   saveMetaMaskAccount,
   hexToBech32,
 } from '@/lib/metamask';
+import {
+  isPaxiHubInstalled,
+  isMobileDevice,
+  connectPaxiHub,
+  disconnectPaxiHub,
+  savePaxiHubAccount,
+  openPaxiHubDeepLink,
+} from '@/lib/paxihub';
 
 interface KeplrWalletProps {
   selectedChain: ChainData | null;
@@ -30,7 +35,7 @@ export default function KeplrWallet({ selectedChain }: KeplrWalletProps) {
   const [error, setError] = useState<string | null>(null);
   const [coinType, setCoinType] = useState<118 | 60>(118);
   const [showModal, setShowModal] = useState(false);
-  const [walletType, setWalletType] = useState<'keplr' | 'leap' | 'cosmostation' | 'metamask'>('keplr');
+  const [walletType, setWalletType] = useState<'keplr' | 'metamask' | 'paxihub'>('keplr');
   const [bech32Address, setBech32Address] = useState<string>('');
   const [copied, setCopied] = useState(false);
 
@@ -60,7 +65,7 @@ export default function KeplrWallet({ selectedChain }: KeplrWalletProps) {
     };
   }, [isConnected, selectedChain]);
 
-  const handleConnect = async (selectedWalletType?: 'keplr' | 'leap' | 'cosmostation') => {
+  const handleConnect = async (selectedWalletType?: 'keplr' | 'paxihub') => {
     if (!selectedChain) {
       setError('Please select a chain first');
       return;
@@ -71,47 +76,65 @@ export default function KeplrWallet({ selectedChain }: KeplrWalletProps) {
     setShowModal(false);
     
     try {
+      // Handle PaxiHub connection
+      if (selectedWalletType === 'paxihub') {
+        if (!isPaxiHubInstalled() && isMobileDevice()) {
+          openPaxiHubDeepLink();
+          setError('Opening PaxiHub app...');
+          return;
+        }
+        
+        if (!isPaxiHubInstalled()) {
+          setError('PaxiHub is not available. Please use PaxiHub mobile app.');
+          return;
+        }
+        
+        const connectedAccount = await connectPaxiHub(selectedChain);
+        setAccount(connectedAccount);
+        setWalletType('paxihub');
+        const chainId = selectedChain.chain_id || selectedChain.chain_name;
+        savePaxiHubAccount(connectedAccount, chainId);
+        window.dispatchEvent(new CustomEvent('keplr_wallet_changed'));
+        return;
+      }
+      
       const detectedCoinType = selectedChain.coin_type ? parseInt(selectedChain.coin_type) as (118 | 60) : 118;
       
-      let walletToUse: 'keplr' | 'leap' | 'cosmostation' = 'keplr';
-      
+      // Auto-detect wallet
       if (!selectedWalletType) {
         if (isKeplrInstalled()) {
-          walletToUse = 'keplr';
-        } else if (isLeapInstalled()) {
-          walletToUse = 'leap';
-        } else if (isCosmostationInstalled()) {
-          walletToUse = 'cosmostation';
+          selectedWalletType = 'keplr';
+        } else if (isPaxiHubInstalled()) {
+          // Auto-detect PaxiHub on mobile
+          const connectedAccount = await connectPaxiHub(selectedChain);
+          setAccount(connectedAccount);
+          setWalletType('paxihub');
+          const chainId = selectedChain.chain_id || selectedChain.chain_name;
+          savePaxiHubAccount(connectedAccount, chainId);
+          window.dispatchEvent(new CustomEvent('keplr_wallet_changed'));
+          return;
+        } else if (isMobileDevice()) {
+          // On mobile without any wallet, suggest PaxiHub
+          setError('No wallet found. Opening PaxiHub...');
+          openPaxiHubDeepLink();
+          return;
         } else {
-          setError('No wallet extension found. Please install Keplr, Leap, or Cosmostation.');
-          window.open('https://www.keplr.app/', '_blank');
-          return;
-        }
-      } else {
-        walletToUse = selectedWalletType;
-        
-        if (selectedWalletType === 'leap' && !isLeapInstalled()) {
-          setError('Leap extension is not installed. Please install it from https://www.leapwallet.io/');
-          window.open('https://www.leapwallet.io/', '_blank');
-          return;
-        }
-        
-        if (selectedWalletType === 'cosmostation' && !isCosmostationInstalled()) {
-          setError('Cosmostation extension is not installed. Please install it from https://cosmostation.io/');
-          window.open('https://cosmostation.io/', '_blank');
-          return;
-        }
-        
-        if (selectedWalletType === 'keplr' && !isKeplrInstalled()) {
-          setError('Keplr extension is not installed. Please install it from https://www.keplr.app/');
+          setError('No wallet extension found. Please install Keplr.');
           window.open('https://www.keplr.app/', '_blank');
           return;
         }
       }
       
-      const connectedAccount = await connectWalletWithType(selectedChain, detectedCoinType, walletToUse);
+      // Check if selected wallet is installed
+      if (selectedWalletType === 'keplr' && !isKeplrInstalled()) {
+        setError('Keplr extension is not installed. Please install it from https://www.keplr.app/');
+        window.open('https://www.keplr.app/', '_blank');
+        return;
+      }
+      
+      const connectedAccount = await connectKeplr(selectedChain, detectedCoinType);
       setAccount(connectedAccount);
-      setWalletType(walletToUse);
+      setWalletType('keplr');
       setCoinType(detectedCoinType);
       const chainId = selectedChain.chain_id || selectedChain.chain_name;
       saveKeplrAccount(connectedAccount, chainId, detectedCoinType);
@@ -129,6 +152,8 @@ export default function KeplrWallet({ selectedChain }: KeplrWalletProps) {
   const handleDisconnect = () => {
     if (walletType === 'metamask') {
       disconnectMetaMask();
+    } else if (walletType === 'paxihub') {
+      disconnectPaxiHub();
     } else {
       disconnectKeplr();
     }
@@ -143,7 +168,7 @@ export default function KeplrWallet({ selectedChain }: KeplrWalletProps) {
       return;
     }
     
-    if (isKeplrInstalled() || isLeapInstalled() || isCosmostationInstalled()) {
+    if (isKeplrInstalled()) {
       handleConnect();
     } else {
       setShowModal(true);
@@ -151,16 +176,21 @@ export default function KeplrWallet({ selectedChain }: KeplrWalletProps) {
     
     setError(null);
   };
-  const formatAddress = (address: string) => {
-    if (!address) return '';
-    return `${address.slice(0, 10)}...${address.slice(-6)}`;
-  };
-
+  
   const getWalletDisplayName = () => {
     if (walletType === 'metamask') return 'MetaMask';
-    if (walletType === 'leap') return 'Leap';
-    if (walletType === 'cosmostation') return 'Cosmostation';
+    if (walletType === 'paxihub') return 'PaxiHub';
     return 'Keplr';
+  };
+
+  const formatAddress = (address: string) => {
+    if (!address) return '';
+    // Mobile: 6 chars + ... + 4 chars = lumera1...fjzt
+    // Desktop: 10 chars + ... + 6 chars = lumera1f88...ggfjzt
+    if (typeof window !== 'undefined' && window.innerWidth < 640) {
+      return `${address.slice(0, 8)}...${address.slice(-4)}`;
+    }
+    return `${address.slice(0, 10)}...${address.slice(-6)}`;
   };
 
   const handleCopyAddress = async () => {
@@ -182,31 +212,31 @@ export default function KeplrWallet({ selectedChain }: KeplrWalletProps) {
           <button
             onClick={openCoinTypeModal}
             disabled={isConnecting || !selectedChain}
-            className="flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed h-[40px]"
           >
             <Wallet className="w-4 h-4" />
             <span className="hidden sm:inline">{isConnecting ? 'Connecting...' : 'Connect Wallet'}</span>
             <span className="sm:hidden text-xs">{isConnecting ? '...' : 'Connect'}</span>
           </button>
         ) : (
-          <div className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 bg-[#1a1a1a] border border-gray-700 rounded-lg">
+          <div className="flex items-center gap-1 sm:gap-2 px-1.5 sm:px-3 py-1.5 sm:py-2 bg-[#1a1a1a] border border-gray-700 rounded-lg h-[40px]">
             <div className="flex items-center gap-1 sm:gap-2">
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-              <code className="text-xs sm:text-sm text-gray-300 font-mono">
+              <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-green-500 rounded-full animate-pulse" />
+              <code className="text-[10px] sm:text-xs text-gray-300 font-mono">
                 {account && formatAddress(account.address)}
               </code>
-              <span className="hidden md:inline text-xs text-gray-500 bg-gray-800 px-2 py-1 rounded">
+              <span className="hidden lg:inline text-xs text-gray-500 bg-gray-800 px-2 py-1 rounded">
                 {getWalletDisplayName()}
               </span>
             </div>
-            <div className="flex items-center gap-0.5 sm:gap-1 ml-0.5 sm:ml-1">
+            <div className="flex items-center gap-0.5 sm:gap-1">
               <button
                 onClick={handleCopyAddress}
-                className="p-1 sm:p-1.5 hover:bg-gray-800 rounded transition-colors group relative"
+                className="p-0.5 sm:p-1.5 hover:bg-gray-800 rounded transition-colors group relative"
                 title="Copy address"
               >
                 {copied ? (
-                  <Check className="w-3.5 h-3.5 text-green-400" />
+                  <Check className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-green-400" />
                 ) : (
                   <Copy className="w-3.5 h-3.5 text-gray-400 group-hover:text-gray-300" />
                 )}
@@ -264,7 +294,7 @@ export default function KeplrWallet({ selectedChain }: KeplrWalletProps) {
             </div>
             
             {/* Wallet Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
               {/* Keplr Wallet */}
               <button
                 onClick={() => handleConnect('keplr')}
@@ -290,59 +320,30 @@ export default function KeplrWallet({ selectedChain }: KeplrWalletProps) {
                 </div>
               </button>
 
-              {/* Leap Wallet */}
+              {/* PaxiHub Wallet */}
               <button
-                onClick={() => handleConnect('leap')}
+                onClick={() => handleConnect('paxihub')}
                 disabled={isConnecting}
-                className="relative p-6 bg-gradient-to-br from-purple-500/10 to-purple-600/5 hover:from-purple-500/20 hover:to-purple-600/10 border border-purple-500/20 hover:border-purple-500/40 rounded-2xl transition-all duration-300 group disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 active:scale-95 hover:shadow-lg hover:shadow-purple-500/20"
+                className="relative p-6 bg-gradient-to-br from-green-500/10 to-green-600/5 hover:from-green-500/20 hover:to-green-600/10 border border-green-500/20 hover:border-green-500/40 rounded-2xl transition-all duration-300 group disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 active:scale-95 hover:shadow-lg hover:shadow-green-500/20"
               >
                 <div className="flex flex-col items-center text-center">
-                  <div className="w-16 h-16 bg-gradient-to-br from-purple-500/20 to-purple-600/10 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300 shadow-lg">
-                    <img 
-                      src="https://pbs.twimg.com/profile_images/1771942341072318464/yrLlUePo_400x400.jpg" 
-                      alt="Leap"
-                      className="w-10 h-10 rounded-xl"
-                    />
+                  <div className="w-16 h-16 bg-gradient-to-br from-green-500/20 to-green-600/10 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300 shadow-lg">
+                    <Wallet className="w-10 h-10 text-green-400" />
                   </div>
-                  <h4 className="text-white font-bold text-lg mb-1">Leap</h4>
-                  <span className="text-xs bg-purple-500/20 text-purple-400 px-3 py-1 rounded-full mb-2 font-medium">Fast & Modern</span>
+                  <h4 className="text-white font-bold text-lg mb-1">PaxiHub</h4>
+                  <span className="text-xs bg-green-500/20 text-green-400 px-3 py-1 rounded-full mb-2 font-medium">Mobile</span>
                   <p className="text-sm text-gray-400 leading-relaxed">
-                    Super-fast wallet
+                    Mobile-first wallet
                   </p>
                 </div>
-                <div className="absolute top-3 right-3 w-6 h-6 bg-purple-500/20 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Check className="w-4 h-4 text-purple-400" />
-                </div>
-              </button>
-
-              {/* Cosmostation Wallet */}
-              <button
-                onClick={() => handleConnect('cosmostation')}
-                disabled={isConnecting}
-                className="relative p-6 bg-gradient-to-br from-orange-500/10 to-orange-600/5 hover:from-orange-500/20 hover:to-orange-600/10 border border-orange-500/20 hover:border-orange-500/40 rounded-2xl transition-all duration-300 group disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 active:scale-95 hover:shadow-lg hover:shadow-orange-500/20"
-              >
-                <div className="flex flex-col items-center text-center">
-                  <div className="w-16 h-16 bg-gradient-to-br from-orange-500/20 to-orange-600/10 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300 shadow-lg">
-                    <img 
-                      src="https://pbs.twimg.com/profile_images/1141994412450254849/nWwjGAZN_400x400.png" 
-                      alt="Cosmostation"
-                      className="w-10 h-10 rounded-xl object-contain"
-                    />
-                  </div>
-                  <h4 className="text-white font-bold text-lg mb-1">Cosmostation</h4>
-                  <span className="text-xs bg-orange-500/20 text-orange-400 px-3 py-1 rounded-full mb-2 font-medium">Trusted</span>
-                  <p className="text-sm text-gray-400 leading-relaxed">
-                    Cosmos ecosystem
-                  </p>
-                </div>
-                <div className="absolute top-3 right-3 w-6 h-6 bg-orange-500/20 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Check className="w-4 h-4 text-orange-400" />
+                <div className="absolute top-3 right-3 w-6 h-6 bg-green-500/20 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Check className="w-4 h-4 text-green-400" />
                 </div>
               </button>
             </div>
 
             {/* Footer Links */}
-            <div className="flex items-center justify-center gap-6 pt-4 border-t border-gray-800">
+            <div className="flex items-center justify-center gap-4 flex-wrap pt-4 border-t border-gray-800">
               <a
                 href="https://www.keplr.app/"
                 target="_blank"
@@ -355,23 +356,12 @@ export default function KeplrWallet({ selectedChain }: KeplrWalletProps) {
                 </svg>
               </a>
               <a
-                href="https://www.leapwallet.io/"
+                href="https://paxinet.io/paxi_docs/paxihub#paxihub-application"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-sm text-gray-400 hover:text-purple-400 transition-colors flex items-center gap-2 group"
+                className="text-sm text-gray-400 hover:text-green-400 transition-colors flex items-center gap-2 group"
               >
-                <span>Get Leap</span>
-                <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                </svg>
-              </a>
-              <a
-                href="https://cosmostation.io/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-gray-400 hover:text-orange-400 transition-colors flex items-center gap-2 group"
-              >
-                <span>Get Cosmostation</span>
+                <span>Get PaxiHub</span>
                 <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
                 </svg>
