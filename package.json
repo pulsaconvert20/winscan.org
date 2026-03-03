@@ -31,12 +31,14 @@
     "osmojs": "^16.15.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-globe.gl": "^2.37.0",
     "react-markdown": "^10.1.0",
     "react-simple-maps": "^3.0.0",
     "react-virtualized-auto-sizer": "^2.0.2",
     "react-window": "^2.2.5",
     "recharts": "^3.6.0",
     "remark-gfm": "^4.0.1",
+    "three": "^0.183.2",
     "use-debounce": "^10.1.0"
   },
   "devDependencies": {

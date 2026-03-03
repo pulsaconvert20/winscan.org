@@ -141,6 +141,10 @@ export default function Sidebar({ selectedChain }: SidebarProps) {
         icon: <Globe className="w-5 h-5" />,
         subItems: [
           { name: 'Network', translationKey: 'menu.network', path: `${chainPath}/network`, icon: <Globe className="w-4 h-4" /> },
+          ...(selectedChain?.chain_name.toLowerCase().includes('lumera-mainnet') 
+            ? [{ name: 'Supernodes', translationKey: 'menu.supernodes', path: `${chainPath}/supernode`, icon: <Network className="w-4 h-4" /> }]
+            : []
+          ),
           { name: 'Consensus', translationKey: 'menu.consensus', path: `${chainPath}/consensus`, icon: <Shield className="w-4 h-4" /> },
           { name: 'Parameters', translationKey: 'menu.parameters', path: `${chainPath}/parameters`, icon: <Settings className="w-4 h-4" /> }
         ]

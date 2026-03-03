@@ -65,6 +65,7 @@ type TranslationKeys = {
   'menu.relayers': string;
   'menu.ibcTransfer': string;
   'menu.network': string;
+  'menu.supernodes': string;
   'menu.consensus': string;
   'menu.statesync': string;
   'menu.updateBinary': string;
@@ -146,6 +147,7 @@ export const translations: Record<Language, TranslationKeys> = {
     'menu.relayers': 'Relayers',
     'menu.ibcTransfer': 'IBC Transfer',
     'menu.network': 'Network',
+    'menu.supernodes': 'Supernodes',
     'menu.consensus': 'Consensus',
     'menu.statesync': 'State Sync',
     'menu.updateBinary': 'Update Binary',
@@ -226,6 +228,7 @@ export const translations: Record<Language, TranslationKeys> = {
     'menu.relayers': 'Relayer',
     'menu.ibcTransfer': 'Transfer IBC',
     'menu.network': 'Jaringan',
+    'menu.supernodes': 'Supernode',
     'menu.consensus': 'Konsensus',
     'menu.statesync': 'Sinkronisasi State',
     'menu.updateBinary': 'Update Binary',
@@ -306,6 +309,7 @@ export const translations: Record<Language, TranslationKeys> = {
     'menu.relayers': '中继器',
     'menu.ibcTransfer': 'IBC转账',
     'menu.network': '网络',
+    'menu.supernodes': '超级节点',
     'menu.consensus': '共识',
     'menu.statesync': '状态同步',
     'menu.updateBinary': '更新二进制',
@@ -390,6 +394,7 @@ export const translations: Record<Language, TranslationKeys> = {
     'menu.relayers': 'リレイヤー',
     'menu.ibcTransfer': 'IBC転送',
     'menu.network': 'ネットワーク',
+    'menu.supernodes': 'スーパーノード',
     'menu.consensus': 'コンセンサス',
     'menu.statesync': 'ステート同期',
     'menu.updateBinary': 'バイナリ更新',
@@ -470,6 +475,7 @@ export const translations: Record<Language, TranslationKeys> = {
     'menu.relayers': 'रिलेयर',
     'menu.ibcTransfer': 'IBC स्थानांतरण',
     'menu.network': 'नेटवर्क',
+    'menu.supernodes': 'सुपरनोड',
     'menu.consensus': 'सहमति',
     'menu.statesync': 'स्टेट सिंक',
     'menu.updateBinary': 'बाइनरी अपडेट',
@@ -550,6 +556,7 @@ export const translations: Record<Language, TranslationKeys> = {
     'menu.relayers': 'Релейеры',
     'menu.ibcTransfer': 'IBC Перевод',
     'menu.network': 'Сеть',
+    'menu.supernodes': 'Супернода',
     'menu.consensus': 'Консенсус',
     'menu.statesync': 'Синхронизация',
     'menu.updateBinary': 'Обновление бинарника',
@@ -630,6 +637,7 @@ export const translations: Record<Language, TranslationKeys> = {
     'menu.relayers': 'Rơ le',
     'menu.ibcTransfer': 'Chuyển IBC',
     'menu.network': 'Mạng',
+    'menu.supernodes': 'Siêu nút',
     'menu.consensus': 'Đồng thuận',
     'menu.statesync': 'Đồng bộ trạng thái',
     'menu.updateBinary': 'Cập nhật Binary',
