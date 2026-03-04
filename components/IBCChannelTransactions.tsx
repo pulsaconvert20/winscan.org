@@ -89,27 +89,25 @@ export default function IBCChannelTransactions({
             {counterpartyChainName} ({counterpartyChannelId})
           </div>
         </div>
-        
+
         {/* Tab Buttons */}
         <div className="flex gap-2">
           <button
             onClick={() => { setActiveTab('out'); setPage(0); }}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              activeTab === 'out'
-                ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                : 'bg-gray-800 text-gray-400 hover:text-white border border-transparent'
-            }`}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'out'
+              ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+              : 'bg-gray-800 text-gray-400 hover:text-white border border-transparent'
+              }`}
           >
             <ArrowUpRight className="w-4 h-4" />
             <span>Transfer Out</span>
           </button>
           <button
             onClick={() => { setActiveTab('in'); setPage(0); }}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              activeTab === 'in'
-                ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                : 'bg-gray-800 text-gray-400 hover:text-white border border-transparent'
-            }`}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'in'
+              ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+              : 'bg-gray-800 text-gray-400 hover:text-white border border-transparent'
+              }`}
           >
             <ArrowDownLeft className="w-4 h-4" />
             <span>Transfer In</span>
@@ -151,7 +149,7 @@ export default function IBCChannelTransactions({
                 {transactions.map((tx, index) => (
                   <tr key={index} className="hover:bg-[#111111] transition-colors">
                     <td className="px-4 py-3">
-                      <Link 
+                      <Link
                         href={`/${chainPath}/blocks/${tx.height}`}
                         className="text-blue-400 hover:text-blue-300 font-mono text-sm"
                       >
@@ -159,7 +157,7 @@ export default function IBCChannelTransactions({
                       </Link>
                     </td>
                     <td className="px-4 py-3">
-                      <Link 
+                      <Link
                         href={`/${chainPath}/transactions/${tx.txHash}`}
                         className="text-blue-400 hover:text-blue-300 font-mono text-sm flex items-center gap-1"
                       >

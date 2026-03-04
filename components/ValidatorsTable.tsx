@@ -18,6 +18,7 @@ interface ValidatorsTableProps {
   chainName: string;
   asset?: ChainAsset;
   chain?: any;
+  signingWindow?: number;
 }
 
 interface StakeModalData {
@@ -38,7 +39,8 @@ const ValidatorRow = memo(({
   isConnected,
   accountAddress,
   onManageStake,
-  onAutoCompoundAction
+  onAutoCompoundAction,
+  signingWindow = 100
 }: { 
   validator: ValidatorData; 
   chainPath: string; 
@@ -52,6 +54,7 @@ const ValidatorRow = memo(({
   accountAddress?: string;
   onManageStake: (validator: ValidatorData) => void;
   onAutoCompoundAction: (validator: ValidatorData, action: 'enable' | 'disable') => void;
+  signingWindow?: number;
 }) => {
   const [autoCompoundEnabled, setAutoCompoundEnabled] = useState(false);
   const [isCheckingGrant, setIsCheckingGrant] = useState(false);
@@ -393,11 +396,11 @@ const ValidatorRow = memo(({
       </td>
       <td className="hidden xl:table-cell px-6 py-4">
         <div className={`font-medium ${
-          (validator.uptime || 100) >= 99 ? 'text-green-400' :
-          (validator.uptime || 100) >= 95 ? 'text-yellow-400' :
-          'text-red-400'
+          (validator.uptime || 100) >= 99 ? 'text-green-500' :
+          (validator.uptime || 100) >= 95 ? 'text-yellow-500' :
+          'text-red-500'
         }`}>
-          {(validator.uptime || 100).toFixed(2)}%
+          {(validator.uptime || 100).toFixed(1)}%
         </div>
       </td>
       <td className="hidden xl:table-cell px-6 py-4">
@@ -414,8 +417,6 @@ const ValidatorRow = memo(({
       <td className="hidden xl:table-cell px-6 py-4 text-center">
         {(() => {
           // Calculate blocks signed from uptime
-          // Assuming signing window of 100 blocks (default)
-          const signingWindow = 100;
           const uptime = validator.uptime || 100;
           const blocksSignedCalc = Math.round((uptime / 100) * signingWindow);
           
@@ -434,7 +435,6 @@ const ValidatorRow = memo(({
       <td className="hidden xl:table-cell px-6 py-4 text-center">
         {(() => {
           // Calculate missed blocks from uptime
-          const signingWindow = 100;
           const uptime = validator.uptime || 100;
           const blocksSignedCalc = Math.round((uptime / 100) * signingWindow);
           const missedBlocks = signingWindow - blocksSignedCalc;
@@ -585,7 +585,7 @@ const ValidatorRow = memo(({
 
 ValidatorRow.displayName = 'ValidatorRow';
 
-export default function ValidatorsTable({ validators, chainName, asset, chain }: ValidatorsTableProps) {
+export default function ValidatorsTable({ validators, chainName, asset, chain, signingWindow = 100 }: ValidatorsTableProps) {
   const chainPath = chainName.toLowerCase().replace(/\s+/g, '-');
   const { language } = useLanguage();
   const t = (key: string) => getTranslation(language, key);
@@ -1269,6 +1269,7 @@ export default function ValidatorsTable({ validators, chainName, asset, chain }:
                 isConnected={isConnected}
                 accountAddress={account?.address}
                 onManageStake={handleManageStake}
+                signingWindow={signingWindow}
                 onAutoCompoundAction={(validator, action) => {
                   if (action === 'enable') {
                     setSelectedValidatorForAC(validator);

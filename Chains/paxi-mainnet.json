@@ -34,11 +34,11 @@
   },
   "api": [
     {
-      "address": "https://mainnet-lcd.paxinet.io",
+      "address": "https://rest.cosmos.directory/paxi",
       "provider": "Paxi Foundation"
     },
     {
-      "address": "https://api-paxi.winnode.xyz",
+      "address": "https://api-paxi.onenov.xyz",
       "provider": "Winnode"
     },
     {
