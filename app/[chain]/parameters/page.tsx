@@ -65,6 +65,7 @@ export default function ParametersPage() {
   const [selectedChain, setSelectedChain] = useState<ChainData | null>(null);
   const [parameters, setParameters] = useState<ChainParameters | null>(null);
   const [loading, setLoading] = useState(true);
+  const [nodeInfo, setNodeInfo] = useState<any>(null);
 
   useEffect(() => {
 
@@ -117,6 +118,28 @@ export default function ParametersPage() {
 
     const fetchParams = async () => {
       try {
+        // Fetch node info for version information
+        const rpcEndpoints = selectedChain.rpc || [];
+        if (rpcEndpoints.length > 0) {
+          try {
+            const rpcUrl = typeof rpcEndpoints[0] === 'string' 
+              ? rpcEndpoints[0] 
+              : rpcEndpoints[0].address;
+            
+            const nodeInfoRes = await fetch(`${rpcUrl}/status`, {
+              signal: AbortSignal.timeout(5000)
+            });
+            
+            if (nodeInfoRes.ok) {
+              const nodeInfoData = await nodeInfoRes.json();
+              console.log('[Parameters] Node info:', nodeInfoData.result?.node_info);
+              setNodeInfo(nodeInfoData.result?.node_info);
+            }
+          } catch (err) {
+            console.warn('Failed to fetch node info:', err);
+          }
+        }
+
         // Strategy: Try direct LCD fetch first
         const lcdEndpoints = selectedChain.api?.map(api => ({
           address: api.address,
@@ -214,6 +237,73 @@ export default function ParametersPage() {
 
           {parameters && !('error' in parameters) && Object.keys(parameters).length > 0 ? (
             <div className="space-y-6">
+              {/* Node & Version Information */}
+              <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-6">
+                <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                  <Settings className="w-5 h-5 text-blue-500" />
+                  Node & Version Information
+                </h2>
+                
+                {nodeInfo ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {nodeInfo.network && (
+                      <div className="bg-[#0f0f0f] p-4 rounded-lg border border-gray-800">
+                        <p className="text-gray-400 text-sm mb-1">Network / Chain ID</p>
+                        <p className="text-white font-mono text-sm">{nodeInfo.network}</p>
+                      </div>
+                    )}
+
+                    {nodeInfo.version && (
+                      <div className="bg-[#0f0f0f] p-4 rounded-lg border border-gray-800">
+                        <p className="text-gray-400 text-sm mb-1">Node Version</p>
+                        <p className="text-white font-mono text-sm">{nodeInfo.version}</p>
+                      </div>
+                    )}
+
+                    {nodeInfo.other?.tx_index && (
+                      <div className="bg-[#0f0f0f] p-4 rounded-lg border border-gray-800">
+                        <p className="text-gray-400 text-sm mb-1">TX Index</p>
+                        <p className="text-white font-bold">{nodeInfo.other.tx_index}</p>
+                      </div>
+                    )}
+
+                    {nodeInfo.protocol_version?.p2p && (
+                      <div className="bg-[#0f0f0f] p-4 rounded-lg border border-gray-800">
+                        <p className="text-gray-400 text-sm mb-1">P2P Protocol</p>
+                        <p className="text-white font-bold">{nodeInfo.protocol_version.p2p}</p>
+                      </div>
+                    )}
+
+                    {nodeInfo.protocol_version?.block && (
+                      <div className="bg-[#0f0f0f] p-4 rounded-lg border border-gray-800">
+                        <p className="text-gray-400 text-sm mb-1">Block Protocol</p>
+                        <p className="text-white font-bold">{nodeInfo.protocol_version.block}</p>
+                      </div>
+                    )}
+
+                    {nodeInfo.protocol_version?.app && (
+                      <div className="bg-[#0f0f0f] p-4 rounded-lg border border-gray-800">
+                        <p className="text-gray-400 text-sm mb-1">App Protocol</p>
+                        <p className="text-white font-bold">{nodeInfo.protocol_version.app}</p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {selectedChain?.chain_id && (
+                      <div className="bg-[#0f0f0f] p-4 rounded-lg border border-gray-800">
+                        <p className="text-gray-400 text-sm mb-1">Chain ID</p>
+                        <p className="text-white font-mono text-sm">{selectedChain.chain_id}</p>
+                      </div>
+                    )}
+                    <div className="bg-[#0f0f0f] p-4 rounded-lg border border-gray-800">
+                      <p className="text-gray-400 text-sm mb-1">Node Version</p>
+                      <p className="text-gray-500 text-sm italic">Loading...</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Staking Parameters */}
               {parameters.staking && (
                 <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-6">
