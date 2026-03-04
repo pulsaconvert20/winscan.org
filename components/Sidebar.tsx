@@ -26,7 +26,8 @@ import {
   ArrowRightLeft,
   Calculator,
   Download,
-  Terminal
+  Terminal,
+  Database
 } from 'lucide-react';
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { ChainData } from '@/types/chain';
@@ -96,11 +97,24 @@ export default function Sidebar({ selectedChain }: SidebarProps) {
         icon: <Users className="w-5 h-5" />,
         subItems: [
           { name: 'Validators', translationKey: 'menu.validators', path: `${chainPath}/validators`, icon: <Users className="w-4 h-4" /> },
-          { name: 'Staking Calculator', translationKey: 'menu.stakingCalculator', path: `${chainPath}/staking-calculator`, icon: <Calculator className="w-4 h-4" /> },
           { name: 'Uptime', translationKey: 'menu.uptime', path: `${chainPath}/uptime`, icon: <Activity className="w-4 h-4" /> },
           { name: 'Proposals', translationKey: 'menu.proposals', path: `${chainPath}/proposals`, icon: <Vote className="w-4 h-4" /> },
+          { name: 'Staking Calculator', translationKey: 'menu.stakingCalculator', path: `${chainPath}/staking-calculator`, icon: <Calculator className="w-4 h-4" /> },
         ]
       },
+    ];
+
+    // Add Supernodes as standalone menu for lumera-mainnet (after Validators)
+    if (selectedChain?.chain_name.toLowerCase().includes('lumera-mainnet')) {
+      items.push({
+        name: 'Supernodes',
+        translationKey: 'menu.supernodes',
+        path: `${chainPath}/supernode`,
+        icon: <Database className="w-5 h-5" />
+      });
+    }
+
+    items.push(
       { 
         name: 'Assets', 
         translationKey: 'menu.assets', 
@@ -117,7 +131,7 @@ export default function Sidebar({ selectedChain }: SidebarProps) {
         ]
       },
       { name: 'Accounts', translationKey: 'menu.accounts', path: `${chainPath}/accounts`, icon: <Wallet className="w-5 h-5" /> },
-    ];
+    );
 
     // EVM menu is hidden
     // if (hasEvmSupport) {
@@ -141,10 +155,6 @@ export default function Sidebar({ selectedChain }: SidebarProps) {
         icon: <Globe className="w-5 h-5" />,
         subItems: [
           { name: 'Network', translationKey: 'menu.network', path: `${chainPath}/network`, icon: <Globe className="w-4 h-4" /> },
-          ...(selectedChain?.chain_name.toLowerCase().includes('lumera-mainnet') 
-            ? [{ name: 'Supernodes', translationKey: 'menu.supernodes', path: `${chainPath}/supernode`, icon: <Network className="w-4 h-4" /> }]
-            : []
-          ),
           { name: 'Consensus', translationKey: 'menu.consensus', path: `${chainPath}/consensus`, icon: <Shield className="w-4 h-4" /> },
           { name: 'Parameters', translationKey: 'menu.parameters', path: `${chainPath}/parameters`, icon: <Settings className="w-4 h-4" /> }
         ]
