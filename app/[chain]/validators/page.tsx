@@ -412,8 +412,8 @@ export default function ValidatorsPage() {
               <button
                 onClick={() => setFilter('active')}
                 className={`px-6 py-2 rounded-lg font-medium text-sm transition-all ${filter === 'active'
-                    ? 'bg-white text-gray-900'
-                    : 'bg-[#1a1a1a] text-gray-400 hover:bg-[#252525] border border-gray-800'
+                  ? 'bg-white text-gray-900'
+                  : 'bg-[#1a1a1a] text-gray-400 hover:bg-[#252525] border border-gray-800'
                   }`}
               >
                 Active
@@ -421,8 +421,8 @@ export default function ValidatorsPage() {
               <button
                 onClick={() => setFilter('inactive')}
                 className={`px-6 py-2 rounded-lg font-medium text-sm transition-all ${filter === 'inactive'
-                    ? 'bg-purple-600 text-white'
-                    : 'bg-[#1a1a1a] text-gray-400 hover:bg-[#252525] border border-gray-800'
+                  ? 'bg-purple-600 text-white'
+                  : 'bg-[#1a1a1a] text-gray-400 hover:bg-[#252525] border border-gray-800'
                   }`}
               >
                 Inactive

@@ -240,33 +240,15 @@ export default function UptimePage() {
     // Check immediately
     checkNewBlock();
 
-    // Poll every 2 seconds
-    const pollInterval = setInterval(checkNewBlock, 2000);
+    // Poll every 1 second
+    const pollInterval = setInterval(checkNewBlock, 1000);
 
     return () => clearInterval(pollInterval);
   }, [selectedChain?.chain_id, isLive, currentBlock, fetchUptimeForBlock]);
 
-  // Memoized fetch function dengan debounce
+  // Memoized fetch function - NO CACHE for real-time data
   const fetchUptime = useCallback(async (force = false) => {
     if (!selectedChain || !isLive) return;
-
-    const cacheKey = `uptime_v5_${selectedChain.chain_name}_${blocksToCheck}`;
-
-    try {
-      const cached = sessionStorage.getItem(cacheKey);
-      if (cached && !force) {
-        const { data, timestamp } = JSON.parse(cached);
-        if (Array.isArray(data) && data.length > 0) {
-          setUptimeData(data.map(v => ({ ...v, isDataLoaded: true })));
-        }
-
-        if (Date.now() - timestamp < 60000) {
-          return;
-        }
-      }
-    } catch (e) {
-      // Silent
-    }
 
     if (loading) return;
 
@@ -280,7 +262,7 @@ export default function UptimePage() {
 
       const res = await fetch(apiUrl, {
         signal: controller.signal,
-        cache: 'no-store'
+        cache: 'no-store' // Force fresh data
       });
 
       clearTimeout(timeoutId);
@@ -318,21 +300,7 @@ export default function UptimePage() {
           });
         }
 
-        try {
-          sessionStorage.setItem(cacheKey, JSON.stringify({
-            data,
-            timestamp: Date.now()
-          }));
-
-          // Cleanup old cache
-          Object.keys(sessionStorage).forEach(key => {
-            if (key.startsWith('uptime_') && !key.startsWith('uptime_v5_')) {
-              sessionStorage.removeItem(key);
-            }
-          });
-        } catch (e) {
-          // Silent
-        }
+        // DON'T cache - always fetch fresh for real-time data
       }
     } catch (error: any) {
       // Silent fail
@@ -414,53 +382,89 @@ export default function UptimePage() {
         
         .block-bar-wrapper {
           display: flex;
-          flex-wrap: wrap;
-          gap: 3px;
-          align-content: flex-start;
+          gap: 2px;
+          align-items: flex-end;
+          height: 30px;
         }
         
         .block-bar {
-          width: 14px;
-          height: 14px;
+          width: 8px;
+          height: 100%;
           cursor: pointer;
-          transition: all 0.1s ease;
-          border-radius: 2px;
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+          border-radius: 2px 2px 0 0;
           flex-shrink: 0;
+          position: relative;
+        }
+        
+        .block-bar::after {
+          content: '';
+          position: absolute;
+          inset: 0;
+          border-radius: 2px 2px 0 0;
+          opacity: 0;
+          transition: opacity 0.2s ease;
         }
         
         .block-bar:hover {
-          transform: scale(1.4);
-          transition: transform 0.1s ease;
+          transform: scaleY(1.2) scaleX(1.3);
+          transition: all 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
           z-index: 10;
-          box-shadow: 0 0 8px rgba(59, 130, 246, 0.5);
+        }
+        
+        .block-bar:hover::after {
+          opacity: 1;
+          box-shadow: 0 0 12px currentColor, 0 0 20px currentColor;
         }
         
         @keyframes slideIn {
           from {
             opacity: 0;
-            transform: translateX(-3px);
+            transform: translateX(-8px) scale(0.9);
           }
           to {
             opacity: 1;
-            transform: translateX(0);
+            transform: translateX(0) scale(1);
           }
         }
         
         .data-row {
-          animation: slideIn 0.1s ease-out;
+          animation: slideIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
         
-        @keyframes pulse {
-          0%, 100% {
-            opacity: 1;
+        @keyframes shimmer {
+          0% {
+            opacity: 0.3;
+            transform: scaleY(0.5);
           }
           50% {
-            opacity: 0.5;
+            opacity: 0.6;
+            transform: scaleY(1);
+          }
+          100% {
+            opacity: 0.3;
+            transform: scaleY(0.5);
           }
         }
         
         .loading-bar {
-          animation: pulse 0.8s ease-in-out infinite;
+          animation: shimmer 1.5s ease-in-out infinite;
+        }
+        
+        /* Color variants with glow */
+        .block-signed {
+          background: linear-gradient(to top, #10b981 0%, #059669 100%);
+          box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+        }
+        
+        .block-missed {
+          background: linear-gradient(to top, #ef4444 0%, #dc2626 100%);
+          box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+        }
+        
+        .block-loading {
+          background: linear-gradient(to top, #374151 0%, #1f2937 100%);
+          box-shadow: none;
         }
       `}</style>
 
@@ -561,40 +565,36 @@ export default function UptimePage() {
           {/* Validators Table */}
           <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg overflow-hidden">
             <div
-              className="overflow-x-auto scroll-smooth"
+              className="overflow-x-auto overflow-y-auto scroll-smooth"
               style={{
                 maxHeight: 'calc(100vh - 400px)',
                 minHeight: '500px',
-                overflowY: 'auto',
                 scrollbarWidth: 'thin',
                 scrollbarColor: '#374151 #1a1a1a'
               }}
             >
-              <table className="w-full">
+              <table className="w-full min-w-[800px]">
                 <thead className="bg-[#0f0f0f] border-b border-gray-800 sticky top-0 z-10">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider w-12">
+                    <th className="px-2 md:px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider w-8 md:w-12">
                       #
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider" style={{ minWidth: '200px' }}>
+                    <th className="px-2 md:px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider" style={{ minWidth: '150px' }}>
                       Validator
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                      Last 50 Blocks
+                    <th className="px-2 md:px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider" style={{ minWidth: '300px' }}>
+                      Last 100 Blocks
                     </th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider w-24">
+                    <th className="px-2 md:px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider w-16 md:w-24">
                       Uptime
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider w-40">
+                    <th className="hidden lg:table-cell px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider w-40">
                       Last Jailed Time
                     </th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider w-32">
+                    <th className="hidden lg:table-cell px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider w-32">
                       Signed Precommits
                     </th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider w-32">
-                      Start Height
-                    </th>
-                    <th className="px-4 py-3 text-center text-xs font-semibold text-gray-400 uppercase tracking-wider w-28">
+                    <th className="hidden xl:table-cell px-4 py-3 text-center text-xs font-semibold text-gray-400 uppercase tracking-wider w-28">
                       Tombstoned
                     </th>
                   </tr>
@@ -637,13 +637,13 @@ export default function UptimePage() {
                         className="hover:bg-[#0f0f0f]/50 transition-colors duration-150 border-b border-gray-800/30"
                       >
                         {/* Rank */}
-                        <td className="px-4 py-3">
-                          <span className="text-sm text-gray-400 font-medium">{index + 1}</span>
+                        <td className="px-2 md:px-4 py-3">
+                          <span className="text-xs md:text-sm text-gray-400 font-medium">{index + 1}</span>
                         </td>
 
                         {/* Validator Name with Avatar */}
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
+                        <td className="px-2 md:px-4 py-3">
+                          <div className="flex items-center gap-1 md:gap-2">
                             <ValidatorAvatar
                               moniker={validator.moniker}
                               identity={validator.identity}
@@ -651,7 +651,7 @@ export default function UptimePage() {
                             />
                             <Link
                               href={`/${chainPath}/validators/${validator.operator_address}`}
-                              className="text-white text-sm hover:text-blue-400 transition-colors truncate max-w-[180px]"
+                              className="text-white text-xs md:text-sm hover:text-blue-400 transition-colors truncate max-w-[100px] md:max-w-[180px]"
                               title={validator.moniker}
                             >
                               {validator.moniker}
@@ -660,44 +660,42 @@ export default function UptimePage() {
                         </td>
 
                         {/* Block Signing Bars */}
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-3">
+                        <td className="px-2 md:px-4 py-3">
+                          <div className="flex items-center gap-2 md:gap-3">
                             <div className="flex-1 block-bar-container">
                               <div className="block-bar-wrapper">
                                 {validator.blockSignatures && validator.blockSignatures.length > 0 ? (
-                                  validator.blockSignatures.slice(-50).map((isSigned, idx) => (
+                                  validator.blockSignatures.slice(-100).map((isSigned, idx) => (
                                     <div
                                       key={`${validator.operator_address}-${idx}-${blockUpdateKey}`}
-                                      className={`block-bar ${!validator.isDataLoaded ? 'loading-bar' : ''}`}
+                                      className={`block-bar ${!validator.isDataLoaded
+                                          ? 'block-loading loading-bar'
+                                          : isSigned
+                                            ? 'block-signed'
+                                            : 'block-missed'
+                                        }`}
                                       style={{
-                                        backgroundColor: validator.isDataLoaded
-                                          ? (isSigned ? '#10b981' : '#ef4444')
-                                          : '#374151',
-                                        opacity: validator.isDataLoaded ? 1 : 0.4
+                                        color: isSigned ? '#10b981' : '#ef4444'
                                       }}
                                       title={validator.isDataLoaded
-                                        ? `Block ${currentBlock - 50 + idx + 1}: ${isSigned ? 'Signed ✓' : 'Missed ✗'}`
+                                        ? `Block ${currentBlock - 100 + idx + 1}: ${isSigned ? 'Signed ✓' : 'Missed ✗'}`
                                         : 'Loading...'
                                       }
                                     />
                                   ))
                                 ) : (
-                                  Array.from({ length: 50 }).map((_, idx) => (
+                                  Array.from({ length: 100 }).map((_, idx) => (
                                     <div
                                       key={`empty-${idx}`}
-                                      className="block-bar loading-bar"
-                                      style={{
-                                        backgroundColor: '#374151',
-                                        opacity: 0.3
-                                      }}
+                                      className="block-bar block-loading loading-bar"
                                     />
                                   ))
                                 )}
                               </div>
                             </div>
 
-                            <div className="flex items-center justify-end min-w-[50px]">
-                              <span className={`text-sm font-bold tabular-nums ${validator.isDataLoaded && validator.missedBlocks > 0
+                            <div className="flex items-center justify-end min-w-[40px] md:min-w-[50px]">
+                              <span className={`text-xs md:text-sm font-bold tabular-nums ${validator.isDataLoaded && validator.missedBlocks > 0
                                 ? 'text-red-400'
                                 : 'text-gray-600'
                                 }`}>
@@ -708,14 +706,14 @@ export default function UptimePage() {
                         </td>
 
                         {/* Uptime Percentage */}
-                        <td className="px-4 py-3 text-right">
-                          <span className={`text-sm font-semibold ${getUptimeColor(validator.uptime)}`}>
+                        <td className="px-2 md:px-4 py-3 text-right">
+                          <span className={`text-xs md:text-sm font-semibold ${getUptimeColor(validator.uptime)}`}>
                             {validator.uptime.toFixed(1)}%
                           </span>
                         </td>
 
-                        {/* Last Jailed Time */}
-                        <td className="px-4 py-3">
+                        {/* Last Jailed Time - Hidden on mobile */}
+                        <td className="hidden lg:table-cell px-4 py-3">
                           {validator.jailedUntil && !validator.jailedUntil.startsWith('1970') ? (
                             <span className="text-xs text-gray-400">
                               {new Date(validator.jailedUntil).toLocaleDateString()}
@@ -725,22 +723,15 @@ export default function UptimePage() {
                           )}
                         </td>
 
-                        {/* Signed Precommits */}
-                        <td className="px-4 py-3 text-right">
+                        {/* Signed Precommits - Hidden on mobile */}
+                        <td className="hidden lg:table-cell px-4 py-3 text-right">
                           <span className="text-xs text-gray-300 tabular-nums">
                             {validator.signedBlocks || 0}
                           </span>
                         </td>
 
-                        {/* Start Height */}
-                        <td className="px-4 py-3 text-right">
-                          <span className="text-xs text-gray-400 tabular-nums">
-                            -
-                          </span>
-                        </td>
-
-                        {/* Tombstoned */}
-                        <td className="px-4 py-3 text-center">
+                        {/* Tombstoned - Hidden on tablet */}
+                        <td className="hidden xl:table-cell px-4 py-3 text-center">
                           <span className={`text-xs font-medium ${validator.tombstoned ? 'text-red-400' : 'text-gray-600'}`}>
                             {validator.tombstoned ? 'Yes' : 'No'}
                           </span>
@@ -780,3 +771,4 @@ export default function UptimePage() {
     </div>
   );
 }
+
