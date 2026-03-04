@@ -1,9 +1,11 @@
 'use client';
-import { Search, Home } from 'lucide-react';
+import { Search, Home, BookOpen } from 'lucide-react';
+import Link from 'next/link';
 import ChainSelector from './ChainSelector';
 import LanguageSwitcher from './LanguageSwitcher';
 import LatestBlocksHeader from './LatestBlocksHeader';
 import PriceTracker from './PriceTracker';
+import NotificationBell from './NotificationBell';
 import dynamic from 'next/dynamic';
 import { ChainData } from '@/types/chain';
 import { useState, useCallback, useMemo, memo } from 'react';
@@ -27,17 +29,17 @@ function Header({ chains, selectedChain, onSelectChain }: HeaderProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearchQuery] = useDebounce(searchQuery, 300);
   const router = useRouter();
-  const chainPath = useMemo(() => 
+  const chainPath = useMemo(() =>
     selectedChain?.chain_name.toLowerCase().replace(/\s+/g, '-') || '',
     [selectedChain]
   );
   const handleSearch = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchQuery.trim() || !selectedChain) return;
-    
+
     const query = searchQuery.trim();
     const chainName = selectedChain.chain_name.toLowerCase().replace(/\s+/g, '-');
-    
+
     // Check if it's a block number
     if (/^\d+$/.test(query)) {
       // Try Cosmos block first
@@ -49,27 +51,27 @@ function Header({ chains, selectedChain, onSelectChain }: HeaderProps) {
           return;
         }
       } catch (err) {
-        }
-      
-      // Fallback to EVM block if chain has EVM support
-      if (selectedChain.evm_rpc && selectedChain.evm_rpc.length > 0) {
-        router.push(`/${chainPath}/evm/blocks/${query}`);
-        setSearchQuery('');
-        return;
       }
-      
+
+      // Fallback to EVM block - DISABLED
+      // if (selectedChain.evm_rpc && selectedChain.evm_rpc.length > 0) {
+      //   router.push(`/${chainPath}/evm/blocks/${query}`);
+      //   setSearchQuery('');
+      //   return;
+      // }
+
       router.push(`/${chainPath}/blocks/${query}`);
-    } 
-    // Check if it's an EVM transaction hash (0x + 64 hex chars)
-    else if (/^0x[a-fA-F0-9]{64}$/.test(query)) {
-      if (selectedChain.evm_rpc && selectedChain.evm_rpc.length > 0) {
-        router.push(`/${chainPath}/evm/transactions/${query}`);
-        setSearchQuery('');
-        return;
-      }
-      // If no EVM support, treat as Cosmos tx hash
-      router.push(`/${chainPath}/transactions/${query.substring(2)}`); // Remove 0x prefix
     }
+    // Check if it's an EVM transaction hash (0x + 64 hex chars) - DISABLED
+    // else if (/^0x[a-fA-F0-9]{64}$/.test(query)) {
+    //   if (selectedChain.evm_rpc && selectedChain.evm_rpc.length > 0) {
+    //     router.push(`/${chainPath}/evm/transactions/${query}`);
+    //     setSearchQuery('');
+    //     return;
+    //   }
+    //   // If no EVM support, treat as Cosmos tx hash
+    //   router.push(`/${chainPath}/transactions/${query.substring(2)}`); // Remove 0x prefix
+    // }
     // Check if it's a transaction hash (64 hex chars, no 0x)
     else if (/^[A-F0-9]{64}$/i.test(query)) {
       // Try Cosmos transaction first
@@ -81,17 +83,17 @@ function Header({ chains, selectedChain, onSelectChain }: HeaderProps) {
           return;
         }
       } catch (err) {
-        }
-      
-      // Fallback to EVM transaction if chain has EVM support
-      if (selectedChain.evm_rpc && selectedChain.evm_rpc.length > 0) {
-        router.push(`/${chainPath}/evm/transactions/${query}`);
-        setSearchQuery('');
-        return;
       }
-      
+
+      // Fallback to EVM transaction - DISABLED
+      // if (selectedChain.evm_rpc && selectedChain.evm_rpc.length > 0) {
+      //   router.push(`/${chainPath}/evm/transactions/${query}`);
+      //   setSearchQuery('');
+      //   return;
+      // }
+
       router.push(`/${chainPath}/transactions/${query}`);
-    } 
+    }
     // Check if it's a Cosmos address
     else if (selectedChain.bech32_prefix && query.startsWith(selectedChain.bech32_prefix)) {
       // Check if it's a PRC20 contract on Paxi chain (paxi1...)
@@ -106,56 +108,80 @@ function Header({ chains, selectedChain, onSelectChain }: HeaderProps) {
     else if (selectedChain.addr_prefix && query.startsWith(selectedChain.addr_prefix)) {
       router.push(`/${chainPath}/accounts/${query}`);
     }
-    // Check if it's an EVM address (0x...)
-    else if (/^0x[a-fA-F0-9]{40}$/.test(query)) {
-      if (selectedChain.evm_rpc && selectedChain.evm_rpc.length > 0) {
-        router.push(`/${chainPath}/evm/address/${query}`);
-      } else {
-        router.push(`/${chainPath}/accounts/${query}`);
-      }
-    }
+    // Check if it's an EVM address (0x...) - DISABLED
+    // else if (/^0x[a-fA-F0-9]{40}$/.test(query)) {
+    //   if (selectedChain.evm_rpc && selectedChain.evm_rpc.length > 0) {
+    //     router.push(`/${chainPath}/evm/address/${query}`);
+    //   } else {
+    //     router.push(`/${chainPath}/accounts/${query}`);
+    //   }
+    // }
     // Default search
     else {
       router.push(`/${chainPath}/transactions?q=${query}`);
     }
-    
+
     setSearchQuery('');
   }, [searchQuery, selectedChain, chainPath, router]);
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
   }, []);
   const handleHomeClick = useCallback(() => {
+    // On main domain, go to home
     router.push('/');
   }, [router]);
+
+  // Check if on subdomain
+  const isSubdomain = useMemo(() => {
+    if (typeof window === 'undefined') return false;
+    const hostname = window.location.hostname;
+    return hostname.includes('.winscan.org') &&
+      !hostname.startsWith('www.') &&
+      hostname !== 'winscan.org';
+  }, []);
   return (
     <>
       <header className="fixed top-0 right-0 left-0 md:left-64 h-16 bg-[#0f0f0f] border-b border-gray-800 z-20 flex items-center px-3 sm:px-4 md:px-6">
         <div className="flex items-center justify-between w-full ml-12 sm:ml-14 md:ml-0 gap-2 sm:gap-4 min-w-0">
-          {/* Left Side: Home, Chain Selector, Latest Blocks */}
+          {/* Left Side: Home, Docs, Chain Selector, Latest Blocks */}
           <div className="flex items-center gap-1 sm:gap-3 flex-shrink-0">
-            {/* Home Button */}
-            <button
-              onClick={handleHomeClick}
+            {/* Home Button - Hidden on subdomain */}
+            {!isSubdomain && (
+              <button
+                onClick={handleHomeClick}
+                className="flex items-center gap-1 sm:gap-2 px-2.5 sm:px-4 py-2 bg-[#1a1a1a] hover:bg-gray-800 border border-gray-700 rounded-lg transition-colors duration-200 flex-shrink-0 h-[40px]"
+                title="Back to Home"
+              >
+                <Home className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
+                <span className="hidden sm:inline text-sm text-gray-300">Home</span>
+              </button>
+            )}
+
+            {/* Docs Button */}
+            <Link
+              href="/docs"
               className="flex items-center gap-1 sm:gap-2 px-2.5 sm:px-4 py-2 bg-[#1a1a1a] hover:bg-gray-800 border border-gray-700 rounded-lg transition-colors duration-200 flex-shrink-0 h-[40px]"
-              title="Back to Home"
+              title="Documentation"
             >
-              <Home className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
-              <span className="hidden sm:inline text-sm text-gray-300">Home</span>
-            </button>
-            
-            {/* Chain Selector - Always visible */}
-            <ChainSelector 
-              chains={chains} 
-              selectedChain={selectedChain} 
-              onSelectChain={onSelectChain}
-            />
-            
+              <BookOpen className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
+              <span className="hidden sm:inline text-sm text-blue-400 font-medium">Docs</span>
+            </Link>
+
+            {/* Chain Selector - Hidden on subdomain */}
+            {!isSubdomain && (
+              <ChainSelector
+                chains={chains}
+                selectedChain={selectedChain}
+                onSelectChain={onSelectChain}
+              />
+            )}
+
             {/* Latest Blocks Header - Real-time */}
             <div className="hidden md:block flex-shrink-0">
               <LatestBlocksHeader selectedChain={selectedChain} />
             </div>
           </div>
-          
+
           {/* Center: Search Bar - Desktop only */}
           <form onSubmit={handleSearch} className="flex-1 max-w-2xl hidden lg:block mx-6">
             <div className="relative">
@@ -172,14 +198,17 @@ function Header({ chains, selectedChain, onSelectChain }: HeaderProps) {
               />
             </div>
           </form>
-          
+
           {/* Right Actions */}
           <div className="flex items-center gap-1 sm:gap-3 flex-shrink-0">
+            {/* Notification Bell */}
+            <NotificationBell selectedChain={selectedChain} />
+
             {/* Price Tracker */}
             <div className="hidden lg:block flex-shrink-0">
               <PriceTracker selectedChain={selectedChain} />
             </div>
-            
+
             <div className="hidden md:block">
               <LanguageSwitcher />
             </div>
@@ -187,7 +216,7 @@ function Header({ chains, selectedChain, onSelectChain }: HeaderProps) {
           </div>
         </div>
       </header>
-      
+
       {/* Mobile Search Bar - Below Header */}
       <div className="fixed top-16 right-0 left-0 md:left-64 lg:hidden bg-[#0f0f0f] border-b border-gray-800 z-10">
         <div className="px-3 py-2">
